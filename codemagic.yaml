@@ -28,6 +28,7 @@ workflows:
 
       - name: Build KMP iOS Framework
         script: |
+          chmod +x gradlew
           ./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64
 
       - name: Verify Swift Files Compile
