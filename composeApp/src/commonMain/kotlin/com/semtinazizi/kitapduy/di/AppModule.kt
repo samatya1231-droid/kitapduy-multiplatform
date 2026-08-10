@@ -19,6 +19,14 @@ val coreModule = module {
             )
         }.client
     }
+
+    // Geçici olarak UI testleri için Dummy Repositoriler
+    single<com.semtinazizi.kitapduy.domain.repository.BookRepository> { 
+        com.semtinazizi.kitapduy.data.repository.DummyBookRepository() 
+    }
+    single<com.semtinazizi.kitapduy.domain.repository.AuthRepository> { 
+        com.semtinazizi.kitapduy.data.repository.DummyAuthRepository() 
+    }
 }
 
 val appModules = listOf(

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +35,9 @@ class HomeScreen : Screen {
         val books by homeViewModel.books.collectAsState()
         val isLoading by homeViewModel.isLoading.collectAsState()
         val userProfile by authViewModel.userProfile.collectAsState()
+        val groupedBooks by homeViewModel.groupedBooks.collectAsState()
+        val dailySummary by homeViewModel.dailySummary.collectAsState()
+        val dailyQuote by homeViewModel.dailyQuote.collectAsState()
 
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -44,6 +48,7 @@ class HomeScreen : Screen {
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 100.dp)
             ) {
+
                 // Hoşgeldin Kısmı
                 item {
                     Box(modifier = Modifier.padding(16.dp)) {
@@ -69,24 +74,75 @@ class HomeScreen : Screen {
                 item { Spacer(modifier = Modifier.height(24.dp)) }
 
                 // Trend Olanlar Bölümü
-                item {
-                    SpotifySectionHeader(title = "Trend Olanlar", onClick = {})
-                    
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        itemsIndexed(books.take(5)) { index, book ->
-                            FeaturedBookCard(
-                                book = book,
-                                index = index,
-                                onClick = { /* TODO: Navigate to Detail */ }
-                            )
+                if (books.isNotEmpty()) {
+                    item {
+                        SpotifySectionHeader(title = "Trend Olanlar", onClick = {})
+                        
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            itemsIndexed(books.take(5)) { index, book ->
+                                FeaturedBookCard(
+                                    book = book,
+                                    index = index,
+                                    onClick = { /* TODO: Navigate to Detail */ }
+                                )
+                            }
                         }
                     }
+                    
+                    item { Spacer(modifier = Modifier.height(24.dp)) }
                 }
-                
-                item { Spacer(modifier = Modifier.height(24.dp)) }
+
+                // Günlük Özet / Alıntı
+                if (dailyQuote != null) {
+                    item {
+                        Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                            // Basit bir alıntı gösterimi
+                            androidx.compose.material3.Card(
+                                modifier = Modifier.fillMaxSize(),
+                                colors = androidx.compose.material3.CardDefaults.cardColors(
+                                    containerColor = androidx.compose.material3.MaterialTheme.colorScheme.primaryContainer
+                                )
+                            ) {
+                                androidx.compose.foundation.layout.Column(
+                                    modifier = Modifier.padding(16.dp)
+                                ) {
+                                    Text("Günün Sözü", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("\"${dailyQuote?.first}\"", style = androidx.compose.material3.MaterialTheme.typography.bodyLarge)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text("- ${dailyQuote?.second}, ${dailyQuote?.third}", style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
+                }
+
+                // Dinamik Kategoriler
+                groupedBooks.forEach { (category, categoryBooks) ->
+                    if (categoryBooks.isNotEmpty()) {
+                        item {
+                            SpotifySectionHeader(title = category, onClick = {})
+                            
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                items(categoryBooks) { book ->
+                                    com.semtinazizi.kitapduy.ui.components.SpotifySquareCard(
+                                        book = book,
+                                        subtitle = book.author,
+                                        onClick = { /* TODO: Navigate to Detail */ }
+                                    )
+                                }
+                            }
+                        }
+                        item { Spacer(modifier = Modifier.height(24.dp)) }
+                    }
+                }
             }
         }
     }
