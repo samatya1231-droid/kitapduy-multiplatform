@@ -1,6 +1,7 @@
 package com.semtinazizi.kitapduy.platform
 
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.useContents
 import platform.AVFAudio.AVAudioSession
 import platform.AVFAudio.AVAudioSessionCategoryPlayback
 import platform.AVFAudio.setActive
@@ -15,7 +16,9 @@ import platform.Foundation.NSURL
 
 /**
  * iOS AudioPlayer implementasyonu - AVFoundation/AVPlayer kullanır
- * commonMain'deki AudioPlayer interface'ini implement eder
+ * Kotlin/Native ObjC interop kuralları:
+ *   - CMTime gibi struct'lar CValue<T> döner → .useContents {} ile erişilir
+ *   - ObjC property'ler (currentItem, timeControlStatus) Kotlin'de getter metod olarak gelir
  */
 @OptIn(ExperimentalForeignApi::class)
 class IosAudioPlayer : AudioPlayer {
@@ -48,24 +51,30 @@ class IosAudioPlayer : AudioPlayer {
     }
 
     override fun seekTo(positionMs: Long) {
+        // CMTimeMake CValue<CMTime> döner, seekToTime bunu direkt kabul eder
         val time = CMTimeMake(value = positionMs, timescale = 1000)
         avPlayer?.seekToTime(time)
     }
 
     override fun getCurrentPosition(): Long {
         val player = avPlayer ?: return 0L
-        val time = player.currentTime()
-        return if (time.timescale != 0) (time.value * 1000L / time.timescale) else 0L
+        // currentTime() → CValue<CMTime> — .useContents{} ile alanlar okunur
+        return player.currentTime().useContents {
+            if (timescale != 0) value * 1000L / timescale else 0L
+        }
     }
 
     override fun getDuration(): Long {
-        val item = avPlayer?.currentItem() ?: return 0L
-        val duration = item.duration()
-        return if (duration.timescale != 0) (duration.value * 1000L / duration.timescale) else 0L
+        // currentItem → ObjC property → Kotlin getter
+        val item = avPlayer?.currentItem ?: return 0L
+        return item.duration.useContents {
+            if (timescale != 0) value * 1000L / timescale else 0L
+        }
     }
 
     override fun isPlaying(): Boolean {
-        return avPlayer?.timeControlStatus() == AVPlayerTimeControlStatusPlaying
+        // timeControlStatus → ObjC property → Kotlin getter
+        return avPlayer?.timeControlStatus == AVPlayerTimeControlStatusPlaying
     }
 
     override fun release() {
