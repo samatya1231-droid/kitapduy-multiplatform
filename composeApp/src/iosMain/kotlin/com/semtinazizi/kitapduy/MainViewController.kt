@@ -1,5 +1,6 @@
+package com.semtinazizi.kitapduy
+
 import androidx.compose.ui.window.ComposeUIViewController
-import com.semtinazizi.kitapduy.KitapDuyApp
 import com.semtinazizi.kitapduy.di.appModules
 import com.semtinazizi.kitapduy.platform.IOSBuildConfig
 import org.koin.core.context.startKoin
@@ -10,18 +11,16 @@ import org.koin.core.context.startKoin
  */
 fun MainViewController() = ComposeUIViewController(
     configure = {
-        // Koin DI başlat (iOS için)
         startKoin {
             modules(appModules)
         }
     }
 ) {
-    KitapDuyApp()
+    App()
 }
 
 /**
  * iOS tarafından çağrılarak config değerlerini inject eder
- * Swift AppDelegate veya @main struct içinden çağrılmalı
  */
 fun initializeIOSConfig(
     supabaseUrl: String,
