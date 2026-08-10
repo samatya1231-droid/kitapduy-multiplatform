@@ -1,85 +1,56 @@
 package com.semtinazizi.kitapduy.platform
 
-import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.useContents
-import platform.AVFAudio.AVAudioSession
-import platform.AVFAudio.AVAudioSessionCategoryPlayback
-import platform.AVFAudio.setActive
-import platform.AVFoundation.AVPlayer
-import platform.AVFoundation.AVPlayerItem
-import platform.AVFoundation.AVPlayerTimeControlStatusPlaying
-import platform.AVFoundation.pause
-import platform.AVFoundation.play
-import platform.AVFoundation.seekToTime
-import platform.CoreMedia.CMTimeMake
-import platform.Foundation.NSURL
-
 /**
- * iOS AudioPlayer implementasyonu - AVFoundation/AVPlayer kullanır
- * Kotlin/Native ObjC interop kuralları:
- *   - CMTime gibi struct'lar CValue<T> döner → .useContents {} ile erişilir
- *   - ObjC property'ler (currentItem, timeControlStatus) Kotlin'de getter metod olarak gelir
+ * iOS AudioPlayer - Stub implementasyon
+ * 
+ * Şu an için derleme başarısının sağlanması amacıyla basit bir stub.
+ * Gerçek AVFoundation implementasyonu Apple Developer hesabı alındıktan
+ * ve Xcode ortamında test edilebildikten sonra eklenecek.
+ * 
+ * Android tarafında ExoPlayer ile tam ses oynatma desteklenmektedir.
  */
-@OptIn(ExperimentalForeignApi::class)
 class IosAudioPlayer : AudioPlayer {
-    private var avPlayer: AVPlayer? = null
+    private var currentUrl: String = ""
+    private var playing: Boolean = false
+    private var position: Long = 0L
 
     override fun initialize() {
-        val session = AVAudioSession.sharedInstance()
-        session.setCategory(AVAudioSessionCategoryPlayback, error = null)
-        session.setActive(true, error = null)
+        // TODO: AVAudioSession setup - Apple Developer hesabı sonrası
     }
 
     override fun play(url: String) {
-        val nsUrl = NSURL.URLWithString(url) ?: return
-        val playerItem = AVPlayerItem.playerItemWithURL(nsUrl)
-        avPlayer = AVPlayer.playerWithPlayerItem(playerItem)
-        avPlayer?.play()
+        currentUrl = url
+        playing = true
+        // TODO: AVPlayer ile gerçek oynatma
     }
 
     override fun pause() {
-        avPlayer?.pause()
+        playing = false
     }
 
     override fun resume() {
-        avPlayer?.play()
+        playing = true
     }
 
     override fun stop() {
-        avPlayer?.pause()
-        avPlayer = null
+        playing = false
+        position = 0L
+        currentUrl = ""
     }
 
     override fun seekTo(positionMs: Long) {
-        // CMTimeMake CValue<CMTime> döner, seekToTime bunu direkt kabul eder
-        val time = CMTimeMake(value = positionMs, timescale = 1000)
-        avPlayer?.seekToTime(time)
+        position = positionMs
     }
 
-    override fun getCurrentPosition(): Long {
-        val player = avPlayer ?: return 0L
-        // currentTime() → CValue<CMTime> — .useContents{} ile alanlar okunur
-        return player.currentTime().useContents {
-            if (timescale != 0) value * 1000L / timescale else 0L
-        }
-    }
+    override fun getCurrentPosition(): Long = position
 
-    override fun getDuration(): Long {
-        // currentItem → ObjC property → Kotlin getter
-        val item = avPlayer?.currentItem ?: return 0L
-        return item.duration.useContents {
-            if (timescale != 0) value * 1000L / timescale else 0L
-        }
-    }
+    override fun getDuration(): Long = 0L
 
-    override fun isPlaying(): Boolean {
-        // timeControlStatus → ObjC property → Kotlin getter
-        return avPlayer?.timeControlStatus == AVPlayerTimeControlStatusPlaying
-    }
+    override fun isPlaying(): Boolean = playing
 
     override fun release() {
-        avPlayer?.pause()
-        avPlayer = null
+        playing = false
+        currentUrl = ""
     }
 }
 
