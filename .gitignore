@@ -1,0 +1,26 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+*.orig
+
+# Kotlin
+kotlin-js-store/
+
+# iOS
+iosApp/Pods/
+iosApp/*.xcworkspace/
+*.xcuserdata/
+
+# Supabase secrets (hassas veriler)
+local.properties
+
+# Build outputs
+*.aab
+*.apk
+*.ipa

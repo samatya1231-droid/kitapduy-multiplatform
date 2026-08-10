@@ -1,0 +1,103 @@
+workflows:
+  # ───────────────────────────────────────────────────
+  # iOS Build & App Store yayınlama
+  # ───────────────────────────────────────────────────
+  ios-release:
+    name: iOS App Store Release
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.semtinazizi.kitapduy
+      vars:
+        BUNDLE_ID: "com.semtinazizi.kitapduy"
+        XCODE_PROJECT: "iosApp/iosApp.xcodeproj"
+        XCODE_SCHEME: "iosApp"
+        APP_STORE_APPLE_ID: $APP_STORE_APPLE_ID  # Codemagic dashboard'dan ayarla
+      xcode: latest
+      cocoapods: default
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: "main"
+          include: true
+
+    scripts:
+      - name: Set up local.properties
+        script: |
+          echo "SUPABASE_URL=$SUPABASE_URL" >> local.properties
+          echo "SUPABASE_KEY=$SUPABASE_KEY" >> local.properties
+          echo "CF_ACCOUNT_ID=$CF_ACCOUNT_ID" >> local.properties
+          echo "CF_PUBLIC_URL=$CF_PUBLIC_URL" >> local.properties
+
+      - name: Set up KMP build
+        script: |
+          ./gradlew composeApp:generateDummyFramework
+
+      - name: CocoaPods install
+        script: |
+          cd iosApp && pod install
+
+      - name: Build iOS
+        script: |
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false  # Önce TestFlight'a, hazır olunca true yap
+
+  # ───────────────────────────────────────────────────
+  # Android Build & Google Play yayınlama
+  # ───────────────────────────────────────────────────
+  android-release:
+    name: Android Google Play Release
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    environment:
+      android_signing:
+        - kitapduy_keystore
+      groups:
+        - google_play
+      vars:
+        PACKAGE_NAME: "com.semtinazizi.kitapduy"
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: "main"
+          include: true
+
+    scripts:
+      - name: Set up local.properties
+        script: |
+          echo "SUPABASE_URL=$SUPABASE_URL" >> local.properties
+          echo "SUPABASE_KEY=$SUPABASE_KEY" >> local.properties
+          echo "CF_ACCOUNT_ID=$CF_ACCOUNT_ID" >> local.properties
+          echo "CF_PUBLIC_URL=$CF_PUBLIC_URL" >> local.properties
+
+      - name: Build Android Release
+        script: |
+          ./gradlew composeApp:bundleRelease
+
+    artifacts:
+      - composeApp/build/outputs/**/*.aab
+
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: true
