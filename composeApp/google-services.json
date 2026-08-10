@@ -1,0 +1,93 @@
+{
+  "project_info": {
+    "project_number": "821819735305",
+    "project_id": "kitapduy",
+    "storage_bucket": "kitapduy.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:821819735305:android:1c402d81bb18008d51e7d8",
+        "android_client_info": {
+          "package_name": "com.example.kitapduy"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "821819735305-t4rnopu5uqii1uqcvq2se8n42om10eds.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.kitapduy",
+            "certificate_hash": "c677afccfacf5824c8f663f1d2cdda36cd0e7748"
+          }
+        },
+        {
+          "client_id": "821819735305-32lbsu9aqfqhkca554ob1d2i44oornje.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCvdfVK9TgU-FqfgHCy2uQY0angWSCRzN0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "821819735305-32lbsu9aqfqhkca554ob1d2i44oornje.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:821819735305:android:da902f5f5c081f5851e7d8",
+        "android_client_info": {
+          "package_name": "com.semtinazizi.kitapduy"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "821819735305-g0s0vnvjpsdvoovnk5ous2ti30gb1l09.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.semtinazizi.kitapduy",
+            "certificate_hash": "c677afccfacf5824c8f663f1d2cdda36cd0e7748"
+          }
+        },
+        {
+          "client_id": "821819735305-q94e93mru77ff987a4i9lo4qmk5ocd3o.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.semtinazizi.kitapduy",
+            "certificate_hash": "689f0a0a81a6a75c7a896be03ca2d6ee00e64ab6"
+          }
+        },
+        {
+          "client_id": "821819735305-32lbsu9aqfqhkca554ob1d2i44oornje.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCvdfVK9TgU-FqfgHCy2uQY0angWSCRzN0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "821819735305-32lbsu9aqfqhkca554ob1d2i44oornje.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      },
+      "admob_app_id": "ca-app-pub-1229684690212629~4064132693"
+    }
+  ],
+  "configuration_version": "1"
+}

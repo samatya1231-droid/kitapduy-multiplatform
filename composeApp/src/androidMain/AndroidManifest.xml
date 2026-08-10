@@ -16,13 +16,13 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.KitapDuy"
+        android:theme="@style/Theme.Kitapduy"
         android:usesCleartextTraffic="false">
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.KitapDuy"
+            android:theme="@style/Theme.Kitapduy"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -33,7 +33,7 @@
         <!-- AdMob App ID -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-PLACEHOLDER~PLACEHOLDER" />
+            android:value="ca-app-pub-3940256099942544~3347511713" />
 
         <!-- Audio player service -->
         <service

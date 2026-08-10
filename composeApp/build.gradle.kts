@@ -1,4 +1,5 @@
 import java.util.Properties
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -17,11 +18,10 @@ if (localPropertiesFile.exists()) {
 }
 
 kotlin {
+    // Android hedefi — yeni compilerOptions DSL (kotlinOptions deprecated)
     androidTarget {
-        compilations.all {
-            kotlinOptions {
-                jvmTarget = "17"
-            }
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
         }
     }
 
@@ -102,8 +102,8 @@ kotlin {
             // Koin Android
             implementation(libs.koin.android)
 
-            // Firebase (Android only)
-            implementation(platform(libs.firebase.bom))
+            // Firebase — BOM ile versiyon yönetimi
+            implementation(project.dependencies.platform(libs.firebase.bom))
             implementation(libs.firebase.auth.ktx)
             implementation(libs.firebase.firestore.ktx)
             implementation(libs.firebase.storage.ktx)

@@ -1,8 +1,8 @@
 [versions]
 # Kotlin & Compose
-kotlin = "2.1.0"
-compose-multiplatform = "1.7.3"
-agp = "8.5.2"
+kotlin = "2.2.0"
+compose-multiplatform = "1.8.2"
+agp = "8.7.3"
 
 # Coroutines
 kotlinx-coroutines = "1.9.0"

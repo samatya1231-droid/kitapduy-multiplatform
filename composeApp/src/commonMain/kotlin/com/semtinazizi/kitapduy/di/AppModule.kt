@@ -21,8 +21,8 @@ val coreModule = module {
     }
 }
 
-/** Tüm modüller - KitapDuyApp ve iOS MainViewController tarafından kullanılır */
 val appModules = listOf(
-    coreModule
-    // viewModelModule — ViewModel'lar taşındıkça buraya eklenecek
+    coreModule,
+    platformModule,
+    viewModelModule
 )

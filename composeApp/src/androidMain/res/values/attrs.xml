@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Özel attribute'lar -->
+    <attr name="playerBackground" format="color|reference" />
+    <attr name="playerControl" format="color|reference" />
+
+    <!-- Renk opaklık değerleri için -->
+    <attr name="white_alpha_10" format="color|reference" />
+    <attr name="white_alpha_30" format="color|reference" />
+    <attr name="white_alpha_50" format="color|reference" />
+    <attr name="white_alpha_70" format="color|reference" />
+
+    <attr name="black_alpha_20" format="color|reference" />
+    <attr name="black_alpha_40" format="color|reference" />
+    <attr name="black_alpha_60" format="color|reference" />
+
+    <!-- Primary renk opaklıkları -->
+    <attr name="primary_alpha_20" format="color|reference" />
+    <attr name="primary_alpha_40" format="color|reference" />
+</resources>
