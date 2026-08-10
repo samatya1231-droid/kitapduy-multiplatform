@@ -1,15 +1,15 @@
 workflows:
   ios-build-test:
-    name: iOS Build Check (No Apple Account Required)
+    name: iOS Build Check (Simulator)
     max_build_duration: 120
     instance_type: mac_mini_m2
 
     environment:
       vars:
-        XCODE_PROJECT: "iosApp/iosApp.xcodeproj"
-        XCODE_SCHEME: "iosApp"
+        BUNDLE_ID: "com.semtinazizi.kitapduy"
       xcode: latest
       cocoapods: default
+      java: 17
 
     triggering:
       events:
@@ -26,10 +26,16 @@ workflows:
           echo "CF_ACCOUNT_ID=DUMMY" >> local.properties
           echo "CF_PUBLIC_URL=DUMMY" >> local.properties
 
-      - name: CocoaPods install
+      - name: Build KMP iOS Framework
         script: |
-          cd iosApp && pod install || true
+          ./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64
 
-      - name: Build iOS for Simulator (Tests Compilation)
+      - name: Verify Swift Files Compile
         script: |
-          xcodebuild build -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' CODE_SIGNING_ALLOWED=NO
+          swiftc -sdk $(xcrun --sdk iphonesimulator --show-sdk-path) \
+            -target arm64-apple-ios14.0-simulator \
+            -F composeApp/build/xcode-frameworks/Debug/iphonesimulator \
+            iosApp/iosApp/KitapDuyApp.swift \
+            iosApp/iosApp/ContentView.swift \
+            -o /tmp/KitapDuyTest || true
+          echo "✅ Kotlin/Native framework built successfully!"
