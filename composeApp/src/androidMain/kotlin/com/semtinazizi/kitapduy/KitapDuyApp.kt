@@ -21,5 +21,8 @@ class KitapDuyApp : Application() {
             androidContext(this@KitapDuyApp)
             modules(appModules)
         }
+        
+        // OneSignal'ı başlat (Android Context geçerek)
+        com.semtinazizi.kitapduy.platform.PushNotificationManager.init(this)
     }
 }
