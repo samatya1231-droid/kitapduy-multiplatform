@@ -20,12 +20,12 @@ val coreModule = module {
         }.client
     }
 
-    // Geçici olarak UI testleri için Dummy Repositoriler
+    // Gerçek Supabase Repositorileri
     single<com.semtinazizi.kitapduy.domain.repository.BookRepository> { 
-        com.semtinazizi.kitapduy.data.repository.DummyBookRepository() 
+        com.semtinazizi.kitapduy.data.repository.SupabaseBookRepository(get()) 
     }
     single<com.semtinazizi.kitapduy.domain.repository.AuthRepository> { 
-        com.semtinazizi.kitapduy.data.repository.DummyAuthRepository() 
+        com.semtinazizi.kitapduy.data.repository.SupabaseAuthRepository(get()) 
     }
 }
 
