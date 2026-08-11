@@ -9,9 +9,9 @@ import cafe.adriel.voyager.navigator.Navigator
  * Hem Android (MainActivity) hem iOS (MainViewController) tarafından çağrılır
  * Bu dosya commonMain'de olduğu için her iki platformda da çalışır
  */
-import com.semtinazizi.kitapduy.ui.screens.HomeScreen
+import com.semtinazizi.kitapduy.ui.screens.MainScreen
 
 @Composable
 fun App() {
-    Navigator(HomeScreen())
+    Navigator(MainScreen())
 }
