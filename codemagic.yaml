@@ -40,3 +40,44 @@ workflows:
             iosApp/iosApp/ContentView.swift \
             -o /tmp/KitapDuyTest || true
           echo "✅ Kotlin/Native framework built successfully!"
+
+  ios-release:
+    name: iOS App Store Release
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.semtinazizi.kitapduy
+      vars:
+        BUNDLE_ID: "com.semtinazizi.kitapduy"
+      xcode: latest
+      cocoapods: default
+      java: 17
+
+    scripts:
+      - name: Set up local.properties
+        script: |
+          echo "SUPABASE_URL=DUMMY" >> local.properties
+          echo "SUPABASE_KEY=DUMMY" >> local.properties
+          echo "CF_ACCOUNT_ID=DUMMY" >> local.properties
+          echo "CF_PUBLIC_URL=DUMMY" >> local.properties
+          chmod +x gradlew
+
+      - name: Build and Sign IPA
+        script: |
+          cd iosApp
+          xcode-project build-ipa \
+            --project "iosApp.xcodeproj" \
+            --scheme "iosApp"
+
+    artifacts:
+      - iosApp/build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false
