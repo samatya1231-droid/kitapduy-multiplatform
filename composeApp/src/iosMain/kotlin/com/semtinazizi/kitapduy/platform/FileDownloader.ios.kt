@@ -16,7 +16,6 @@ class IosFileDownloader : FileDownloader {
         val documentDir = urls.first() as NSURL
         val downloadsPath = documentDir.URLByAppendingPathComponent("audio_downloads")?.path ?: return ""
         
-        var isDir = kotlinx.cinterop.alloc<platform.posix.objc_BOOLVar>()
         // Create directory if not exists
         if (!fileManager.fileExistsAtPath(downloadsPath)) {
             fileManager.createDirectoryAtPath(downloadsPath, withIntermediateDirectories = true, attributes = null, error = null)

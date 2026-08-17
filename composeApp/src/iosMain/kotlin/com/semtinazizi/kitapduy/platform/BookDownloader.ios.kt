@@ -1,3 +1,4 @@
+@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
 package com.semtinazizi.kitapduy.platform
 
 import kotlinx.cinterop.ExperimentalForeignApi

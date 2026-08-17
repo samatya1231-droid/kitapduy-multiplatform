@@ -16,7 +16,7 @@ actual object PushNotificationManager {
             if (granted) {
                 // İzin verildiyse APNs cihaz tokenı almak için kaydol
                 dispatch_async(dispatch_get_main_queue()) {
-                    UIApplication.sharedApplication.registerForRemoteNotifications()
+                    // UIApplication.sharedApplication.registerForRemoteNotifications()
                 }
             } else {
                 println("Push Notification izni reddedildi: $error")
