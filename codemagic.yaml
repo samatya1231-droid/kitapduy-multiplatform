@@ -67,13 +67,39 @@ workflows:
           echo "CF_ACCOUNT_ID=DUMMY" >> local.properties
           echo "CF_PUBLIC_URL=DUMMY" >> local.properties
           chmod +x gradlew
-
+      - name: Set up keychain and profiles
+        script: |
+          keychain initialize
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Build and Sign IPA
         script: |
           cd iosApp
+          
+          # Manuel export_options.plist oluştur
+          cat <<EOF > /Users/builder/export_options.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store</string>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>com.semtinazizi.kitapduy</key>
+                  <string>Kitapduy Yayinlama</string>
+              </dict>
+          </dict>
+          </plist>
+          EOF
+          
+          # Xcode'a bu profili kullanmasını söyle
           xcode-project build-ipa \
             --project "iosApp.xcodeproj" \
-            --scheme "iosApp"
+            --scheme "iosApp" \
+            --export-options-plist /Users/builder/export_options.plist
 
     artifacts:
       - iosApp/build/ios/ipa/*.ipa
