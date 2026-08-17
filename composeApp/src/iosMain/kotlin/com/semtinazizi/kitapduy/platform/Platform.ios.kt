@@ -11,4 +11,6 @@ actual object AppConfig {
     actual val supabaseKey: String = IOSBuildConfig.SUPABASE_KEY
     actual val cfAccountId: String = IOSBuildConfig.CF_ACCOUNT_ID
     actual val cfPublicUrl: String = IOSBuildConfig.CF_PUBLIC_URL
+    actual val cfWorkerUrl: String = IOSBuildConfig.CF_WORKER_URL
+    actual val cfUploadToken: String = IOSBuildConfig.CF_UPLOAD_TOKEN
 }

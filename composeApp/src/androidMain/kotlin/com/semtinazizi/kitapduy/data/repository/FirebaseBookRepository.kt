@@ -122,4 +122,39 @@ class FirebaseBookRepository(
             null
         }
     }
+    override suspend fun searchBooks(query: String): List<Book> {
+        return try {
+            val snapshot = db.collection("books")
+                .orderBy("title")
+                .startAt(query)
+                .endAt(query + "\uf8ff")
+                .get()
+                .await()
+            snapshot.documents.mapNotNull { doc ->
+                try {
+                    Book(
+                        id = doc.id,
+                        title = doc.getString("title") ?: "",
+                        author = doc.getString("author") ?: "",
+                        coverUrl = doc.getString("coverUrl") ?: ""
+                    )
+                } catch (e: Exception) { null }
+            }
+        } catch (e: Exception) {
+            Log.e("FirebaseBookRepo", "Search failed", e)
+            emptyList()
+        }
+    }
+
+    override suspend fun getBookshelf(userId: String, shelfType: String): List<com.semtinazizi.kitapduy.model.SupabaseBookshelf> {
+        return emptyList()
+    }
+    
+    override suspend fun getPodcasts(): List<com.semtinazizi.kitapduy.model.Podcast> {
+        return emptyList()
+    }
+    
+    override suspend fun searchPodcasts(query: String): List<com.semtinazizi.kitapduy.model.Podcast> {
+        return emptyList()
+    }
 }

@@ -9,48 +9,153 @@ package com.semtinazizi.kitapduy.platform
  * 
  * Android tarafında ExoPlayer ile tam ses oynatma desteklenmektedir.
  */
+import platform.AVFoundation.*
+import platform.Foundation.NSURL
+import platform.MediaPlayer.*
+import kotlinx.cinterop.ExperimentalForeignApi
+
 class IosAudioPlayer : AudioPlayer {
+    private var avPlayer: AVPlayer? = null
+    private var atmospherePlayer: AVPlayer? = null
     private var currentUrl: String = ""
-    private var playing: Boolean = false
-    private var position: Long = 0L
+    private var currentTitle: String = ""
+    private var currentArtist: String = ""
 
     override fun initialize() {
-        // TODO: AVAudioSession setup - Apple Developer hesabı sonrası
+        // AVAudioSession ayarları (Arka planda çalma için gerekli)
+        val session = AVAudioSession.sharedInstance()
+        session.setCategory(AVAudioSessionCategoryPlayback, null)
+        session.setActive(true, null)
+        
+        setupRemoteCommandCenter()
+    }
+
+    private fun setupRemoteCommandCenter() {
+        val commandCenter = MPRemoteCommandCenter.sharedCommandCenter()
+        
+        commandCenter.playCommand.addTargetWithHandler { _ ->
+            resume()
+            MPRemoteCommandHandlerStatusSuccess
+        }
+        
+        commandCenter.pauseCommand.addTargetWithHandler { _ ->
+            pause()
+            MPRemoteCommandHandlerStatusSuccess
+        }
+    }
+
+    private fun updateNowPlayingInfo() {
+        val duration = getDuration() / 1000.0
+        val position = getCurrentPosition() / 1000.0
+        val isPlaying = isPlaying()
+        
+        val info = mutableMapOf<Any?, Any?>()
+        info[MPMediaItemPropertyTitle] = currentTitle.ifEmpty { "KitapDuy" }
+        info[MPMediaItemPropertyArtist] = currentArtist.ifEmpty { "Sesli Kitap" }
+        if (duration > 0) {
+            info[MPMediaItemPropertyPlaybackDuration] = duration
+        }
+        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = position
+        info[MPNowPlayingInfoPropertyPlaybackRate] = if (isPlaying) 1.0 else 0.0
+
+        MPNowPlayingInfoCenter.defaultCenter().nowPlayingInfo = info
     }
 
     override fun play(url: String) {
         currentUrl = url
-        playing = true
-        // TODO: AVPlayer ile gerçek oynatma
+        val nsUrl = NSURL.URLWithString(url) ?: return
+        val playerItem = AVPlayerItem(uRL = nsUrl)
+        if (avPlayer == null) {
+            avPlayer = AVPlayer(playerItem = playerItem)
+        } else {
+            avPlayer?.replaceCurrentItemWithPlayerItem(playerItem)
+        }
+        avPlayer?.play()
+        updateNowPlayingInfo()
+    }
+
+    override fun playQueue(items: List<AudioMediaItem>, startIndex: Int, startPositionMs: Long) {
+        if (items.isEmpty()) return
+        val item = items.getOrNull(startIndex) ?: items.first()
+        currentTitle = item.title
+        currentArtist = item.artist
+        play(item.url)
+        if (startPositionMs > 0) {
+            seekTo(startPositionMs)
+        }
+        updateNowPlayingInfo()
     }
 
     override fun pause() {
-        playing = false
+        avPlayer?.pause()
+        updateNowPlayingInfo()
     }
 
     override fun resume() {
-        playing = true
+        avPlayer?.play()
+        updateNowPlayingInfo()
     }
 
     override fun stop() {
-        playing = false
-        position = 0L
-        currentUrl = ""
+        avPlayer?.pause()
+        avPlayer?.replaceCurrentItemWithPlayerItem(null)
+        updateNowPlayingInfo()
     }
 
     override fun seekTo(positionMs: Long) {
-        position = positionMs
+        val timescale = avPlayer?.currentItem?.asset?.duration?.let { platform.CoreMedia.CMTimeGetSeconds(it) } ?: 1.0
+        val time = platform.CoreMedia.CMTimeMake(value = positionMs, timescale = 1000)
+        avPlayer?.seekToTime(time)
+        updateNowPlayingInfo()
     }
 
-    override fun getCurrentPosition(): Long = position
+    override fun getCurrentPosition(): Long {
+        val time = avPlayer?.currentTime() ?: return 0L
+        return (platform.CoreMedia.CMTimeGetSeconds(time) * 1000).toLong()
+    }
 
-    override fun getDuration(): Long = 0L
+    override fun getDuration(): Long {
+        val duration = avPlayer?.currentItem?.duration ?: return 0L
+        val seconds = platform.CoreMedia.CMTimeGetSeconds(duration)
+        if (seconds.isNaN()) return 0L
+        return (seconds * 1000).toLong()
+    }
 
-    override fun isPlaying(): Boolean = playing
+    override fun isPlaying(): Boolean {
+        return avPlayer?.rate != 0.0f
+    }
+
+    override fun setPlaybackSpeed(speed: Float) {
+        avPlayer?.rate = speed
+    }
+
+    override fun playAtmosphere(url: String, volume: Float) {
+        val nsUrl = NSURL.URLWithString(url) ?: return
+        val playerItem = AVPlayerItem(uRL = nsUrl)
+        if (atmospherePlayer == null) {
+            atmospherePlayer = AVPlayer(playerItem = playerItem)
+        } else {
+            atmospherePlayer?.replaceCurrentItemWithPlayerItem(playerItem)
+        }
+        atmospherePlayer?.volume = volume
+        atmospherePlayer?.play()
+        
+        // Loop için observer eklenebilir, şimdilik tek seferlik çalıyor.
+    }
+
+    override fun stopAtmosphere() {
+        atmospherePlayer?.pause()
+        atmospherePlayer = null
+    }
+
+    override fun setAtmosphereVolume(volume: Float) {
+        atmospherePlayer?.volume = volume
+    }
 
     override fun release() {
-        playing = false
-        currentUrl = ""
+        stop()
+        stopAtmosphere()
+        avPlayer = null
     }
 }
 
@@ -58,8 +163,8 @@ class IosAudioPlayer : AudioPlayer {
  * iOS uygulama config değerleri
  */
 object IOSBuildConfig {
-    var SUPABASE_URL: String = ""
-    var SUPABASE_KEY: String = ""
-    var CF_ACCOUNT_ID: String = ""
-    var CF_PUBLIC_URL: String = ""
+    var SUPABASE_URL: String = "https://hojyvyuoafjogefhtrgg.supabase.co"
+    var SUPABASE_KEY: String = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhvanl2eXVvYWZqb2dlZmh0cmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNTg2NzIsImV4cCI6MjA4NjkzNDY3Mn0.8Ia4a5wwzL_XYbhMW7pOztZfqwoGKoK_Mom1cqv7z2Q"
+    var CF_ACCOUNT_ID: String = "50b81abf28d218b3b9858e9c69d4ae03"
+    var CF_PUBLIC_URL: String = "https://pub-7327d7da4dcf4c1bbf6d53bacbbe276c.r2.dev"
 }

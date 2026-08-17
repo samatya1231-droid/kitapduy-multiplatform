@@ -82,4 +82,20 @@ class DummyBookRepository : BookRepository {
             "Kürk Mantolu Madonna"
         )
     }
+
+    override suspend fun searchBooks(query: String): List<Book> {
+        return emptyList()
+    }
+    
+    override suspend fun getBookshelf(userId: String, shelfType: String): List<com.semtinazizi.kitapduy.model.SupabaseBookshelf> {
+        return emptyList()
+    }
+
+    override suspend fun getPodcasts(): List<com.semtinazizi.kitapduy.model.Podcast> {
+        return emptyList()
+    }
+    
+    override suspend fun searchPodcasts(query: String): List<com.semtinazizi.kitapduy.model.Podcast> {
+        return emptyList()
+    }
 }

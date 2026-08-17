@@ -18,4 +18,9 @@ data class UserProfile(
     val username: String? = null,
     val streak: Int = 0,
     @SerialName("is_premium") val isPremium: Boolean = false
-)
+) {
+    fun hasPremium(): Boolean {
+        val currentMillis = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+        return isPremium || premiumUntil > currentMillis || badges.contains("premium")
+    }
+}

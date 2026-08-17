@@ -5,13 +5,28 @@ import com.semtinazizi.kitapduy.model.Book
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
 
+import com.semtinazizi.kitapduy.platform.AppConfig
+
 class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookRepository {
     
+    private fun fixUrl(url: String?): String {
+        if (url.isNullOrBlank()) return ""
+        if (url.startsWith("http")) return url
+        return "${AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
+    }
+
     override suspend fun getBooks(): List<Book> {
         return try {
-            supabaseClient.postgrest["books"]
+            val books = supabaseClient.postgrest["books"]
                 .select()
                 .decodeList<Book>()
+            
+            books.map { 
+                it.copy(
+                    coverUrl = fixUrl(it.coverUrl),
+                    audioUrl = fixUrl(it.audioUrl)
+                ) 
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()
@@ -66,6 +81,81 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
                 "Sabahattin Ali",
                 "Kürk Mantolu Madonna"
             )
+        }
+    }
+
+    override suspend fun searchBooks(query: String): List<Book> {
+        if (query.isBlank()) return emptyList()
+        return try {
+            val books = supabaseClient.postgrest["books"]
+                .select {
+                    filter {
+                        or {
+                            ilike("title", "%$query%")
+                            ilike("author", "%$query%")
+                        }
+                    }
+                }
+                .decodeList<Book>()
+                
+            books.map { 
+                it.copy(
+                    coverUrl = fixUrl(it.coverUrl),
+                    audioUrl = fixUrl(it.audioUrl)
+                ) 
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    override suspend fun getPodcasts(): List<com.semtinazizi.kitapduy.model.Podcast> {
+        return try {
+            val podcasts = supabaseClient.postgrest["podcasts"]
+                .select()
+                .decodeList<com.semtinazizi.kitapduy.model.Podcast>()
+                
+            podcasts.map { it.copy(imageUrl = fixUrl(it.imageUrl)) }
+        } catch (e: Exception) {
+            println("Podcasts table may not exist yet: ${e.message}")
+            emptyList()
+        }
+    }
+
+    override suspend fun searchPodcasts(query: String): List<com.semtinazizi.kitapduy.model.Podcast> {
+        if (query.isBlank()) return emptyList()
+        return try {
+            val podcasts = supabaseClient.postgrest["podcasts"]
+                .select {
+                    filter {
+                        or {
+                            ilike("name", "%$query%")
+                            ilike("author", "%$query%")
+                        }
+                    }
+                }
+                .decodeList<com.semtinazizi.kitapduy.model.Podcast>()
+                
+            podcasts.map { it.copy(imageUrl = fixUrl(it.imageUrl)) }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    override suspend fun getBookshelf(userId: String, shelfType: String): List<com.semtinazizi.kitapduy.model.SupabaseBookshelf> {
+        return try {
+            supabaseClient.postgrest["bookshelf"]
+                .select {
+                    filter {
+                        eq("user_id", userId)
+                        eq("shelf_type", shelfType)
+                    }
+                }
+                .decodeList<com.semtinazizi.kitapduy.model.SupabaseBookshelf>()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
         }
     }
 }

@@ -1,19 +1,28 @@
 package com.semtinazizi.kitapduy.platform
 
 /**
- * iOS AdManager Stub
- * Gerçek AdMob iOS SDK entegrasyonu ileride buraya eklenecek.
- * Şimdilik boş implementasyon — uygulama derlenebilir kalır.
+ * iOS AdMob implementasyonu.
+ * Xcode projesine GoogleMobileAds SDK eklendikten sonra
+ * Swift tarafından atanacak fonksiyonlarla çalışır.
  */
+object AdMobSwiftBridge {
+    var loadInterstitialAd: (() -> Unit)? = null
+    var showInterstitialAdIfReady: (() -> Unit)? = null
+}
+
 actual class AdManager {
-    actual val bannerAdUnitId: String = ""
+    // iOS banner reklam birim ID'si
+    actual val bannerAdUnitId: String = "ca-app-pub-1229684690212629/9310593353" // Real ID
+
+    // iOS Interstitial reklam birim ID'si (Swift tarafında kullanılmak üzere referans)
+    val interstitialAdUnitId: String = "ca-app-pub-1229684690212629/2226310253"
 
     actual fun loadInterstitial() {
-        // iOS AdMob entegrasyonu ilerleyen aşamada eklenecek
+        AdMobSwiftBridge.loadInterstitialAd?.invoke()
     }
 
     actual fun showInterstitialIfReady() {
-        // iOS AdMob entegrasyonu ilerleyen aşamada eklenecek
+        AdMobSwiftBridge.showInterstitialAdIfReady?.invoke()
     }
 }
 

@@ -18,17 +18,19 @@ actual val platformModule: Module = module {
     single { Firebase.firestore }
     single { Firebase.auth }
 
-    single<BookRepository> { FirebaseBookRepository(get()) }
-    single<AuthRepository> { FirebaseAuthRepository(get(), get()) }
+
+    single<com.semtinazizi.kitapduy.platform.AudioPlayer> { 
+        (com.semtinazizi.kitapduy.platform.createAudioPlayer() as com.semtinazizi.kitapduy.platform.AndroidAudioPlayer).apply {
+            setContext(androidContext())
+        }
+    }
 
     // AdMob ve Billing — Activity context ile
-    // Not: Activity scope'u için Koin'in activityScope kullanılabilir;
-    // basitlik adına androidContext() ile Activity cast ediyoruz.
     single {
-        AdManager(androidContext() as? Activity ?: error("AdManager için Activity context gerekli"))
+        AdManager(com.semtinazizi.kitapduy.MainActivity.instance ?: error("AdManager için Activity context gerekli"))
     }
     single {
-        BillingManager(androidContext() as? Activity ?: error("BillingManager için Activity context gerekli"))
+        BillingManager(com.semtinazizi.kitapduy.MainActivity.instance ?: error("BillingManager için Activity context gerekli"))
     }
 }
 

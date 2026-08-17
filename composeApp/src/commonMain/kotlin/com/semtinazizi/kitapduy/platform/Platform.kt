@@ -11,11 +11,20 @@ expect val platformName: String
 /**
  * Ses oynatıcı arayüzü
  * Android: Media3/ExoPlayer (androidMain)
- * iOS: AVFoundation/AVPlayer (iosMain)
+ * iOS: AVFoundation/AVQueuePlayer (iosMain)
  */
+data class AudioMediaItem(
+    val id: String,
+    val url: String,
+    val title: String = "",
+    val artist: String = "",
+    val artworkUrl: String = ""
+)
+
 interface AudioPlayer {
     fun initialize()
     fun play(url: String)
+    fun playQueue(items: List<AudioMediaItem>, startIndex: Int = 0, startPositionMs: Long = 0L)
     fun pause()
     fun resume()
     fun stop()
@@ -23,6 +32,10 @@ interface AudioPlayer {
     fun getCurrentPosition(): Long
     fun getDuration(): Long
     fun isPlaying(): Boolean
+    fun setPlaybackSpeed(speed: Float)
+    fun playAtmosphere(url: String, volume: Float = 0.5f)
+    fun stopAtmosphere()
+    fun setAtmosphereVolume(volume: Float)
     fun release()
 }
 
@@ -39,6 +52,8 @@ expect object AppConfig {
     val supabaseKey: String
     val cfAccountId: String
     val cfPublicUrl: String
+    val cfWorkerUrl: String
+    val cfUploadToken: String
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -87,4 +102,22 @@ expect class BillingManager {
 
 /** Platform'a özgü BillingManager oluşturur */
 expect fun createBillingManager(): BillingManager
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DOSYA İNDİRİCİ (FILE DOWNLOADER)
+// Android/iOS: Ktor & Okio veya Platform'a özgü downloader
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface FileDownloader {
+    /** İndirme işlemini başlatır ve lokal dosya yolunu (URI) döner */
+    suspend fun downloadFile(url: String, fileName: String, onProgress: (Float) -> Unit): String
+    
+    /** İndirilmiş dosya var mı kontrol eder, varsa yolunu döner */
+    fun getDownloadedFilePath(fileName: String): String?
+    
+    /** İndirilmiş dosyayı siler */
+    fun deleteFile(fileName: String): Boolean
+}
+
+expect fun createFileDownloader(): FileDownloader
 

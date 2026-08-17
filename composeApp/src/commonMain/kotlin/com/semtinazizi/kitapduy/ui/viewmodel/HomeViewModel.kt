@@ -34,6 +34,21 @@ class HomeViewModel(
     private val _dailyQuote = MutableStateFlow<Triple<String, String, String>?>(null)
     val dailyQuote: StateFlow<Triple<String, String, String>?> = _dailyQuote.asStateFlow()
 
+    private val _recommendedBooks = MutableStateFlow<List<Book>>(emptyList())
+    val recommendedBooks: StateFlow<List<Book>> = _recommendedBooks.asStateFlow()
+
+    private val _podcasts = MutableStateFlow<List<com.semtinazizi.kitapduy.model.Podcast>>(emptyList())
+    val podcasts: StateFlow<List<com.semtinazizi.kitapduy.model.Podcast>> = _podcasts.asStateFlow()
+
+    private val _isTrailerPlaying = MutableStateFlow(false)
+    val isTrailerPlaying: StateFlow<Boolean> = _isTrailerPlaying.asStateFlow()
+
+    private val _trailerBook = MutableStateFlow<Book?>(null)
+    val trailerBook: StateFlow<Book?> = _trailerBook.asStateFlow()
+
+    private val _showTrailerCTA = MutableStateFlow(false)
+    val showTrailerCTA: StateFlow<Boolean> = _showTrailerCTA.asStateFlow()
+
     init {
         loadInitialData()
     }
@@ -46,9 +61,15 @@ class HomeViewModel(
             val fetchedBooks = bookRepository.getBooks()
             _books.value = fetchedBooks
             
+            // Podcastleri yükle
+            val fetchedPodcasts = bookRepository.getPodcasts()
+            _podcasts.value = fetchedPodcasts
+            
             // Kategorilere göre grupla
             val grouped = fetchedBooks.groupBy { it.category }.filterKeys { it.isNotBlank() }
             _groupedBooks.value = grouped
+            
+            _recommendedBooks.value = fetchedBooks.shuffled().take(10)
             
             // Günlük içerikler
             _dailySummary.value = bookRepository.getDailySummary()
@@ -63,6 +84,10 @@ class HomeViewModel(
 
             _isLoading.value = false
         }
+    }
+
+    fun dismissTrailerCTA() {
+        _showTrailerCTA.value = false
     }
 
     fun loadFavorites(userId: String) {

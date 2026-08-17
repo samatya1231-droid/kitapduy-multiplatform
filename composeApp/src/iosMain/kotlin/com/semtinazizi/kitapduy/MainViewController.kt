@@ -3,6 +3,7 @@ package com.semtinazizi.kitapduy
 import androidx.compose.ui.window.ComposeUIViewController
 import com.semtinazizi.kitapduy.di.appModules
 import com.semtinazizi.kitapduy.platform.IOSBuildConfig
+import com.semtinazizi.kitapduy.platform.DailyQuoteScheduler
 import org.koin.core.context.startKoin
 
 /**
@@ -32,4 +33,7 @@ fun initializeIOSConfig(
     IOSBuildConfig.SUPABASE_KEY = supabaseKey
     IOSBuildConfig.CF_ACCOUNT_ID = cfAccountId
     IOSBuildConfig.CF_PUBLIC_URL = cfPublicUrl
+    
+    // Zamanlanmış günlük alıntı bildirimlerini başlat
+    DailyQuoteScheduler.scheduleDaily(null)
 }

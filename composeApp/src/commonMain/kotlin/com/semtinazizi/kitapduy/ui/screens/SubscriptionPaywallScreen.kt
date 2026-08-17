@@ -204,13 +204,13 @@ class SubscriptionPaywallScreen : Screen {
                 // PRICING CARDS
                 Column(modifier = Modifier.padding(horizontal = 24.dp)) {
                     PricingCard(
-                        title = "Yıllık Plan",
-                        price = "Yıllık Ödeme",
+                        title = "3 Aylık Plan",
+                        price = "99,99 ₺ / 3 ay",
                         description = "İlk 7 Gün Ücretsiz Deneyin",
                         isPopular = true,
                         onClick = {
                             coroutineScope.launch {
-                                val result = billingManager.startSubscription("premium_yearly")
+                                val result = billingManager.startSubscription("premium_3months")
                                 if (result == PurchaseResult.SUCCESS) {
                                     navigator.pop()
                                 }
@@ -222,7 +222,7 @@ class SubscriptionPaywallScreen : Screen {
 
                     PricingCard(
                         title = "Aylık Plan",
-                        price = "Aylık Ödeme",
+                        price = "49,99 ₺ / ay",
                         description = "İlk 7 Gün Ücretsiz • İstediğin zaman iptal et",
                         onClick = {
                             coroutineScope.launch {

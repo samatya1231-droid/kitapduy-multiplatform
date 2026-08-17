@@ -1,8 +1,25 @@
 import SwiftUI
 import ComposeApp
 
+class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+        // OneSignal Initialization will go here
+        // OneSignal.initialize("4bc4bc20-ea45-4c6f-9b22-e2dfca6beac5", withLaunchOptions: launchOptions)
+        return true
+    }
+    
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        // APNs token received
+    }
+    
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        // APNs token error
+    }
+}
+
 @main
 struct KitapDuyApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     init() {
         // Kotlin/KMP tarafına config değerlerini gönder

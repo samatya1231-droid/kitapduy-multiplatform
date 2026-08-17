@@ -84,6 +84,10 @@ kotlin {
 
             // UI Extras
             implementation(libs.compose.shimmer)
+            implementation(libs.filekit.compose)
+            
+            // Settings
+            implementation(libs.multiplatform.settings.core)
         }
 
         // ─────────────────────────────────────────────────
@@ -128,6 +132,9 @@ kotlin {
 
             // Lottie
             implementation(libs.lottie.compose)
+
+            // WorkManager
+            implementation(libs.work.runtime.ktx)
         }
 
         // ─────────────────────────────────────────────────
@@ -151,10 +158,19 @@ android {
         versionCode = 1
         versionName = "1.0.0"
 
-        buildConfigField("String", "SUPABASE_URL", "\"${localProperties.getProperty("SUPABASE_URL") ?: ""}\"")
-        buildConfigField("String", "SUPABASE_KEY", "\"${localProperties.getProperty("SUPABASE_KEY") ?: ""}\"")
-        buildConfigField("String", "CF_ACCOUNT_ID", "\"${localProperties.getProperty("CF_ACCOUNT_ID") ?: ""}\"")
-        buildConfigField("String", "CF_PUBLIC_URL", "\"${localProperties.getProperty("CF_PUBLIC_URL") ?: ""}\"")
+        val supabaseUrl = "\"${localProperties.getProperty("SUPABASE_URL") ?: ""}\""
+        val supabaseKey = "\"${localProperties.getProperty("SUPABASE_KEY") ?: ""}\""
+        val cfAccountId = "\"${localProperties.getProperty("CF_ACCOUNT_ID") ?: ""}\""
+        val cfPublicUrl = "\"${localProperties.getProperty("CF_PUBLIC_URL") ?: ""}\""
+        val cfWorkerUrl = "\"${localProperties.getProperty("CF_WORKER_URL") ?: ""}\""
+        val cfUploadToken = "\"${localProperties.getProperty("CF_UPLOAD_TOKEN") ?: ""}\""
+
+        buildConfigField("String", "SUPABASE_URL", supabaseUrl)
+        buildConfigField("String", "SUPABASE_KEY", supabaseKey)
+        buildConfigField("String", "CF_ACCOUNT_ID", cfAccountId)
+        buildConfigField("String", "CF_PUBLIC_URL", cfPublicUrl)
+        buildConfigField("String", "CF_WORKER_URL", cfWorkerUrl)
+        buildConfigField("String", "CF_UPLOAD_TOKEN", cfUploadToken)
     }
 
     buildTypes {

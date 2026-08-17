@@ -227,3 +227,45 @@ data class FocusPresence(
     @SerialName("user_name") val userName: String,
     @SerialName("user_photo") val userPhoto: String? = null
 )
+
+@Serializable
+data class QuizQuestion(
+    val id: String = "",
+    val question: String = "",
+    val options: List<String> = emptyList(),
+    val correctIndex: Int = 0,
+    val hint: String = ""
+)
+
+@Serializable
+data class LeaderboardEntry(
+    @SerialName("user_id") val userId: String = "",
+    @SerialName("user_name") val userName: String = "Anonim",
+    @SerialName("total_score") val totalScore: Int = 0
+)
+
+@Serializable
+data class AskidaKitap(
+    val id: String = "",
+    @SerialName("book_name") var bookName: String = "",
+    @SerialName("donor_id") var donorId: String = "",
+    @SerialName("donor_name") var donorName: String = "",
+    @SerialName("donor_note") var donorNote: String = "",
+    @SerialName("image_url") var imageUrl: String = "",
+    var status: String = "AVAILABLE", // AVAILABLE, CLAIMED, COMPLETED
+    @SerialName("claimer_id") var claimerId: String? = null,
+    var city: String = "",
+    var category: String = "Diğer",
+    var condition: String = "İyi",
+    var timestamp: Long = 0L,
+    @SerialName("completed_at") var completedAt: Long? = null
+)
+
+@Serializable
+data class AskidaMesaj(
+    val id: String = "",
+    @SerialName("book_id") var bookId: String = "",
+    @SerialName("sender_id") var senderId: String = "",
+    var text: String = "",
+    var timestamp: Long = 0L
+)

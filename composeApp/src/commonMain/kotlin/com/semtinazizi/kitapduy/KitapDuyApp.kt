@@ -11,7 +11,35 @@ import cafe.adriel.voyager.navigator.Navigator
  */
 import com.semtinazizi.kitapduy.ui.screens.MainScreen
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.semtinazizi.kitapduy.ui.screens.LoginScreen
+import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
+import org.koin.compose.viewmodel.koinViewModel
+import com.semtinazizi.kitapduy.ui.screens.SplashScreen
+
+import com.semtinazizi.kitapduy.ui.theme.KitapduyTheme
+import com.semtinazizi.kitapduy.util.KmpThemeManager
+
+import coil3.compose.setSingletonImageLoaderFactory
+import coil3.ImageLoader
+import coil3.network.ktor3.KtorNetworkFetcherFactory
+import coil3.request.crossfade
+
 @Composable
 fun App() {
-    Navigator(MainScreen())
+    KmpThemeManager.applyTheme()
+    
+    setSingletonImageLoaderFactory { context ->
+        ImageLoader.Builder(context)
+            .components {
+                add(KtorNetworkFetcherFactory())
+            }
+            .crossfade(true)
+            .build()
+    }
+    
+    KitapduyTheme {
+        Navigator(SplashScreen())
+    }
 }

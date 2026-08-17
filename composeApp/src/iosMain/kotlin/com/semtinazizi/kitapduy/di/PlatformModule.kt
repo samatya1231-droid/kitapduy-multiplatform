@@ -15,6 +15,8 @@ class DummyBookRepository : BookRepository {
     override suspend fun getFavoriteBookIds(userId: String): Set<String> = emptySet()
     override suspend fun getDailySummary(): Pair<String, String>? = null
     override suspend fun getDailyQuote(): Triple<String, String, String>? = null
+    override suspend fun searchBooks(query: String): List<Book> = emptyList()
+    override suspend fun getBookshelf(userId: String, shelfType: String): List<com.semtinazizi.kitapduy.model.SupabaseBookshelf> = emptyList()
 }
 
 class DummyAuthRepository : AuthRepository {
@@ -22,10 +24,16 @@ class DummyAuthRepository : AuthRepository {
     override val isUserLoggedIn: Boolean = false
     override fun getUserProfileFlow(uid: String): Flow<UserProfile?> = emptyFlow()
     override suspend fun getUserProfile(uid: String): UserProfile? = null
+    override suspend fun signInWithEmail(email: String, password: String): Boolean = false
+    override suspend fun signUpWithEmail(email: String, password: String, name: String): Boolean = false
+    override suspend fun updateProfile(uid: String, name: String, bio: String, username: String?): Boolean = true
     override suspend fun signOut() {}
 }
 
 actual val platformModule: Module = module {
-    single<BookRepository> { DummyBookRepository() }
-    single<AuthRepository> { DummyAuthRepository() }
+
+    
+    single<com.semtinazizi.kitapduy.platform.AudioPlayer> { 
+        com.semtinazizi.kitapduy.platform.createAudioPlayer() 
+    }
 }

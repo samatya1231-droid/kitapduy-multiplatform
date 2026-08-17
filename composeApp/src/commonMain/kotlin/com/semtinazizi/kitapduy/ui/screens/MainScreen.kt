@@ -17,18 +17,58 @@ import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import com.semtinazizi.kitapduy.ui.screens.tabs.HomeTab
 import com.semtinazizi.kitapduy.ui.screens.tabs.LibraryTab
+import com.semtinazizi.kitapduy.ui.screens.tabs.EntertainmentTab
 import com.semtinazizi.kitapduy.ui.screens.tabs.ProfileTab
+import com.semtinazizi.kitapduy.ui.screens.tabs.AskidaTab
+import com.semtinazizi.kitapduy.ui.screens.tabs.FeedTab
+import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.ui.components.MiniPlayerSection
+import com.semtinazizi.kitapduy.ui.viewmodel.GlobalAudioController
+import org.koin.compose.koinInject
 
 class MainScreen : Screen {
     @Composable
     override fun Content() {
+        val audioController = koinInject<GlobalAudioController>()
+        val currentBook by audioController.currentBook.collectAsState()
+        val isPlaying by audioController.isPlaying.collectAsState()
+        val rootNavigator = LocalNavigator.currentOrThrow
+
         TabNavigator(HomeTab) {
             Scaffold(
                 bottomBar = {
-                    NavigationBar {
-                        TabNavigationItem(HomeTab)
-                        TabNavigationItem(LibraryTab)
-                        TabNavigationItem(ProfileTab)
+                    Column {
+                        if (currentBook != null) {
+                            MiniPlayerSection(
+                                title = currentBook?.title ?: "",
+                                artist = currentBook?.author ?: "",
+                                coverUrl = currentBook?.coverUrl ?: "",
+                                isPlaying = isPlaying,
+                                isPremium = true, // Şimdilik varsayılan true
+                                onClick = {
+                                    currentBook?.let { book ->
+                                        rootNavigator.push(com.semtinazizi.kitapduy.ui.screens.BookDetailScreen(book))
+                                    }
+                                },
+                                onPlayPauseClick = {
+                                    audioController.togglePlayPause()
+                                },
+                                onUpgradeClick = {
+                                    rootNavigator.push(com.semtinazizi.kitapduy.ui.screens.SubscriptionPaywallScreen())
+                                }
+                            )
+                        }
+                        NavigationBar {
+                            TabNavigationItem(HomeTab)
+                            TabNavigationItem(FeedTab)
+                            TabNavigationItem(com.semtinazizi.kitapduy.ui.screens.tabs.EntertainmentTab)
+                            TabNavigationItem(LibraryTab)
+                            TabNavigationItem(ProfileTab)
+                        }
                     }
                 }
             ) { paddingValues ->

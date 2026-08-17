@@ -33,6 +33,9 @@ import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import org.koin.compose.viewmodel.koinViewModel
+import cafe.adriel.voyager.navigator.Navigator
+import com.semtinazizi.kitapduy.ui.screens.UserProfileScreen
+import cafe.adriel.voyager.transitions.SlideTransition
 
 object ProfileTab : Tab {
 
@@ -53,72 +56,8 @@ object ProfileTab : Tab {
 
     @Composable
     override fun Content() {
-        val authViewModel = koinViewModel<AuthViewModel>()
-        val userProfile by authViewModel.userProfile.collectAsState()
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Profil Başlığı
-            Box(
-                modifier = Modifier
-                    .size(100.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Profil",
-                    modifier = Modifier.size(50.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-            
-            Spacer(Modifier.height(16.dp))
-            
-            Text(
-                text = userProfile?.name ?: "Misafir Kullanıcı",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-            
-            if (userProfile?.isPremium == true) {
-                Text(
-                    text = "Premium Üye",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelLarge
-                )
-            }
-
-            Spacer(Modifier.height(32.dp))
-
-            // Ayarlar Listesi
-            val settingsList = listOf("Aboneliği Yönet", "Okuma İstatistikleri", "Ayarlar", "Çıkış Yap")
-            settingsList.forEach { item ->
-                Surface(
-                    onClick = { 
-                        if (item == "Çıkış Yap") authViewModel.signOut()
-                    },
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = item, style = MaterialTheme.typography.bodyLarge)
-                        if (item == "Çıkış Yap") {
-                            Icon(Icons.Default.Person, contentDescription = null) // Çıkış iconu eklenebilir
-                        }
-                    }
-                }
-            }
+        Navigator(UserProfileScreen()) { navigator ->
+            SlideTransition(navigator)
         }
     }
 }

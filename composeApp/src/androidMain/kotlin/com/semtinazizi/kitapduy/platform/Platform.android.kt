@@ -1,12 +1,17 @@
 package com.semtinazizi.kitapduy.platform
 
-actual val platformName: String = "Android"
+import android.os.Build
+import com.semtinazizi.kitapduy.BuildConfig
+
+actual val platformName: String = "Android ${Build.VERSION.SDK_INT}"
 
 actual fun createAudioPlayer(): AudioPlayer = AndroidAudioPlayer()
 
 actual object AppConfig {
-    actual val supabaseUrl: String = BuildConfigHelper.supabaseUrl
-    actual val supabaseKey: String = BuildConfigHelper.supabaseKey
-    actual val cfAccountId: String = BuildConfigHelper.cfAccountId
-    actual val cfPublicUrl: String = BuildConfigHelper.cfPublicUrl
+    actual val supabaseUrl: String = BuildConfig.SUPABASE_URL
+    actual val supabaseKey: String = BuildConfig.SUPABASE_KEY
+    actual val cfAccountId: String = BuildConfig.CF_ACCOUNT_ID
+    actual val cfPublicUrl: String = BuildConfig.CF_PUBLIC_URL
+    actual val cfWorkerUrl: String = BuildConfig.CF_WORKER_URL
+    actual val cfUploadToken: String = BuildConfig.CF_UPLOAD_TOKEN
 }
