@@ -46,6 +46,9 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m2
 
+    integrations:
+      app_store_connect: "kitapduy"
+
     environment:
       ios_signing:
         distribution_type: app_store
