@@ -17,6 +17,8 @@ class DummyBookRepository : BookRepository {
     override suspend fun getDailyQuote(): Triple<String, String, String>? = null
     override suspend fun searchBooks(query: String): List<Book> = emptyList()
     override suspend fun getBookshelf(userId: String, shelfType: String): List<com.semtinazizi.kitapduy.model.SupabaseBookshelf> = emptyList()
+    override suspend fun getPodcasts(): List<com.semtinazizi.kitapduy.model.Podcast> = emptyList()
+    override suspend fun searchPodcasts(query: String): List<com.semtinazizi.kitapduy.model.Podcast> = emptyList()
 }
 
 class DummyAuthRepository : AuthRepository {
@@ -28,6 +30,12 @@ class DummyAuthRepository : AuthRepository {
     override suspend fun signUpWithEmail(email: String, password: String, name: String): Boolean = false
     override suspend fun updateProfile(uid: String, name: String, bio: String, username: String?): Boolean = true
     override suspend fun signOut() {}
+    override suspend fun awaitSessionInitialization() {}
+    override suspend fun signInWithGoogle(): Boolean = false
+    override suspend fun signInWithApple(): Boolean = false
+    override suspend fun getGoogleOAuthUrl(): String = ""
+    override suspend fun getAppleOAuthUrl(): String = ""
+    override suspend fun updateProfilePhoto(uid: String, photoUrl: String?): Boolean = true
 }
 
 actual val platformModule: Module = module {

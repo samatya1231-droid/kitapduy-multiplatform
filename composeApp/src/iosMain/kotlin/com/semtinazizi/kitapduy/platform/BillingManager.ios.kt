@@ -32,7 +32,7 @@ actual class BillingManager {
                         SKPaymentTransactionState.SKPaymentTransactionStateFailed -> {
                             SKPaymentQueue.defaultQueue().finishTransaction(transaction)
                             val error = transaction.error
-                            if (error != null && error.code == SKErrorPaymentCancelled) {
+                            if (error != null && error.code == 2L) {
                                 purchaseContinuation?.resume(PurchaseResult.CANCELLED)
                             } else {
                                 purchaseContinuation?.resume(PurchaseResult.ERROR)
