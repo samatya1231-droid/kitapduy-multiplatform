@@ -72,6 +72,10 @@ workflows:
           keychain initialize
           keychain add-certificates
           xcode-project use-profiles
+      - name: Build KMP iOS Release Framework
+        script: |
+          chmod +x gradlew
+          ./gradlew :composeApp:linkReleaseFrameworkIosArm64 --stacktrace
       - name: Build and Sign IPA
         script: |
           cd iosApp
