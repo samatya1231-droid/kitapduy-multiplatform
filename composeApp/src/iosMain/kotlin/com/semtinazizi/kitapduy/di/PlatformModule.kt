@@ -1,4 +1,4 @@
-package com.semtinazizi.kitapduy.di
+﻿package com.semtinazizi.kitapduy.di
 
 import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import com.semtinazizi.kitapduy.domain.repository.BookRepository
@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
-// Geçici iOS Dummy implementation'ları - İleride Supabase veya Firebase-iOS eklenecek
+// GeÃ§ici iOS Dummy implementation'larÄ± - Ä°leride Supabase veya Firebase-iOS eklenecek
 class DummyBookRepository : BookRepository {
     override suspend fun getBooks(): List<Book> = emptyList()
     override suspend fun getFavoriteBookIds(userId: String): Set<String> = emptySet()
@@ -31,6 +31,7 @@ class DummyAuthRepository : AuthRepository {
     override suspend fun updateProfile(uid: String, name: String, bio: String, username: String?): Boolean = true
     override suspend fun signOut() {}
     override suspend fun awaitSessionInitialization() {}
+    override suspend fun signInAnonymously(name: String): Boolean = false
     override suspend fun signInWithGoogle(): Boolean = false
     override suspend fun signInWithApple(): Boolean = false
     override suspend fun getGoogleOAuthUrl(): String = ""
@@ -45,3 +46,4 @@ actual val platformModule: Module = module {
         com.semtinazizi.kitapduy.platform.createAudioPlayer() 
     }
 }
+
