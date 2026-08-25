@@ -1,5 +1,6 @@
 package com.semtinazizi.kitapduy.model
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -7,8 +8,8 @@ data class Podcast(
     val id: String = "",
     val name: String = "",
     val author: String = "",
-    val rssUrl: String = "",
-    val imageUrl: String = "",
+    @SerialName("rss_url") val rssUrl: String = "",
+    @SerialName("image_url") val imageUrl: String = "",
     val category: String = ""
 )
 
@@ -17,8 +18,8 @@ data class PodcastEpisode(
     val id: String = "",
     val title: String = "",
     val description: String = "",
-    val audioUrl: String = "",
+    @SerialName("audio_url") val audioUrl: String = "",
     val duration: String = "",
-    val pubDate: String = "",
-    val imageUrl: String? = null
+    @SerialName("pub_date") val pubDate: String = "",
+    @SerialName("image_url") val imageUrl: String? = null
 )

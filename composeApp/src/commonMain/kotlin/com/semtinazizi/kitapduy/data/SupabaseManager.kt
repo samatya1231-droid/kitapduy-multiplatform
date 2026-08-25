@@ -24,6 +24,7 @@ object SupabaseManager {
             defaultSerializer = io.github.jan.supabase.serializer.KotlinXSerializer(kotlinx.serialization.json.Json {
                 ignoreUnknownKeys = true
                 isLenient = true
+                coerceInputValues = true
             })
             install(Postgrest)
             install(Storage)
@@ -31,6 +32,8 @@ object SupabaseManager {
             install(Auth) {
                 scheme = "kitapduy"
                 host = "login-callback"
+                alwaysAutoRefresh = true
+                sessionManager = AppSessionManager()
             }
         }
     }

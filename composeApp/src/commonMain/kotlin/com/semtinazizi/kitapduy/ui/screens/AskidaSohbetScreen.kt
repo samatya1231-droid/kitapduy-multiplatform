@@ -22,6 +22,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.semtinazizi.kitapduy.ui.viewmodel.AskidaViewModel
 import cafe.adriel.voyager.koin.koinScreenModel
+import org.koin.compose.koinInject
 import kotlinx.coroutines.launch
 
 data class AskidaSohbetScreen(val bookId: String) : Screen {
@@ -30,6 +31,7 @@ data class AskidaSohbetScreen(val bookId: String) : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = koinScreenModel<AskidaViewModel>()
+        val authRepository: com.semtinazizi.kitapduy.domain.repository.AuthRepository = koinInject()
 
         val messages by viewModel.currentChatMessages.collectAsState()
         var text by remember { mutableStateOf("") }
@@ -107,9 +109,7 @@ data class AskidaSohbetScreen(val bookId: String) : Screen {
                 contentPadding = PaddingValues(16.dp)
             ) {
                 items(messages) { msg ->
-                    // Varsayılan olarak hep "Ben" gibi gösterelim (dummy yapı)
-                    // İleride authRepository'den gelen uid ile senderId karşılaştırılacak
-                    val isMine = true 
+                    val isMine = msg.senderId == authRepository.currentUserUid 
 
                     Row(
                         modifier = Modifier

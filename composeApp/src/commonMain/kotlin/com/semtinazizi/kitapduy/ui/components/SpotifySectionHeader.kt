@@ -45,7 +45,7 @@ fun SpotifySectionHeader(
             text = title,
             style = MaterialTheme.typography.titleLarge.copy(
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
+                color = Color.White
             )
         )
         if (onClick != null) {

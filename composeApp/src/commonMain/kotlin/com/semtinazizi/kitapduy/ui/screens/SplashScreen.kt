@@ -20,6 +20,9 @@ import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import kotlinx.coroutines.delay
 import org.koin.compose.viewmodel.koinViewModel
 
+import com.semtinazizi.kitapduy.ui.theme.SleekDarkBackground
+import com.semtinazizi.kitapduy.ui.theme.SleekChampagne
+
 class SplashScreen : Screen {
     @Composable
     override fun Content() {
@@ -37,21 +40,21 @@ class SplashScreen : Screen {
                 navigator.replace(MainScreen())
             } else {
                 // Ayarlardan "isFirstLaunch" kontrolü de eklenebilir, şimdilik hep WelcomeScreen'e gidiyor.
-                navigator.replace(OnboardingScreen())
+                navigator.replace(WelcomeScreen())
             }
         }
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
+                .background(SleekDarkBackground),
             contentAlignment = Alignment.Center
         ) {
             // Eski logoyu temsil etmesi için şimdilik text/shape kullanabiliriz.
             // (Drawable'lar eklendiğinde Image composable ile değiştirilebilir)
             Text(
                 text = "KitapDuy",
-                color = MaterialTheme.colorScheme.primary,
+                color = SleekChampagne,
                 fontSize = 42.sp,
                 fontWeight = FontWeight.Bold
             )

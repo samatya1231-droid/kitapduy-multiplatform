@@ -19,5 +19,6 @@ interface AuthRepository {
     suspend fun getAppleOAuthUrl(): String
     suspend fun updateProfile(uid: String, name: String, bio: String, username: String?): Boolean
     suspend fun updateProfilePhoto(uid: String, photoUrl: String?): Boolean
+    suspend fun signInAnonymously(name: String): Boolean
     suspend fun signOut()
 }

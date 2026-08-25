@@ -7,7 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmarks
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,8 +40,8 @@ object LibraryTab : Tab {
     override val options: TabOptions
         @Composable
         get() {
-            val title = "Kütüphanem"
-            val icon = rememberVectorPainter(Icons.Default.Bookmarks)
+            val title = "Kitaplık"
+            val icon = rememberVectorPainter(Icons.Default.Favorite)
             
             return remember {
                 TabOptions(

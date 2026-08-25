@@ -61,6 +61,7 @@ class DummyAuthRepository : AuthRepository {
         return true
     }
 
+    override suspend fun signInAnonymously(name: String): Boolean = false
     override suspend fun signOut() {
         // Session'ı temizle (Gerekliyse)
         delay(500)

@@ -41,27 +41,8 @@ class BookDetailScreenModel : ScreenModel {
     }
 
     private fun loadComments(bookId: String) {
-        // TODO: Supabase'den yorumları çek. Mock data:
-        _comments.value = listOf(
-            Comment(
-                id = "1",
-                userId = "user1",
-                userName = "Kitap Kurdu",
-                userPhotoUrl = null,
-                text = "Bu kitabı dinlerken adeta büyülendim. Seslendirme harika!",
-                isPremium = true,
-                timestamp = 1690000000000
-            ),
-            Comment(
-                id = "2",
-                userId = "user2",
-                userName = "Edebiyat Sever",
-                userPhotoUrl = null,
-                text = "Yazarın kalemi çok güçlü. Kesinlikle tavsiye ederim.",
-                isPremium = false,
-                timestamp = 1690001000000
-            )
-        )
+        // TODO: Supabase'den yorumları çek.
+        _comments.value = emptyList()
     }
 
     fun incrementViewCount(bookId: String) {

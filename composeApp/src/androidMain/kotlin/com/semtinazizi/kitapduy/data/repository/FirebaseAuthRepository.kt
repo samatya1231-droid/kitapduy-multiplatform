@@ -167,6 +167,7 @@ class FirebaseAuthRepository(
         }
     }
 
+    override suspend fun signInAnonymously(name: String): Boolean = false
     override suspend fun signOut() {
         auth.signOut()
     }

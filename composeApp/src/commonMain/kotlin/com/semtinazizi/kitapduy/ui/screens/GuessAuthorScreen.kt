@@ -59,7 +59,7 @@ class GuessAuthorScreen : Screen {
                 shape = RoundedCornerShape(24.dp),
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("ðŸ’”", fontSize = 28.sp)
+                        Text("??", fontSize = 28.sp)
                         Spacer(Modifier.width(12.dp))
                         Text("Oyun Bitti!", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Black)
                     }
@@ -67,7 +67,7 @@ class GuessAuthorScreen : Screen {
                 text = {
                     Text(
                         text = "Tekrar denemek ister misin?",
-                        color = Color.LightGray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 15.sp,
                         lineHeight = 22.sp
                     )
@@ -79,7 +79,7 @@ class GuessAuthorScreen : Screen {
                         shape = RoundedCornerShape(50),
                         modifier = Modifier.fillMaxWidth().height(50.dp)
                     ) {
-                        Text("BaÅŸtan BaÅŸla", color = Color.Black, fontWeight = FontWeight.ExtraBold)
+                        Text("Baþtan Baþla", color = Color.Black, fontWeight = FontWeight.ExtraBold)
                     }
                 },
                 dismissButton = {
@@ -87,7 +87,7 @@ class GuessAuthorScreen : Screen {
                         onClick = { navigator.pop() },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("VazgeÃ§ ve Ã‡Ä±k", color = Color.Gray, fontWeight = FontWeight.Medium)
+                        Text("Vazgeç ve Çýk", color = Color.Gray, fontWeight = FontWeight.Medium)
                     }
                 }
             )
@@ -99,12 +99,12 @@ class GuessAuthorScreen : Screen {
                     title = {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("Kimin Kaleminden?", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Black, fontSize = 20.sp)
-                            Text("Bilgi YarÄ±ÅŸmasÄ±", color = BrandGold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            Text("Bilgi Yarýþmasý", color = BrandGold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                         }
                     },
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri", tint = MaterialTheme.colorScheme.onSurface)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri", tint = Color.White)
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -129,7 +129,7 @@ class GuessAuthorScreen : Screen {
                 ) {
                     Spacer(Modifier.height(16.dp))
                     
-                    // ðŸŒŸ MODERN SCORE & LIVES PANEL ðŸŒŸ
+                    // ?? MODERN SCORE & LIVES PANEL ??
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -167,7 +167,7 @@ class GuessAuthorScreen : Screen {
                     Spacer(Modifier.height(32.dp))
 
                     if (question != null) {
-                        // ðŸŒŸ GLASSMORPHISM QUESTION CARD ðŸŒŸ
+                        // ?? GLASSMORPHISM QUESTION CARD ??
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -175,7 +175,7 @@ class GuessAuthorScreen : Screen {
                                 .background(MaterialTheme.colorScheme.surface)
                                 .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)), RoundedCornerShape(32.dp))
                         ) {
-                            // Dekoratif arka plan Ä±ÅŸÄ±ÄŸÄ±
+                            // Dekoratif arka plan ýþýðý
                             Box(
                                 modifier = Modifier
                                     .size(150.dp)
@@ -189,7 +189,7 @@ class GuessAuthorScreen : Screen {
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = "â€œ",
+                                    text = "“",
                                     fontSize = 80.sp,
                                     fontFamily = FontFamily.Serif,
                                     color = BrandGold.copy(alpha = 0.2f),
@@ -206,7 +206,7 @@ class GuessAuthorScreen : Screen {
                                     fontWeight = FontWeight.Medium
                                 )
                                 Text(
-                                    text = "â€",
+                                    text = "”",
                                     fontSize = 80.sp,
                                     fontFamily = FontFamily.Serif,
                                     color = BrandGold.copy(alpha = 0.2f),
@@ -217,7 +217,7 @@ class GuessAuthorScreen : Screen {
 
                         Spacer(Modifier.height(40.dp))
 
-                        // ðŸŒŸ MODERN ANSWER BUTTONS ðŸŒŸ
+                        // ?? MODERN ANSWER BUTTONS ??
                         question.options.forEach { option ->
                             val isSelected = selectedAnswer == option
                             val isCorrect = option == question.correctAnswer
@@ -250,14 +250,14 @@ class GuessAuthorScreen : Screen {
                                 ) {
                                     Text(
                                         text = option,
-                                        color = if (showResultColor && (isSelected || isCorrect)) MaterialTheme.colorScheme.onSurface else Color.LightGray,
+                                        color = if (showResultColor && (isSelected || isCorrect)) Color.White else MaterialTheme.colorScheme.onSurface,
                                         fontSize = 16.sp,
                                         fontWeight = if (isSelected || (showResultColor && isCorrect)) FontWeight.Bold else FontWeight.Medium
                                     )
                                     
                                     if (showResultColor) {
-                                        if (isCorrect) Icon(Icons.Filled.Whatshot, null, tint = MaterialTheme.colorScheme.onSurface)
-                                        else if (isSelected) Icon(Icons.Filled.Info, null, tint = MaterialTheme.colorScheme.onSurface)
+                                        if (isCorrect) Icon(Icons.Filled.Whatshot, null, tint = Color.White)
+                                        else if (isSelected) Icon(Icons.Filled.Info, null, tint = Color.White)
                                     }
                                 }
                             }

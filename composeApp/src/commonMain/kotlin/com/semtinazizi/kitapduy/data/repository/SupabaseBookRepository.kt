@@ -15,20 +15,32 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
         return "${AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
     }
 
+    private fun fixImageUrl(url: String?): String {
+        if (url.isNullOrBlank()) return ""
+        
+        if (url.contains("r2.cloudflarestorage.com")) {
+            return AppConfig.generatePresignedUrl(url)
+        }
+        
+        if (url.startsWith("http")) return url
+        
+        return "${AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
+    }
+
     override suspend fun getBooks(): List<Book> {
         return try {
             val books = supabaseClient.postgrest["books"]
                 .select()
                 .decodeList<Book>()
             
-            books.map { 
+            books.filter { it.title.isNotBlank() && it.author.isNotBlank() }.map { 
                 it.copy(
-                    coverUrl = fixUrl(it.coverUrl),
+                    coverUrl = fixImageUrl(it.coverUrl),
                     audioUrl = fixUrl(it.audioUrl)
                 ) 
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            println("GET_BOOKS_ERROR: ${e.stackTraceToString()}")
             emptyList()
         }
     }
@@ -57,30 +69,16 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
 
     override suspend fun getDailyQuote(): Triple<String, String, String>? {
         return try {
-            // "daily_quotes" gibi bir tablonuz olduğunu varsayıyoruz
-            // Yoksa basit bir listeyle de mocklanabilir
             val result = supabaseClient.postgrest["daily_quotes"]
-                .select {
-                    limit(1)
-                }
+                .select { limit(1) }
                 .decodeSingleOrNull<Map<String, String>>()
                 
             if (result != null) {
-                Triple(
-                    result["quote"] ?: "",
-                    result["author"] ?: "",
-                    result["book"] ?: ""
-                )
-            } else {
-                null
-            }
+                Triple(result["quote"] ?: "", result["author"] ?: "", result["book"] ?: "")
+            } else null
         } catch (e: Exception) {
-            e.printStackTrace()
-            Triple(
-                "Bir kitap okuyan her şeyi okuyabilir.",
-                "Sabahattin Ali",
-                "Kürk Mantolu Madonna"
-            )
+            // Local Fallback
+            Triple("Bir kitap okuyan her şeyi okuyabilir.", "Sabahattin Ali", "Kürk Mantolu Madonna")
         }
     }
 
@@ -98,9 +96,9 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
                 }
                 .decodeList<Book>()
                 
-            books.map { 
+            books.filter { it.title.isNotBlank() && it.author.isNotBlank() }.map { 
                 it.copy(
-                    coverUrl = fixUrl(it.coverUrl),
+                    coverUrl = fixImageUrl(it.coverUrl),
                     audioUrl = fixUrl(it.audioUrl)
                 ) 
             }
@@ -112,13 +110,18 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
 
     override suspend fun getPodcasts(): List<com.semtinazizi.kitapduy.model.Podcast> {
         return try {
-            val podcasts = supabaseClient.postgrest["podcasts"]
-                .select()
-                .decodeList<com.semtinazizi.kitapduy.model.Podcast>()
-                
-            podcasts.map { it.copy(imageUrl = fixUrl(it.imageUrl)) }
+            println("SupabaseRepository: Fetching from 'podcasts' table...")
+            val response = supabaseClient.postgrest["podcasts"].select()
+            
+            val podcasts = response.decodeList<com.semtinazizi.kitapduy.model.Podcast>()
+            println("SupabaseRepository: Decoded ${podcasts.size} podcasts")
+            
+            podcasts.map { it.copy(
+                imageUrl = fixImageUrl(it.imageUrl),
+                rssUrl = fixUrl(it.rssUrl)
+            ) }
         } catch (e: Exception) {
-            println("Podcasts table may not exist yet: ${e.message}")
+            println("SupabaseRepository ERROR: ${e.message}")
             emptyList()
         }
     }
@@ -137,7 +140,10 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
                 }
                 .decodeList<com.semtinazizi.kitapduy.model.Podcast>()
                 
-            podcasts.map { it.copy(imageUrl = fixUrl(it.imageUrl)) }
+            podcasts.map { it.copy(
+                imageUrl = fixImageUrl(it.imageUrl),
+                rssUrl = fixUrl(it.rssUrl)
+            ) }
         } catch (e: Exception) {
             emptyList()
         }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,6 +36,11 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.semtinazizi.kitapduy.ui.viewmodel.QuizGameState
 import com.semtinazizi.kitapduy.ui.viewmodel.QuizScreenModel
 import cafe.adriel.voyager.koin.koinScreenModel
+import org.koin.compose.koinInject
+import com.semtinazizi.kitapduy.platform.AdManager
+import com.semtinazizi.kitapduy.platform.BillingManager
+import com.semtinazizi.kitapduy.platform.BannerAdView
+
 import kotlin.random.Random
 
 class QuizScreen : Screen {
@@ -43,6 +49,9 @@ class QuizScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = koinScreenModel<QuizScreenModel>()
+        val adManager: AdManager = koinInject()
+        val billingManager: BillingManager = koinInject()
+        val isPremium by billingManager.isPremium.collectAsState()
         
         val gameState by screenModel.gameState.collectAsState()
         
@@ -73,10 +82,20 @@ class QuizScreen : Screen {
 
                 when (gameState) {
                     QuizGameState.STARTING -> {
-                        QuizMainMenu(onStartSinglePlayer = { screenModel.startGame() })
+                        QuizMainMenu(
+                            onStartSinglePlayer = { screenModel.startGame() },
+                            onStartMultiplayer = { screenModel.findMultiplayerMatch() },
+                            onLeaderboard = { screenModel.loadLeaderboard() }
+                        )
                     }
                     QuizGameState.PLAYING -> {
-                        QuizPlayingArea(screenModel = screenModel)
+                        QuizPlayingArea(screenModel = screenModel, adManager = adManager, isPremium = isPremium)
+                    }
+                    QuizGameState.MULTIPLAYER_LOBBY -> {
+                        QuizMultiplayerLobby(screenModel = screenModel, onBackClick = { screenModel.resetGame() })
+                    }
+                    QuizGameState.LEADERBOARD -> {
+                        QuizLeaderboardScreen(screenModel = screenModel, onBackClick = { screenModel.resetGame() })
                     }
                     QuizGameState.GAME_OVER -> {
                         QuizResultScreen(
@@ -101,16 +120,49 @@ class QuizScreen : Screen {
 }
 
 @Composable
-fun QuizMainMenu(onStartSinglePlayer: () -> Unit) {
+fun QuizMainMenu(onStartSinglePlayer: () -> Unit, onStartMultiplayer: () -> Unit, onLeaderboard: () -> Unit) {
+    var showComingSoon by remember { mutableStateOf(false) }
+    
+    if (showComingSoon) {
+        AlertDialog(
+            onDismissRequest = { showComingSoon = false },
+            title = { Text("Çok Yakında!", fontWeight = FontWeight.Bold) },
+            text = { Text("Bu oyun modu şu anda geliştirme aşamasında. Çok yakında sizlerle olacak!") },
+            confirmButton = {
+                TextButton(onClick = { showComingSoon = false }) {
+                    Text("Tamam")
+                }
+            }
+        )
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+
         Spacer(modifier = Modifier.height(24.dp))
         Text("📚 KitapDuy Arena", color = MaterialTheme.colorScheme.onSurface, fontSize = 36.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
         Text("Edebiyat bilgini sına, ödülleri kazan!", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 16.sp, textAlign = TextAlign.Center)
 
         Spacer(modifier = Modifier.height(32.dp))
+
+        // Haftalık Turnuva
+        GlassCard(
+            modifier = Modifier.fillMaxWidth().height(90.dp),
+            onClick = { showComingSoon = true }
+        ) {
+            Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Person, contentDescription = null, tint = Color(0xFFD4AF37), modifier = Modifier.size(40.dp))
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text("🏆 Haftalık Turnuva", color = Color(0xFFD4AF37), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text("Dünya Klasikleri • 1 Can", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 12.sp)
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Tek Oyunculu Mod
         GlassCard(
@@ -121,7 +173,7 @@ fun QuizMainMenu(onStartSinglePlayer: () -> Unit) {
                 Icon(Icons.Filled.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(40.dp))
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
-                    Text("Tek Oyunculu", color = MaterialTheme.colorScheme.onSurface, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text("Klasik Mod", color = MaterialTheme.colorScheme.onSurface, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     Text("Antrenman Yap • 3 Can", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 12.sp)
                 }
             }
@@ -129,18 +181,47 @@ fun QuizMainMenu(onStartSinglePlayer: () -> Unit) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Çok Oyunculu Mod (Yakında)
+        // Blitz Arena
         GlassCard(
             modifier = Modifier.fillMaxWidth().height(90.dp),
-            onClick = { /* TODO: Multiplayer Logic */ }
+            onClick = onStartMultiplayer
+        ) {
+            Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(40.dp))
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text("⚡ Blitz Arena", color = MaterialTheme.colorScheme.onSurface, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text("Hızlı Cevaplar • 1 Can", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 12.sp)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Çok Oyunculu Mod
+        GlassCard(
+            modifier = Modifier.fillMaxWidth().height(90.dp),
+            onClick = { showComingSoon = true }
         ) {
             Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.People, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), modifier = Modifier.size(40.dp))
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Çok Oyunculu", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text("Çok Oyunculu Düello", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     Text("Yakında Çok Daha Güçlü!", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), fontSize = 12.sp)
                 }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Liderlik Tablosu
+        GlassCard(
+            modifier = Modifier.fillMaxWidth().height(80.dp),
+            onClick = onLeaderboard
+        ) {
+            Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                Text("👑 Liderlik Tablosu", color = MaterialTheme.colorScheme.onSurface, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -149,9 +230,10 @@ fun QuizMainMenu(onStartSinglePlayer: () -> Unit) {
 }
 
 @Composable
-fun QuizPlayingArea(screenModel: QuizScreenModel) {
+fun QuizPlayingArea(screenModel: QuizScreenModel, adManager: AdManager, isPremium: Boolean) {
     val currentQuestion by screenModel.currentQuestion.collectAsState()
     val score by screenModel.score.collectAsState()
+    LaunchedEffect(Unit) { if (score >= 70) adManager.grantAdFreeTime() }
     val lives by screenModel.lives.collectAsState()
     val timeLeft by screenModel.timeLeft.collectAsState()
     val selectedAnswer by screenModel.selectedAnswer.collectAsState()
@@ -183,7 +265,7 @@ fun QuizPlayingArea(screenModel: QuizScreenModel) {
             elevation = CardDefaults.cardElevation(8.dp)
         ) {
             Text(
-                text = question.question,
+                text = currentQuestion?.question ?: "",
                 modifier = Modifier.padding(24.dp),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
@@ -194,10 +276,18 @@ fun QuizPlayingArea(screenModel: QuizScreenModel) {
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Şıklar
-        question.options.forEachIndexed { index, option ->
+        
+            // Emojiler
+            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                listOf("💯", "🔥", "🤔", "😱").forEach { emoji ->
+                    Text(emoji, fontSize = 32.sp, modifier = Modifier.clickable { screenModel.sendEmoji(emoji) })
+                }
+            }
+
+            // Şıklar
+        (currentQuestion?.options ?: emptyList<String>()).forEachIndexed { index, option ->
             val isSelected = selectedAnswer == index
-            val showCorrect = selectedAnswer != null && index == question.correctIndex
+            val showCorrect = selectedAnswer != null && index == currentQuestion?.correctIndex
             val showWrong = isSelected && isCorrect == false
 
             val bgColor = when {
@@ -315,6 +405,101 @@ fun ModernArenaBackground() {
                 radius = 100f,
                 center = androidx.compose.ui.geometry.Offset(x, y)
             )
+        }
+    }
+}
+
+
+fun getRankInfo(score: Long): Pair<String, String> {
+    return when {
+        score >= 20000 -> "Edebiyat Profesörü (Efsanevi)" to "🌌"
+        score >= 10000 -> "Elmas Okur" to "💎"
+        score >= 5001 -> "Platin Şövalye" to "⚔️"
+        score >= 2001 -> "Altın Kitap Kurdu" to "🥇"
+        score >= 1001 -> "Gümüş Okur" to "🥈"
+        score >= 501 -> "Bronz Okur" to "🥉"
+        else -> "Yeni Başlayan" to "🔰"
+    }
+}
+
+
+@Composable
+fun QuizLeaderboardScreen(screenModel: QuizScreenModel, onBackClick: () -> Unit) {
+    val leaderboard by screenModel.leaderboard.collectAsState()
+
+    LaunchedEffect(Unit) {
+        screenModel.loadLeaderboard()
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBackClick) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri", tint = MaterialTheme.colorScheme.onSurface)
+            }
+            Text("👑 Liderlik Tablosu", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (leaderboard.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                itemsIndexed(leaderboard) { index, entry ->
+                    val rankInfo = getRankInfo(entry.totalScore)
+                    val bgColor = when (index) {
+                        0 -> Color(0xFFFFD700).copy(alpha = 0.2f)
+                        1 -> Color(0xFFC0C0C0).copy(alpha = 0.2f)
+                        2 -> Color(0xFFCD7F32).copy(alpha = 0.2f)
+                        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        colors = CardDefaults.cardColors(containerColor = bgColor)
+                    ) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("${index + 1}.", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.width(36.dp))
+                            
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(entry.userName, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                Text("${rankInfo.second} ${rankInfo.first}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                            }
+                            
+                            Text("${entry.totalScore} Puan", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFFD4AF37))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun QuizMultiplayerLobby(screenModel: QuizScreenModel, onBackClick: () -> Unit) {
+    val lobbyState by screenModel.lobbyState.collectAsState()
+
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Icon(Icons.Default.People, contentDescription = "Multiplayer", modifier = Modifier.size(80.dp), tint = MaterialTheme.colorScheme.primary)
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Text("Çok Oyunculu Arena", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(lobbyState, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), textAlign = TextAlign.Center)
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        if (lobbyState.contains("Aranıyor") || lobbyState.contains("Bağlanıyor")) {
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+        Button(onClick = onBackClick, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
+            Text("İptal Et")
         }
     }
 }

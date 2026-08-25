@@ -10,12 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Casino
-import androidx.compose.material.icons.filled.Draw
-import androidx.compose.material.icons.filled.LocalLibrary
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.SelfImprovement
-import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,13 +39,18 @@ import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import com.semtinazizi.kitapduy.platform.BannerAdView
 import org.koin.compose.viewmodel.koinViewModel
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+
 object EntertainmentTab : Tab {
 
     override val options: TabOptions
         @Composable
         get() {
             val title = "Eğlence"
-            val icon = rememberVectorPainter(Icons.Default.Casino)
+            val icon = rememberVectorPainter(Icons.Default.Extension)
             
             return remember {
                 TabOptions(
@@ -66,9 +66,11 @@ object EntertainmentTab : Tab {
         val navigator = LocalNavigator.currentOrThrow
         val parentNavigator = navigator.parent ?: navigator
         val authViewModel = koinViewModel<AuthViewModel>()
+        val homeViewModel = koinViewModel<com.semtinazizi.kitapduy.ui.viewmodel.HomeViewModel>()
         
         val userProfile by authViewModel.userProfile.collectAsState()
         val isPremium = userProfile?.hasPremium() ?: false
+        val podcasts by homeViewModel.podcasts.collectAsState()
 
         // Tema Renkleri
         val softGold = Color(0xFFFFD700)
@@ -79,7 +81,7 @@ object EntertainmentTab : Tab {
         val softCardBackground = MaterialTheme.colorScheme.surface
 
         Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            // 🌟 MODERN DİNAMİK ARKA PLAN (BLOBLAR) 🌟
+            // ?? MODERN DİNAMİK ARKA PLAN (BLOBLAR) ??
             val infiniteTransition = rememberInfiniteTransition(label = "bg_blobs")
 
             val blobOffset1X by infiniteTransition.animateFloat(
@@ -113,7 +115,7 @@ object EntertainmentTab : Tab {
                     .verticalScroll(rememberScrollState())
                     .padding(bottom = 120.dp) // Bottom padding for navigation bar spacing
             ) {
-                // 🌟 ÜST BAŞLIK 🌟
+                // ?? ÜST BAŞLIK ??
                 Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp).statusBarsPadding()) {
                     Text(
                         text = "KitapDuy",
@@ -142,7 +144,7 @@ object EntertainmentTab : Tab {
                     )
                 }
 
-                // 🌟 BENTO KARTLARI (Gerçek Bento Hiyerarşisi) 🌟
+                // ?? BENTO KARTLARI (Gerçek Bento Hiyerarşisi) ??
                 Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                     
                     // Satır 1: Tam Genişlikte HERO Kartı (Arena)
@@ -169,7 +171,7 @@ object EntertainmentTab : Tab {
                             primaryColor = softViolet,
                             badgeText = "YENİ",
                             modifier = Modifier.weight(1f).height(150.dp)
-                        ) { /* TODO: Independent Pens */ }
+                        ) { parentNavigator.push(com.semtinazizi.kitapduy.ui.screens.IndependentPensScreen()) }
 
                         ModernNeonBentoCard(
                             title = "Zihin Ktp.",
@@ -177,12 +179,12 @@ object EntertainmentTab : Tab {
                             icon = Icons.Default.LocalLibrary,
                             primaryColor = softBlue,
                             modifier = Modifier.weight(1f).height(150.dp)
-                        ) { parentNavigator.push(MindLibraryScreen()) }
+                        ) { parentNavigator.push(com.semtinazizi.kitapduy.ui.screens.ScienceArticlesScreen()) }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Satır 3: 2'li Grid (Odaklanma ve Radyo Tiyatrosu)
+                    // Satır 3: 2'li Grid (Yazar Tahmin ve Radyo Tiyatrosu)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -203,7 +205,43 @@ object EntertainmentTab : Tab {
                             primaryColor = Color(0xFF1DB954), // Spotify Green
                             badgeText = "POPÜLER",
                             modifier = Modifier.weight(1f).height(150.dp)
-                        ) { /* TODO: Podcast Screen */ }
+                        ) { parentNavigator.push(com.semtinazizi.kitapduy.ui.screens.PodcastListScreen()) }
+                    }
+                }
+
+                if (podcasts.isNotEmpty()) {
+                    Column(modifier = Modifier.padding(top = 32.dp)) {
+                        Text(
+                            text = "Öne Çıkan Podcastler",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = SleekChampagne),
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
+                        )
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 20.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            items(podcasts) { pod ->
+                                Column(
+                                    modifier = Modifier.width(120.dp).clickable {
+                                        parentNavigator.push(com.semtinazizi.kitapduy.ui.screens.PodcastEpisodesScreen(pod.id, pod.name, pod.rssUrl))
+                                    }
+                                ) {
+                                    coil3.compose.AsyncImage(
+                                        model = pod.imageUrl,
+                                        contentDescription = pod.name,
+                                        modifier = Modifier.size(120.dp).clip(RoundedCornerShape(12.dp)),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        text = pod.name,
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color.White),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 

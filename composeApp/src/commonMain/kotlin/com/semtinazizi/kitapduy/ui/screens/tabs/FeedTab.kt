@@ -1,7 +1,7 @@
 package com.semtinazizi.kitapduy.ui.screens.tabs
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DynamicFeed
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -16,7 +16,7 @@ object FeedTab : Tab {
         @Composable
         get() {
             val title = "Akış"
-            val icon = rememberVectorPainter(Icons.Default.DynamicFeed)
+            val icon = rememberVectorPainter(Icons.AutoMirrored.Filled.List)
             
             return remember {
                 TabOptions(

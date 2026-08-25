@@ -49,8 +49,8 @@ fun MiniPlayerSection(
             .height(72.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f)),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Row(
@@ -82,14 +82,14 @@ fun MiniPlayerSection(
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = Color.White,
                     modifier = Modifier.basicMarquee()
                 )
                 Text(
                     text = artist.ifEmpty { "Yazar" },
                     maxLines = 1,
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    color = Color.White.copy(alpha = 0.7f),
                     modifier = Modifier.basicMarquee()
                 )
             }
@@ -121,12 +121,12 @@ fun MiniPlayerSection(
                 modifier = Modifier
                     .padding(end = 12.dp)
                     .size(44.dp)
-                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), CircleShape)
+                    .background(Color.White.copy(alpha = 0.1f), CircleShape)
             ) {
                 Icon(
                     imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
+                    tint = Color.White,
                     modifier = Modifier.size(28.dp)
                 )
             }

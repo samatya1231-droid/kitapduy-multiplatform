@@ -34,12 +34,12 @@ object KmpThemeManager {
         settings.putBoolean(KEY_DARK_MODE, isDark)
     }
 
-    // null means system default
+    // null means system default (now defaulting to true for Sleek look)
     fun isDarkMode(systemDefault: Boolean): Boolean {
         return if (settings.hasKey(KEY_DARK_MODE)) {
-            settings.getBoolean(KEY_DARK_MODE, systemDefault)
+            settings.getBoolean(KEY_DARK_MODE, true)
         } else {
-            systemDefault
+            true // Force dark mode by default for Sleek look
         }
     }
 

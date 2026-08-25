@@ -92,7 +92,12 @@ class DummyBookRepository : BookRepository {
     }
 
     override suspend fun getPodcasts(): List<com.semtinazizi.kitapduy.model.Podcast> {
-        return emptyList()
+        return listOf(
+            com.semtinazizi.kitapduy.model.Podcast("1", "Ortamlarda Satılacak Bilgi", "Merve", "https://anchor.fm/s/44a38a74/podcast/rss", "https://images.unsplash.com/photo-1593697821252-0c9137d9fc45?w=400&q=80", "Kültür"),
+            com.semtinazizi.kitapduy.model.Podcast("2", "Crime Junkie", "Ashley Flowers", "https://feeds.simplecast.com/qm_9xx0g", "https://images.unsplash.com/photo-1516280440502-6c2e92c1409f?w=400&q=80", "Komedi"),
+            com.semtinazizi.kitapduy.model.Podcast("3", "NPR Planet Money", "NPR", "https://feeds.npr.org/510289/podcast.xml", "https://images.unsplash.com/photo-1559523161-0fc0d8b38a7a?w=400&q=80", "Felsefe"),
+            com.semtinazizi.kitapduy.model.Podcast("4", "NPR Up First", "NPR", "https://feeds.npr.org/510318/podcast.xml", "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=400&q=80", "Bilim & Teknoloji")
+        )
     }
     
     override suspend fun searchPodcasts(query: String): List<com.semtinazizi.kitapduy.model.Podcast> {

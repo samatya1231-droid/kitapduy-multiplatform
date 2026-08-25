@@ -33,6 +33,10 @@ val coreModule = module {
     single<com.semtinazizi.kitapduy.domain.repository.SocialRepository> { 
         com.semtinazizi.kitapduy.data.repository.SupabaseSocialRepository(get(), get()) 
     }
+    
+    single<com.semtinazizi.kitapduy.domain.repository.QuizMultiplayerRepository> { 
+        com.semtinazizi.kitapduy.data.repository.SupabaseQuizMultiplayerRepository(get()) 
+    }
     single { io.ktor.client.HttpClient() }
 
     single<com.semtinazizi.kitapduy.data.repository.StorageRepository> {

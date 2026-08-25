@@ -54,6 +54,14 @@ expect object AppConfig {
     val cfPublicUrl: String
     val cfWorkerUrl: String
     val cfUploadToken: String
+    val cfAccessKey: String
+    val cfSecretKey: String
+    
+    /**
+     * Resimleri okumak için yetkilendirilmiş (Presigned) URL üretir.
+     * Bu sayede public access kapalı olsa bile veya r2.dev ISP tarafından engellense bile resimler indirilebilir.
+     */
+    fun generatePresignedUrl(url: String): String
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -72,6 +80,12 @@ expect class AdManager {
     fun loadInterstitial()
     /** Yüklü interstitial reklamı gösterir. Yüklü değilse sessizce geçer. */
     fun showInterstitialIfReady()
+    /** �d�ll� reklam g�sterir */
+    fun showRewardedAd(onRewarded: () -> Unit)
+    /** 30 dakika reklams�z hakk� verir */
+    fun grantAdFreeTime()
+    /** Reklams�z s�renin dolup dolmad���n� d�ner */
+    fun isAdFreeActive(): Boolean
 }
 
 /** Platform'a özgü AdManager oluşturur */

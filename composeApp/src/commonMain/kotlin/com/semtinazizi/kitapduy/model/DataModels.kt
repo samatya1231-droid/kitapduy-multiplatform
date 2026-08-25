@@ -175,15 +175,15 @@ data class ChatMessage(
 
 @Serializable
 data class PoetryItem(
-    val id: String = "",
+    val id: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
     val title: String = "",
     val author: String = "",
-    val audioUrl: String = "",
-    val coverUrl: String = "",
-    val category: String = "Şiirler",
-    val timestamp: Long = 0L,
-    val viewsCount: Int = 0,
-    val likedBy: List<String> = emptyList()
+    @SerialName("user_id") val userId: String = "",
+    @SerialName("user_photo_url") val userPhotoUrl: String? = null,
+    val content: String = "",
+    val likes: Int = 0,
+    @SerialName("liked_by") val likedBy: List<String> = emptyList()
 )
 
 @Serializable

@@ -115,7 +115,7 @@ fun VerticalBookCard(book: Book, onClick: () -> Unit) {
         ) {
             Text(
                 text = book.title.ifBlank { "İsimsiz Kitap" },
-                color = MaterialTheme.colorScheme.onSurface,
+                color = Color.White,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
                 maxLines = 1,
@@ -128,7 +128,7 @@ fun VerticalBookCard(book: Book, onClick: () -> Unit) {
             
             Text(
                 text = book.author.ifBlank { "Bilinmeyen Yazar" },
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                color = Color.White.copy(alpha = 0.7f),
                 fontSize = 11.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

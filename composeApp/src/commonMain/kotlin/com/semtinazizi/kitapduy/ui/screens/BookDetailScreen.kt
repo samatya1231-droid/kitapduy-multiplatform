@@ -259,7 +259,7 @@ data class BookDetailScreen(val book: Book) : Screen {
                                         if (currentBook?.id == book.id) {
                                             audioController.togglePlayPause()
                                         } else {
-                                            audioController.playTrack(book)
+                                            audioController.playTrack(book, isPremium)
                                         }
                                     },
                                     containerColor = BrandGold,

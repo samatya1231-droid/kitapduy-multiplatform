@@ -1,4 +1,4 @@
-package com.semtinazizi.kitapduy.data.repository
+﻿package com.semtinazizi.kitapduy.data.repository
 
 import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import com.semtinazizi.kitapduy.model.UserProfile
@@ -150,6 +150,36 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
         }
     }
 
+    
+    override suspend fun signInAnonymously(name: String): Boolean {
+        return try {
+            supabaseClient.auth.signInAnonymously()
+            
+            val uid = supabaseClient.auth.currentUserOrNull()?.id
+            if (uid != null) {
+                val safeName = if (name.isBlank()) "Misafir" else name.trim()
+                try {
+                    val profile = UserProfile(
+                        uid = uid, 
+                        name = safeName, 
+                        username = "misafir_${uid.take(5)}",
+                        bio = "Merhaba, ben bir misafir kullanıcıyım!"
+                    )
+                    supabaseClient.postgrest["users"].upsert(profile)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                true
+            } else {
+                println("Auth Error: Current user is null after signInAnonymously")
+                false
+            }
+        } catch (e: Exception) {
+            println("Auth Error: ${e.message}")
+            e.printStackTrace()
+            false
+        }
+    }
     override suspend fun signOut() {
         try {
             supabaseClient.auth.signOut()

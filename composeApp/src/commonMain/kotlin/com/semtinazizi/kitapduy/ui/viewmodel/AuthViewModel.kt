@@ -22,6 +22,9 @@ class AuthViewModel(
     private val _isLoggedIn = MutableStateFlow(authRepository.isUserLoggedIn)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
 
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
     init {
         // We will call checkAuthStatus() from SplashScreen instead of doing it synchronously here.
     }
@@ -113,6 +116,22 @@ class AuthViewModel(
             authRepository.currentUserUid?.let { observeUserProfile(it) }
         }
         return success
+    }
+
+    
+    suspend fun signInAnonymously(name: String): Boolean {
+        _error.value = null
+        val result = authRepository.signInAnonymously(name)
+        if (result) {
+            _isLoggedIn.value = true
+        } else {
+            _error.value = "Anonim giriş başarısız oldu. Lütfen internetinizi kontrol edin veya Supabase panelinden 'Allow Anonymous Sign-ins' ayarının açık olduğundan emin olun."
+        }
+        return result
+    }
+
+    fun clearError() {
+        _error.value = null
     }
 
     suspend fun signInWithGoogle(): Boolean {

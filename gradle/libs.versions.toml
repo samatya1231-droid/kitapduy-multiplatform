@@ -94,6 +94,7 @@ filekit-compose = { module = "io.github.vinceglb:filekit-compose", version.ref =
 
 # Multiplatform Settings
 multiplatform-settings-core = { module = "com.russhwolf:multiplatform-settings", version.ref = "multiplatform-settings" }
+multiplatform-settings-no-arg = { module = "com.russhwolf:multiplatform-settings-no-arg", version.ref = "multiplatform-settings" }
 
 # AWS S3 (Cloudflare R2)
 aws-s3 = { module = "aws.sdk.kotlin:s3", version.ref = "aws-sdk" }

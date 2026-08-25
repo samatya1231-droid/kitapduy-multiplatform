@@ -23,6 +23,9 @@ class GlobalAudioController(
     private val _currentBook = MutableStateFlow<Book?>(null)
     val currentBook: StateFlow<Book?> = _currentBook.asStateFlow()
 
+    private val _currentEpisode = MutableStateFlow<com.semtinazizi.kitapduy.model.PodcastEpisode?>(null)
+    val currentEpisode: StateFlow<com.semtinazizi.kitapduy.model.PodcastEpisode?> = _currentEpisode.asStateFlow()
+
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
 
@@ -61,12 +64,48 @@ class GlobalAudioController(
         }
     }
 
-    fun playTrack(book: Book) {
+    fun playTrack(book: Book, isPremium: Boolean = false) {
         _currentBook.value = book
+        _currentEpisode.value = null
         val localPath = fileDownloader.getDownloadedFilePath(book.id + ".mp3")
         val playUrl = localPath ?: book.audioUrl
 
-        audioPlayer.play(playUrl)
+        if (!isPremium && localPath == null && !book.id.startsWith("local_")) {
+            val preRollAd = AudioMediaItem(
+                id = "kitapduy_preroll_ad",
+                url = "https://ancient-shape-df97.samatya231.workers.dev/kitapd%C4%B1ytan%C4%B1t%C4%B1m.wav",
+                title = "KitapDuy Premium",
+                artist = "Sponsorlu İçerik",
+                artworkUrl = "https://firebasestorage.googleapis.com/v0/b/semtinazizi.appspot.com/o/kitapduy_logo.png?alt=media"
+            )
+            val postRollAd = AudioMediaItem(
+                id = "kitapduy_postroll_ad",
+                url = "https://ancient-shape-df97.samatya231.workers.dev/tan%C4%B1t%C4%B1mbiti%C5%9F.wav",
+                title = "KitapDuy Premium",
+                artist = "Sponsorlu İçerik",
+                artworkUrl = "https://firebasestorage.googleapis.com/v0/b/semtinazizi.appspot.com/o/kitapduy_logo.png?alt=media"
+            )
+            val mainItem = AudioMediaItem(
+                id = book.id,
+                url = playUrl,
+                title = book.title,
+                artist = book.author,
+                artworkUrl = book.coverUrl
+            )
+            audioPlayer.playQueue(listOf(preRollAd, mainItem, postRollAd))
+        } else {
+            audioPlayer.play(playUrl)
+        }
+
+        _isPlaying.value = true
+        _playbackSpeed.value = 1.0f
+        audioPlayer.setPlaybackSpeed(1.0f)
+    }
+
+    fun playPodcastEpisode(episode: com.semtinazizi.kitapduy.model.PodcastEpisode) {
+        _currentEpisode.value = episode
+        _currentBook.value = null
+        audioPlayer.play(episode.audioUrl)
         _isPlaying.value = true
         _playbackSpeed.value = 1.0f
         audioPlayer.setPlaybackSpeed(1.0f)

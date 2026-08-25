@@ -9,8 +9,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+import io.ktor.client.HttpClient
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
+import com.semtinazizi.kitapduy.model.ScienceArticle
+
 class HomeViewModel(
-    private val bookRepository: BookRepository
+    private val bookRepository: BookRepository,
+    private val httpClient: HttpClient
 ) : ViewModel() {
 
     private val _books = MutableStateFlow<List<Book>>(emptyList())
@@ -49,6 +55,12 @@ class HomeViewModel(
     private val _showTrailerCTA = MutableStateFlow(false)
     val showTrailerCTA: StateFlow<Boolean> = _showTrailerCTA.asStateFlow()
 
+    private val _articles = MutableStateFlow<List<ScienceArticle>>(emptyList())
+    val articles: StateFlow<List<ScienceArticle>> = _articles.asStateFlow()
+
+    private val _weeklyStars = MutableStateFlow<List<Book>>(emptyList())
+    val weeklyStars: StateFlow<List<Book>> = _weeklyStars.asStateFlow()
+
     init {
         loadInitialData()
     }
@@ -57,32 +69,40 @@ class HomeViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             
-            // Kitapları yükle
-            val fetchedBooks = bookRepository.getBooks()
-            _books.value = fetchedBooks
-            
-            // Podcastleri yükle
-            val fetchedPodcasts = bookRepository.getPodcasts()
-            _podcasts.value = fetchedPodcasts
-            
-            // Kategorilere göre grupla
-            val grouped = fetchedBooks.groupBy { it.category }.filterKeys { it.isNotBlank() }
-            _groupedBooks.value = grouped
-            
-            _recommendedBooks.value = fetchedBooks.shuffled().take(10)
-            
-            // Günlük içerikler
-            _dailySummary.value = bookRepository.getDailySummary()
-            
-            val quote = bookRepository.getDailyQuote()
-            if (quote != null) {
-                _dailyQuote.value = quote
-            } else {
-                // Yedek alıntı
-                _dailyQuote.value = Triple("Bir kitap okudum ve hayatım değişti.", "Orhan Pamuk", "Yeni Hayat")
-            }
+            try {
+                // Kitapları ve Podcastleri paralel yükleyelim
+                launch {
+                    try {
+                        val fetchedBooks = bookRepository.getBooks()
+                        _books.value = fetchedBooks
+                        _weeklyStars.value = fetchedBooks.sortedByDescending { it.viewCount }.take(5)
+                        val grouped = fetchedBooks.groupBy { if (it.category.isBlank()) "Genel" else it.category }
+                        _groupedBooks.value = grouped
+                        _recommendedBooks.value = fetchedBooks.shuffled().take(10)
+                    } catch (e: Exception) { println("HomeVM Books Error: ${e.message}") }
+                }
+                
+                launch {
+                    try {
+                        println("HomeViewModel: Starting podcast fetch...")
+                        val fetchedPodcasts = bookRepository.getPodcasts()
+                        println("HomeViewModel: Received ${fetchedPodcasts.size} podcasts from repository")
+                        _podcasts.value = fetchedPodcasts
+                    } catch (e: Exception) { println("HomeVM Podcasts Error: ${e.message}") }
+                }
 
-            _isLoading.value = false
+                // Makaleler ve diğerleri
+                fetchArticles()
+                _dailySummary.value = bookRepository.getDailySummary()
+                _dailyQuote.value = bookRepository.getDailyQuote() ?: Triple("Bir kitap okuyan her şeyi okuyabilir.", "Sabahattin Ali", "Kürk Mantolu Madonna")
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                // Not: Paralel launch'lar bitene kadar beklemek gerekirse join() kullanılır. 
+                // Şimdilik ana akış isLoading'i kapatsın.
+                _isLoading.value = false
+            }
         }
     }
 
@@ -99,5 +119,70 @@ class HomeViewModel(
 
     fun filterByCategory(category: String) {
         _selectedCategory.value = category
+    }
+
+    private suspend fun fetchArticles() = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+        val allArticles = mutableListOf<ScienceArticle>()
+        try {
+            allArticles.addAll(parseRssFeed("https://dusunbil.com/feed/", "Düşünbil"))
+            allArticles.addAll(parseRssFeed("https://arkeofili.com/feed/", "Arkeofili"))
+            allArticles.addAll(parseRssFeed("https://sarkac.org/feed/", "Sarkaç"))
+            allArticles.addAll(parseRssFeed("https://khosann.com/feed/", "Khosann"))
+            
+            _articles.value = allArticles.distinctBy { it.title }.shuffled().take(20)
+        } catch (e: Exception) {
+            println("Science Articles error: ${e.message}")
+        }
+    }
+
+    private suspend fun parseRssFeed(urlString: String, sourceName: String): List<ScienceArticle> {
+        val resultList = mutableListOf<ScienceArticle>()
+        try {
+            val responseText: String = httpClient.get(urlString).bodyAsText()
+            
+            val itemRegex = "<item>(.*?)</item>".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+            val titleRegex = "<title>(.*?)</title>".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+            val linkRegex = "<link>(.*?)</link>".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+            val descriptionRegex = "<description><!\\[CDATA\\[(.*?)]]></description>".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+            val altDescRegex = "<description>(.*?)</description>".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+            val imgRegex = "<img[^>]+src\\s*=\\s*['\"]([^'\"]+)['\"][^>]*>".toRegex(RegexOption.IGNORE_CASE)
+            
+            val items = itemRegex.findAll(responseText)
+            for (itemMatch in items) {
+                val itemContent = itemMatch.groupValues[1]
+                val title = titleRegex.find(itemContent)?.groupValues?.get(1)?.replace("<![CDATA[", "")?.replace("]]>", "")?.trim() ?: continue
+                val link = linkRegex.find(itemContent)?.groupValues?.get(1)?.trim() ?: continue
+                
+                var desc = descriptionRegex.find(itemContent)?.groupValues?.get(1) ?: altDescRegex.find(itemContent)?.groupValues?.get(1) ?: ""
+                desc = desc.replace(Regex("<[^>]*>"), "")
+                desc = desc.replace("<![CDATA[", "").replace("]]>", "")
+                desc = desc.replace("&nbsp;", " ")
+                
+                var imageUrl = imgRegex.find(itemContent)?.groupValues?.get(1) ?: ""
+                if (imageUrl.isBlank()) {
+                    imageUrl = when (sourceName) {
+                        "Arkeofili" -> "https://images.unsplash.com/photo-1599733594230-6b823276abcc?q=80&w=2070"
+                        "Düşünbil" -> "https://images.unsplash.com/photo-1507413245164-6160d8298b31?q=80&w=2070"
+                        "Sarkaç" -> "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072"
+                        "Khosann" -> "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?q=80&w=2070"
+                        else -> "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&w=1973"
+                    }
+                }
+                
+                resultList.add(
+                    ScienceArticle(
+                        id = link,
+                        title = title,
+                        description = desc.take(150) + "...",
+                        imageUrl = imageUrl,
+                        source = sourceName,
+                        link = link
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            println("Parser error for $sourceName: ${e.message}")
+        }
+        return resultList
     }
 }

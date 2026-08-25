@@ -181,7 +181,9 @@ class KitapBilScreen(
                             primaryColor = Color(0xFF1DB954), // Spotify Green
                             badgeText = "POPÜLER",
                             modifier = Modifier.weight(1f).height(150.dp)
-                        ) { onPodcastClick() }
+                        ) {
+                            navigator.push(PodcastListScreen())
+                        }
                     }
                 }
 

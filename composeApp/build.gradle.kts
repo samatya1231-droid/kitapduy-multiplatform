@@ -88,6 +88,7 @@ kotlin {
             
             // Settings
             implementation(libs.multiplatform.settings.core)
+            implementation(libs.multiplatform.settings.no.arg)
         }
 
         // ─────────────────────────────────────────────────
@@ -164,6 +165,8 @@ android {
         val cfPublicUrl = "\"${localProperties.getProperty("CF_PUBLIC_URL") ?: ""}\""
         val cfWorkerUrl = "\"${localProperties.getProperty("CF_WORKER_URL") ?: ""}\""
         val cfUploadToken = "\"${localProperties.getProperty("CF_UPLOAD_TOKEN") ?: ""}\""
+        val cfAccessKey = "\"${localProperties.getProperty("CF_ACCESS_KEY") ?: ""}\""
+        val cfSecretKey = "\"${localProperties.getProperty("CF_SECRET_KEY") ?: ""}\""
 
         buildConfigField("String", "SUPABASE_URL", supabaseUrl)
         buildConfigField("String", "SUPABASE_KEY", supabaseKey)
@@ -171,6 +174,8 @@ android {
         buildConfigField("String", "CF_PUBLIC_URL", cfPublicUrl)
         buildConfigField("String", "CF_WORKER_URL", cfWorkerUrl)
         buildConfigField("String", "CF_UPLOAD_TOKEN", cfUploadToken)
+        buildConfigField("String", "CF_ACCESS_KEY", cfAccessKey)
+        buildConfigField("String", "CF_SECRET_KEY", cfSecretKey)
     }
 
     buildTypes {

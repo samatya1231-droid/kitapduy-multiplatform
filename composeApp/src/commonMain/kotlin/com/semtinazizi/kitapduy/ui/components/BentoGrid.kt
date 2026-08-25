@@ -171,7 +171,7 @@ fun BentoItem(
                 Column {
                     Text(
                         text = title,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = Color.White,
                         fontSize = 16.sp,
                         fontFamily = PlayfairDisplayFamily,
                         fontWeight = FontWeight.Bold,
@@ -180,7 +180,7 @@ fun BentoItem(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = subtitle,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        color = Color.White.copy(alpha = 0.6f),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         letterSpacing = 0.1.sp
