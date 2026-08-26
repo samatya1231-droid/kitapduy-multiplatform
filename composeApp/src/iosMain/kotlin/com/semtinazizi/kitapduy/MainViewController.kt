@@ -12,8 +12,12 @@ import org.koin.core.context.startKoin
  */
 fun MainViewController() = ComposeUIViewController(
     configure = {
-        startKoin {
-            modules(appModules)
+        try {
+            startKoin {
+                modules(appModules)
+            }
+        } catch (e: Throwable) {
+            println("Koin error or already started: ${e.message}")
         }
     }
 ) {

@@ -15,26 +15,34 @@ actual object DailyQuoteScheduler {
     private val client = HttpClient()
 
     actual fun scheduleDaily(context: Any?) {
-        // iOS requests permission and schedules ahead of time
-        val center = UNUserNotificationCenter.currentNotificationCenter()
-        
-        center.requestAuthorizationWithOptions(
-            UNAuthorizationOptionAlert or UNAuthorizationOptionSound
-        ) { granted, error ->
-            if (granted) {
-                // Fetch and schedule in background
-                @OptIn(DelicateCoroutinesApi::class)
-                GlobalScope.launch(Dispatchers.Default) {
-                    try {
-                        val quotes = fetchQuotesFromFirestore()
-                        if (quotes.isNotEmpty()) {
-                            scheduleNotificationsForNextDays(quotes, center)
+        try {
+            // iOS requests permission and schedules ahead of time
+            val center = UNUserNotificationCenter.currentNotificationCenter()
+            
+            center.requestAuthorizationWithOptions(
+                UNAuthorizationOptionAlert or UNAuthorizationOptionSound
+            ) { granted, error ->
+                try {
+                    if (granted) {
+                        // Fetch and schedule in background
+                        @OptIn(DelicateCoroutinesApi::class)
+                        GlobalScope.launch(Dispatchers.Default) {
+                            try {
+                                val quotes = fetchQuotesFromFirestore()
+                                if (quotes.isNotEmpty()) {
+                                    scheduleNotificationsForNextDays(quotes, center)
+                                }
+                            } catch (e: Throwable) {
+                                println("Failed to fetch/schedule iOS quotes: ${e.message}")
+                            }
                         }
-                    } catch (e: Exception) {
-                        println("Failed to fetch/schedule iOS quotes: ${e.message}")
                     }
+                } catch (e: Throwable) {
+                    println("Crash in auth block: ${e.message}")
                 }
             }
+        } catch (e: Throwable) {
+            println("Crash in scheduleDaily: ${e.message}")
         }
     }
 

@@ -1,0 +1,55 @@
+﻿
+08-23 07:43:10.182  8216  8216 W System.err: SLF4J(W): No SLF4J providers were found.
+08-23 07:43:10.182  8216  8216 W System.err: SLF4J(W): Defaulting to no-operation (NOP) logger implementation
+08-23 07:43:10.182  8216  8216 W System.err: SLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further det
+ails.
+08-23 07:43:39.579  8216  8216 D AuthDebug: signInAnonymously START: email=guest_1787471019579@kitapduy.app
+08-23 07:43:42.124  8216  8216 E AuthDebug: signInAnonymously EXCEPTION: email_address_invalid (Email address "guest_17
+87471019579@kitapduy.app" is invalid: email_address_invalid)
+08-23 07:43:42.124  8216  8216 E AuthDebug: URL: https://hojyvyuoafjogefhtrgg.supabase.co/auth/v1/signup?redirect_to=ki
+tapduy%3A%2F%2Flogin-callback
+08-23 07:43:42.124  8216  8216 E AuthDebug: Headers: [Authorization=[Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3
+MiOiJzdXBhYmFzZSIsInJlZiI6Imhvanl2eXVvYWZqb2dlZmh0cmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNTg2NzIsImV4cCI6MjA4NjkzNDY3M
+n0.8Ia4a5wwzL_XYbhMW7pOztZfqwoGKoK_Mom1cqv7z2Q], apikey=[eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
+nJlZiI6Imhvanl2eXVvYWZqb2dlZmh0cmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNTg2NzIsImV4cCI6MjA4NjkzNDY3Mn0.8Ia4a5wwzL_XYbhM
+W7pOztZfqwoGKoK_Mom1cqv7z2Q], X-Client-Info=[supabase-kt/3.1.4], Accept=[application/json], Accept-Charset=[UTF-8]]
+08-23 07:43:42.124  8216  8216 E AuthDebug: Http Method: POST
+08-23 07:43:42.124  8216  8216 W System.err: io.github.jan.supabase.auth.exception.AuthRestException: email_address_inv
+alid (Email address "guest_1787471019579@kitapduy.app" is invalid: email_address_invalid)
+08-23 07:43:42.124  8216  8216 W System.err: URL: https://hojyvyuoafjogefhtrgg.supabase.co/auth/v1/signup?redirect_to=k
+itapduy%3A%2F%2Flogin-callback
+08-23 07:43:42.124  8216  8216 W System.err: Headers: [Authorization=[Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc
+3MiOiJzdXBhYmFzZSIsInJlZiI6Imhvanl2eXVvYWZqb2dlZmh0cmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNTg2NzIsImV4cCI6MjA4NjkzNDY3
+Mn0.8Ia4a5wwzL_XYbhMW7pOztZfqwoGKoK_Mom1cqv7z2Q], apikey=[eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIs
+InJlZiI6Imhvanl2eXVvYWZqb2dlZmh0cmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNTg2NzIsImV4cCI6MjA4NjkzNDY3Mn0.8Ia4a5wwzL_XYbh
+MW7pOztZfqwoGKoK_Mom1cqv7z2Q], X-Client-Info=[supabase-kt/3.1.4], Accept=[application/json], Accept-Charset=[UTF-8]]
+08-23 07:43:42.124  8216  8216 W System.err: Http Method: POST
+08-23 07:43:42.124  8216  8216 W System.err: 	at io.github.jan.supabase.auth.AuthImpl.checkErrorCodes(AuthImpl.kt:555)
+08-23 07:43:42.124  8216  8216 W System.err: 	at io.github.jan.supabase.auth.AuthImpl.parseErrorResponse(AuthImpl.kt:52
+3)
+08-23 07:43:42.124  8216  8216 W System.err: 	at io.github.jan.supabase.auth.AuthenticatedSupabaseApiKt$authenticatedSu
+pabaseApi$3.invoke(AuthenticatedSupabaseApi.kt:60)
+08-23 07:43:42.124  8216  8216 W System.err: 	at io.github.jan.supabase.auth.AuthenticatedSupabaseApiKt$authenticatedSu
+pabaseApi$3.invoke(AuthenticatedSupabaseApi.kt:60)
+08-23 07:43:42.124  8216  8216 W System.err: 	at io.github.jan.supabase.network.SupabaseApi.rawRequest$suspendImpl(Supa
+baseApi.kt:25)
+08-23 07:43:42.125  8216  8216 W System.err: 	at io.github.jan.supabase.network.SupabaseApi$rawRequest$1.invokeSuspend(
+Unknown Source:15)
+08-23 07:43:42.125  8216  8216 W System.err: 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(Continu
+ationImpl.kt:33)
+08-23 07:43:42.125  8216  8216 W System.err: 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+08-23 07:43:42.125  8216  8216 W System.err: 	at androidx.compose.ui.platform.AndroidUiDispatcher.performTrampolineDisp
+atch(AndroidUiDispatcher.android.kt:79)
+08-23 07:43:42.125  8216  8216 W System.err: 	at androidx.compose.ui.platform.AndroidUiDispatcher.access$performTrampol
+ineDispatch(AndroidUiDispatcher.android.kt:41)
+08-23 07:43:42.125  8216  8216 W System.err: 	at androidx.compose.ui.platform.AndroidUiDispatcher$dispatchCallback$1.ru
+n(AndroidUiDispatcher.android.kt:57)
+08-23 07:43:42.125  8216  8216 W System.err: 	at android.os.Handler.handleCallback(Handler.java:995)
+08-23 07:43:42.125  8216  8216 W System.err: 	at android.os.Handler.dispatchMessage(Handler.java:103)
+08-23 07:43:42.125  8216  8216 W System.err: 	at android.os.Looper.loopOnce(Looper.java:248)
+08-23 07:43:42.125  8216  8216 W System.err: 	at android.os.Looper.loop(Looper.java:338)
+08-23 07:43:42.125  8216  8216 W System.err: 	at android.app.ActivityThread.main(ActivityThread.java:9067)
+08-23 07:43:42.125  8216  8216 W System.err: 	at java.lang.reflect.Method.invoke(Native Method)
+08-23 07:43:42.125  8216  8216 W System.err: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeIni
+t.java:593)
+08-23 07:43:42.125  8216  8216 W System.err: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:932)
