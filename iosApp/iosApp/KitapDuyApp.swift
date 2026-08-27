@@ -1,8 +1,12 @@
 import SwiftUI
 import ComposeApp
+import GoogleMobileAds
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+        // Initialize AdMob
+        GADMobileAds.sharedInstance().start(completionHandler: nil)
+
         // OneSignal Initialization will go here
         // OneSignal.initialize("4bc4bc20-ea45-4c6f-9b22-e2dfca6beac5", withLaunchOptions: launchOptions)
         return true
@@ -30,6 +34,9 @@ struct KitapDuyApp: App {
             cfAccountId: Bundle.main.infoDictionary?["CF_ACCOUNT_ID"] as? String ?? "",
             cfPublicUrl: Bundle.main.infoDictionary?["CF_PUBLIC_URL"] as? String ?? ""
         )
+
+        // AdMob Bridge setup
+        AdMobBridge.setup()
     }
     
     var body: some Scene {

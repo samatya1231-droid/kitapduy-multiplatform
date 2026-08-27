@@ -33,34 +33,11 @@ class IosAudioPlayer : AudioPlayer {
     }
 
     private fun setupRemoteCommandCenter() {
-        val commandCenter = MPRemoteCommandCenter.sharedCommandCenter()
-        
-        commandCenter.playCommand.addTargetWithHandler { _ ->
-            resume()
-            MPRemoteCommandHandlerStatusSuccess
-        }
-        
-        commandCenter.pauseCommand.addTargetWithHandler { _ ->
-            pause()
-            MPRemoteCommandHandlerStatusSuccess
-        }
+        // Devre disi birakildi - iOS'ta arka plan thread'inde crash'e sebep oluyor
     }
 
     private fun updateNowPlayingInfo() {
-        val duration = getDuration() / 1000.0
-        val position = getCurrentPosition() / 1000.0
-        val isPlaying = isPlaying()
-        
-        val info = mutableMapOf<Any?, Any?>()
-        info[MPMediaItemPropertyTitle] = currentTitle.ifEmpty { "KitapDuy" }
-        info[MPMediaItemPropertyArtist] = currentArtist.ifEmpty { "Sesli Kitap" }
-        if (duration > 0) {
-            info[MPMediaItemPropertyPlaybackDuration] = duration
-        }
-        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = position
-        info[MPNowPlayingInfoPropertyPlaybackRate] = if (isPlaying) 1.0 else 0.0
-
-        MPNowPlayingInfoCenter.defaultCenter().nowPlayingInfo = info
+        // Devre disi birakildi - iOS'ta arka plan thread'inde crash'e sebep oluyor
     }
 
     override fun play(url: String) {

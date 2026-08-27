@@ -38,6 +38,6 @@ fun initializeIOSConfig(
     IOSBuildConfig.CF_ACCOUNT_ID = cfAccountId
     IOSBuildConfig.CF_PUBLIC_URL = cfPublicUrl
     
-    // Zamanlanmış günlük alıntı bildirimlerini başlat
-    DailyQuoteScheduler.scheduleDaily(null)
+    // Zamanlanmis gunluk alinti bildirimleri iOS'ta crash yaptigi icin gecici olarak devre disi birakildi
+    // DailyQuoteScheduler.scheduleDaily(null)
 }

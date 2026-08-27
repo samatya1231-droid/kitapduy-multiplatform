@@ -98,48 +98,7 @@ data class BookDetailScreen(val book: Book) : Screen {
         }
 
         Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            // Ambient Glow (Arkaplan Aurası)
-            AsyncImage(
-                model = book.coverUrl,
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .scale(1.2f)
-                    .blur(120.dp)
-                    .alpha(0.15f),
-                contentScale = ContentScale.Crop
-            )
-
-            // Collapsing Parallax Header
-            val parallaxOffset = -(scrollState.value.toFloat() * 0.4f)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(480.dp)
-                    .graphicsLayer { translationY = parallaxOffset }
-            ) {
-                AsyncImage(
-                    model = book.coverUrl,
-                    contentDescription = book.title,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-                // Vignette Karartma
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Black.copy(alpha = 0.2f),
-                                    Color.Transparent,
-                                    MaterialTheme.colorScheme.background.copy(alpha = 0.9f),
-                                    MaterialTheme.colorScheme.background
-                                )
-                            )
-                        )
-                )
-            }
+            BookParallaxHeader(book = book, scrollState = scrollState)
 
             Column(modifier = Modifier.fillMaxSize().verticalScroll(scrollState)) {
                 Spacer(Modifier.height(380.dp))
@@ -163,153 +122,38 @@ data class BookDetailScreen(val book: Book) : Screen {
                         )
                         Spacer(Modifier.height(16.dp))
 
-                        // Bento Box İstatistikler
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            // Yazar
-                            Surface(
-                                modifier = Modifier.weight(1f).height(72.dp),
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-                                shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                            ) {
-                                Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(Icons.Default.Person, null, tint = BrandGold, modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(text = book.author, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                }
-                            }
-                            // Kategori
-                            Surface(
-                                modifier = Modifier.weight(1f).height(72.dp),
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-                                shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                            ) {
-                                Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(Icons.Default.Category, null, tint = PremiumAccent, modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(text = book.category.ifBlank { "Roman" }, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                }
-                            }
-                            // Dinleyici/Görüntüleme
-                            Surface(
-                                modifier = Modifier.weight(1f).height(72.dp),
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-                                shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                            ) {
-                                Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                                    val infiniteTransition = rememberInfiniteTransition()
-                                    val pulseAlpha by infiniteTransition.animateFloat(
-                                        initialValue = 0.2f, targetValue = 1f,
-                                        animationSpec = infiniteRepeatable(tween(1000), RepeatMode.Reverse)
-                                    )
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color.Red.copy(alpha = pulseAlpha)))
-                                        Spacer(Modifier.width(4.dp))
-                                        Icon(Icons.Default.Headset, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                                    }
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(text = "$activeListeners", color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
+                        BookInfoSection(book = book, activeListeners = activeListeners)
 
                         Spacer(Modifier.height(24.dp))
 
-                        // Premium Banner
-                        if (!isPremium) {
-                            PremiumTrialBanner(
-                                onClick = { navigator.push(SubscriptionPaywallScreen()) },
-                                modifier = Modifier.padding(horizontal = 24.dp)
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            BannerAdView(modifier = Modifier.padding(horizontal = 24.dp))
-                            Spacer(Modifier.height(24.dp))
-                        }
+                        PremiumAndAdsSection(
+                            isPremium = isPremium,
+                            onPremiumClick = { navigator.push(SubscriptionPaywallScreen()) }
+                        )
 
-                        // Player Kontrolleri
-                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-                            // Slider
-                            Slider(
-                                value = currentPosition,
-                                onValueChange = { audioController.seekTo(it) },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = SliderDefaults.colors(
-                                    thumbColor = BrandGold,
-                                    activeTrackColor = BrandGold,
-                                    inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                                )
-                            )
-                            // Butonlar
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                IconButton(onClick = { audioController.seekTo((currentPosition - 0.05f).coerceAtLeast(0f)) }) {
-                                    Icon(Icons.Default.FastRewind, contentDescription = "Geri")
-                                }
-                                Spacer(modifier = Modifier.width(16.dp))
-                                FloatingActionButton(
-                                    onClick = { 
-                                        if (currentBook?.id == book.id) {
-                                            audioController.togglePlayPause()
-                                        } else {
-                                            audioController.playTrack(book, isPremium)
-                                        }
-                                    },
-                                    containerColor = BrandGold,
-                                    shape = CircleShape,
-                                    modifier = Modifier.size(64.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (isPlaying && currentBook?.id == book.id) Icons.Default.Pause else Icons.Default.PlayArrow, 
-                                        contentDescription = "Oynat/Duraklat", 
-                                        tint = Color.Black,
-                                        modifier = Modifier.size(32.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(16.dp))
-                                IconButton(onClick = { audioController.seekTo((currentPosition + 0.05f).coerceAtMost(1f)) }) {
-                                    Icon(Icons.Default.FastForward, contentDescription = "İleri")
-                                }
-                            }
-                        }
+                        AudioPlayerControls(
+                            audioController = audioController,
+                            currentPosition = currentPosition,
+                            isPlaying = isPlaying,
+                            currentBook = currentBook,
+                            book = book,
+                            isPremium = isPremium
+                        )
 
                         Spacer(Modifier.height(32.dp))
 
-                        // Yeni Action Bar (Oynatıcı Özel İkonları)
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { viewModel.toggleLike(book.id, userId) }) {
-                                Icon(if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, tint = if (isLiked) Color.Red else MaterialTheme.colorScheme.onSurface)
-                                Text("$likeCount", fontSize = 12.sp)
-                            }
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { showSpeedDialog = true }) {
-                                Icon(Icons.Default.Speed, null, tint = MaterialTheme.colorScheme.onSurface)
-                                Text("${currentSpeed}x", fontSize = 12.sp)
-                            }
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { showAtmosphereDialog = true }) {
-                                Icon(Icons.Default.Air, null, tint = MaterialTheme.colorScheme.onSurface)
-                                Text("Atmosfer", fontSize = 12.sp)
-                            }
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { showTimerDialog = true }) {
-                                Icon(Icons.Default.Timer, null, tint = MaterialTheme.colorScheme.onSurface)
-                                Text("Uyku", fontSize = 12.sp)
-                            }
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { 
-                                showQuoteDialog = true
-                            }) {
-                                Icon(Icons.Default.FormatQuote, null, tint = MaterialTheme.colorScheme.onSurface)
-                                Text("Alıntı", fontSize = 12.sp)
-                            }
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { 
+                        BookActionBar(
+                            isLiked = isLiked,
+                            likeCount = likeCount,
+                            currentSpeed = currentSpeed,
+                            isDownloading = isDownloading,
+                            isDownloaded = audioController.isDownloaded(book.id),
+                            onToggleLike = { viewModel.toggleLike(book.id, userId) },
+                            onShowSpeedDialog = { showSpeedDialog = true },
+                            onShowAtmosphereDialog = { showAtmosphereDialog = true },
+                            onShowTimerDialog = { showTimerDialog = true },
+                            onShowQuoteDialog = { showQuoteDialog = true },
+                            onDownloadClick = {
                                 if (isPremium) {
                                     if (!audioController.isDownloaded(book.id)) {
                                         audioController.downloadCurrentBook {}
@@ -317,151 +161,458 @@ data class BookDetailScreen(val book: Book) : Screen {
                                 } else {
                                     navigator.push(SubscriptionPaywallScreen())
                                 }
-                            }) {
-                                Icon(if (audioController.isDownloaded(book.id)) Icons.Default.DownloadDone else Icons.Default.Download, null, tint = MaterialTheme.colorScheme.onSurface)
-                                Text(if (isDownloading) "İndiriliyor" else "İndir", fontSize = 12.sp)
                             }
-                        }
+                        )
 
                         Spacer(Modifier.height(32.dp))
 
-                        // Açıklama Bölümü
-                        Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-                            Text("Hakkında", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                text = book.description.ifEmpty { "Bu kitap hakkında henüz bir açıklama eklenmemiş." },
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
-                                lineHeight = 24.sp,
-                                maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 4,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.clickable { isDescriptionExpanded = !isDescriptionExpanded }
-                            )
-                            if (book.description.length > 150) {
-                                Text(
-                                    text = if (isDescriptionExpanded) "Daha az göster" else "Devamını oku",
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.clickable { isDescriptionExpanded = !isDescriptionExpanded }.padding(top = 4.dp)
-                                )
-                            }
-                        }
+                        BookDescriptionSection(
+                            description = book.description,
+                            isExpanded = isDescriptionExpanded,
+                            onToggleExpand = { isDescriptionExpanded = !isDescriptionExpanded }
+                        )
 
                         Spacer(Modifier.height(40.dp))
 
-                        // Yorumlar Bölümü
-                        Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-                            Text(text = "Yorumlar (${comments.size})", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(16.dp))
-                            
-                            // Yorum Yazma Alanı
-                            OutlinedTextField(
-                                value = commentText,
-                                onValueChange = { commentText = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                placeholder = { Text("Ne düşünüyorsun?") },
-                                shape = RoundedCornerShape(24.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = BrandGold,
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(0.1f)
-                                ),
-                                trailingIcon = {
-                                    IconButton(onClick = {
-                                        if (commentText.isNotBlank()) {
-                                            viewModel.addComment(book.id, book.title, book.coverUrl, commentText, userProfile?.photoUrl, isPremium, userId, userName)
-                                            commentText = ""
-                                        }
-                                    }) {
-                                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Gönder", tint = BrandGold)
-                                    }
+                        BookCommentsSection(
+                            comments = comments,
+                            commentText = commentText,
+                            onCommentTextChange = { commentText = it },
+                            onSendComment = {
+                                if (commentText.isNotBlank()) {
+                                    viewModel.addComment(
+                                        book.id,
+                                        book.title,
+                                        book.coverUrl,
+                                        commentText,
+                                        userProfile?.photoUrl,
+                                        isPremium,
+                                        userId,
+                                        userName
+                                    )
+                                    commentText = ""
                                 }
-                            )
-                            Spacer(Modifier.height(24.dp))
-
-                            // Yorum Listesi
-                            comments.forEach { comment ->
-                                CommentItem(
-                                    comment = comment,
-                                    currentUserId = userId,
-                                    bookId = book.id,
-                                    bookTitle = book.title,
-                                    isPremium = comment.isPremium,
-                                    onEditComment = { _, _ -> },
-                                    onDeleteComment = {},
-                                    onToggleLike = {},
-                                    onAddReply = {},
-                                    onLoadReplies = {},
-                                    replies = emptyList(),
-                                    isLoadingReplies = false
-                                )
-                                Spacer(Modifier.height(16.dp))
-                            }
-                        }
+                            },
+                            userId = userId,
+                            bookId = book.id,
+                            bookTitle = book.title
+                        )
                     }
                 }
             }
 
-            // Top Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 48.dp, start = 16.dp, end = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            BookDetailTopBar(onBackClick = { navigator.pop() })
+
+            BookDetailDialogs(
+                showAtmosphereDialog = showAtmosphereDialog,
+                onDismissAtmosphere = { showAtmosphereDialog = false },
+                currentAtmosphere = currentAtmosphere,
+                onAtmosphereSelected = {
+                    currentAtmosphere = it
+                    if (it != null) audioController.playAtmosphere(it, atmosphereVolume)
+                    else audioController.stopAtmosphere()
+                },
+                atmosphereVolume = atmosphereVolume,
+                onAtmosphereVolumeChange = {
+                    atmosphereVolume = it
+                    audioController.setAtmosphereVolume(it)
+                },
+                isPremium = isPremium,
+                onPremiumUpgrade = { navigator.push(SubscriptionPaywallScreen()) },
+                showSpeedDialog = showSpeedDialog,
+                onDismissSpeed = { showSpeedDialog = false },
+                currentSpeed = currentSpeed,
+                onSpeedSelected = { audioController.setPlaybackSpeed(it) },
+                showTimerDialog = showTimerDialog,
+                onDismissTimer = { showTimerDialog = false },
+                timerRemaining = timerRemaining,
+                onTimerSelected = { audioController.startSleepTimer(it) },
+                onCancelTimer = { audioController.cancelSleepTimer() },
+                showQuoteDialog = showQuoteDialog,
+                onDismissQuote = { showQuoteDialog = false },
+                bookTitle = book.title,
+                bookAuthor = book.author
+            )
+        }
+    }
+}
+
+@Composable
+private fun BookDetailTopBar(onBackClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 48.dp, start = 16.dp, end = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(
+            onClick = onBackClick,
+            modifier = Modifier.background(Color.Black.copy(0.4f), CircleShape)
+        ) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri", tint = Color.White)
+        }
+    }
+}
+
+@Composable
+private fun BookDetailDialogs(
+    showAtmosphereDialog: Boolean,
+    onDismissAtmosphere: () -> Unit,
+    currentAtmosphere: String?,
+    onAtmosphereSelected: (String?) -> Unit,
+    atmosphereVolume: Float,
+    onAtmosphereVolumeChange: (Float) -> Unit,
+    isPremium: Boolean,
+    onPremiumUpgrade: () -> Unit,
+    showSpeedDialog: Boolean,
+    onDismissSpeed: () -> Unit,
+    currentSpeed: Float,
+    onSpeedSelected: (Float) -> Unit,
+    showTimerDialog: Boolean,
+    onDismissTimer: () -> Unit,
+    timerRemaining: Int,
+    onTimerSelected: (Int) -> Unit,
+    onCancelTimer: () -> Unit,
+    showQuoteDialog: Boolean,
+    onDismissQuote: () -> Unit,
+    bookTitle: String,
+    bookAuthor: String
+) {
+    if (showAtmosphereDialog) {
+        AtmosphereDialog(
+            onDismiss = onDismissAtmosphere,
+            currentSound = currentAtmosphere,
+            onSoundSelected = onAtmosphereSelected,
+            volume = atmosphereVolume,
+            onVolumeChange = onAtmosphereVolumeChange,
+            isPremiumUser = isPremium,
+            onUpgradeClick = onPremiumUpgrade
+        )
+    }
+    if (showSpeedDialog) {
+        PlaybackSpeedDialog(
+            onDismiss = onDismissSpeed,
+            currentSpeed = currentSpeed,
+            onSpeedSelected = onSpeedSelected
+        )
+    }
+    if (showTimerDialog) {
+        SleepTimerDialog(
+            onDismiss = onDismissTimer,
+            remainingMinutes = timerRemaining,
+            onTimerSelected = onTimerSelected,
+            onCancelTimer = onCancelTimer
+        )
+    }
+    if (showQuoteDialog) {
+        QuoteDialog(
+            onDismiss = onDismissQuote,
+            bookTitle = bookTitle,
+            bookAuthor = bookAuthor,
+            onShare = { /* Paylaşım logic */ }
+        )
+    }
+}
+
+@Composable
+private fun BookParallaxHeader(book: Book, scrollState: ScrollState) {
+    val parallaxOffset = -(scrollState.value.toFloat() * 0.4f)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(480.dp)
+            .graphicsLayer { translationY = parallaxOffset }
+    ) {
+        AsyncImage(
+            model = book.coverUrl,
+            contentDescription = book.title,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+        // Vignette Karartma
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.2f),
+                            Color.Transparent,
+                            MaterialTheme.colorScheme.background.copy(alpha = 0.9f),
+                            MaterialTheme.colorScheme.background
+                        )
+                    )
+                )
+        )
+    }
+
+    // Ambient Glow (Arkaplan Aurası)
+    AsyncImage(
+        model = book.coverUrl,
+        contentDescription = null,
+        modifier = Modifier
+            .fillMaxSize()
+            .scale(1.2f)
+            .blur(120.dp)
+            .alpha(0.15f),
+        contentScale = ContentScale.Crop
+    )
+}
+
+@Composable
+private fun BookInfoSection(book: Book, activeListeners: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Yazar
+        Surface(
+            modifier = Modifier.weight(1f).height(72.dp),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+        ) {
+            Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Default.Person, null, tint = BrandGold, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.height(4.dp))
+                Text(text = book.author, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        // Kategori
+        Surface(
+            modifier = Modifier.weight(1f).height(72.dp),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+        ) {
+            Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Default.Category, null, tint = PremiumAccent, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.height(4.dp))
+                Text(text = book.category.ifBlank { "Roman" }, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        // Dinleyici/Görüntüleme
+        Surface(
+            modifier = Modifier.weight(1f).height(72.dp),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+        ) {
+            Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                val infiniteTransition = rememberInfiniteTransition()
+                val pulseAlpha by infiniteTransition.animateFloat(
+                    initialValue = 0.2f, targetValue = 1f,
+                    animationSpec = infiniteRepeatable(tween(1000), RepeatMode.Reverse)
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color.Red.copy(alpha = pulseAlpha)))
+                    Spacer(Modifier.width(4.dp))
+                    Icon(Icons.Default.Headset, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(text = "$activeListeners", color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PremiumAndAdsSection(isPremium: Boolean, onPremiumClick: () -> Unit) {
+    if (!isPremium) {
+        PremiumTrialBanner(
+            onClick = onPremiumClick,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+        Spacer(Modifier.height(8.dp))
+        BannerAdView(modifier = Modifier.padding(horizontal = 24.dp))
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun AudioPlayerControls(
+    audioController: GlobalAudioController,
+    currentPosition: Float,
+    isPlaying: Boolean,
+    currentBook: Book?,
+    book: Book,
+    isPremium: Boolean
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+        // Slider
+        Slider(
+            value = currentPosition,
+            onValueChange = { audioController.seekTo(it) },
+            modifier = Modifier.fillMaxWidth(),
+            colors = SliderDefaults.colors(
+                thumbColor = BrandGold,
+                activeTrackColor = BrandGold,
+                inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+            )
+        )
+        // Butonlar
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { audioController.seekTo((currentPosition - 0.05f).coerceAtLeast(0f)) }) {
+                Icon(Icons.Default.FastRewind, contentDescription = "Geri")
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            FloatingActionButton(
+                onClick = {
+                    if (currentBook?.id == book.id) {
+                        audioController.togglePlayPause()
+                    } else {
+                        audioController.playTrack(book, isPremium)
+                    }
+                },
+                containerColor = BrandGold,
+                shape = CircleShape,
+                modifier = Modifier.size(64.dp)
             ) {
-                IconButton(
-                    onClick = { navigator.pop() },
-                    modifier = Modifier.background(Color.Black.copy(0.4f), CircleShape)
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri", tint = Color.White)
+                Icon(
+                    imageVector = if (isPlaying && currentBook?.id == book.id) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = "Oynat/Duraklat",
+                    tint = Color.Black,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            IconButton(onClick = { audioController.seekTo((currentPosition + 0.05f).coerceAtMost(1f)) }) {
+                Icon(Icons.Default.FastForward, contentDescription = "İleri")
+            }
+        }
+    }
+}
+
+@Composable
+private fun BookActionBar(
+    isLiked: Boolean,
+    likeCount: Int,
+    currentSpeed: Float,
+    isDownloading: Boolean,
+    isDownloaded: Boolean,
+    onToggleLike: () -> Unit,
+    onShowSpeedDialog: () -> Unit,
+    onShowAtmosphereDialog: () -> Unit,
+    onShowTimerDialog: () -> Unit,
+    onShowQuoteDialog: () -> Unit,
+    onDownloadClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onToggleLike() }) {
+            Icon(if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, tint = if (isLiked) Color.Red else MaterialTheme.colorScheme.onSurface)
+            Text("$likeCount", fontSize = 12.sp)
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onShowSpeedDialog() }) {
+            Icon(Icons.Default.Speed, null, tint = MaterialTheme.colorScheme.onSurface)
+            Text("${currentSpeed}x", fontSize = 12.sp)
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onShowAtmosphereDialog() }) {
+            Icon(Icons.Default.Air, null, tint = MaterialTheme.colorScheme.onSurface)
+            Text("Atmosfer", fontSize = 12.sp)
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onShowTimerDialog() }) {
+            Icon(Icons.Default.Timer, null, tint = MaterialTheme.colorScheme.onSurface)
+            Text("Uyku", fontSize = 12.sp)
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onShowQuoteDialog() }) {
+            Icon(Icons.Default.FormatQuote, null, tint = MaterialTheme.colorScheme.onSurface)
+            Text("Alıntı", fontSize = 12.sp)
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onDownloadClick() }) {
+            Icon(if (isDownloaded) Icons.Default.DownloadDone else Icons.Default.Download, null, tint = MaterialTheme.colorScheme.onSurface)
+            Text(if (isDownloading) "İndiriliyor" else "İndir", fontSize = 12.sp)
+        }
+    }
+}
+
+@Composable
+private fun BookDescriptionSection(
+    description: String,
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit
+) {
+    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+        Text("Hakkında", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = description.ifEmpty { "Bu kitap hakkında henüz bir açıklama eklenmemiş." },
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
+            lineHeight = 24.sp,
+            maxLines = if (isExpanded) Int.MAX_VALUE else 4,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.clickable { onToggleExpand() }
+        )
+        if (description.length > 150) {
+            Text(
+                text = if (isExpanded) "Daha az göster" else "Devamını oku",
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.clickable { onToggleExpand() }.padding(top = 4.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun BookCommentsSection(
+    comments: List<Comment>,
+    commentText: String,
+    onCommentTextChange: (String) -> Unit,
+    onSendComment: () -> Unit,
+    userId: String,
+    bookId: String,
+    bookTitle: String
+) {
+    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+        Text(text = "Yorumlar (${comments.size})", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(16.dp))
+
+        // Yorum Yazma Alanı
+        OutlinedTextField(
+            value = commentText,
+            onValueChange = onCommentTextChange,
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Ne düşünüyorsun?") },
+            shape = RoundedCornerShape(24.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = BrandGold,
+                unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(0.1f)
+            ),
+            trailingIcon = {
+                IconButton(onClick = onSendComment) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Gönder", tint = BrandGold)
                 }
             }
+        )
+        Spacer(Modifier.height(24.dp))
 
-            // Floating Play Buttons removed as they are now in the Action Bar
-
-            if (showAtmosphereDialog) {
-                AtmosphereDialog(
-                    onDismiss = { showAtmosphereDialog = false },
-                    currentSound = currentAtmosphere,
-                    onSoundSelected = { 
-                        currentAtmosphere = it
-                        if (it != null) audioController.playAtmosphere(it, atmosphereVolume)
-                        else audioController.stopAtmosphere()
-                    },
-                    volume = atmosphereVolume,
-                    onVolumeChange = { 
-                        atmosphereVolume = it
-                        audioController.setAtmosphereVolume(it)
-                    },
-                    isPremiumUser = isPremium,
-                    onUpgradeClick = { navigator.push(SubscriptionPaywallScreen()) }
-                )
-            }
-            if (showSpeedDialog) {
-                PlaybackSpeedDialog(
-                    onDismiss = { showSpeedDialog = false },
-                    currentSpeed = currentSpeed,
-                    onSpeedSelected = { audioController.setPlaybackSpeed(it) }
-                )
-            }
-            if (showTimerDialog) {
-                SleepTimerDialog(
-                    onDismiss = { showTimerDialog = false },
-                    remainingMinutes = timerRemaining,
-                    onTimerSelected = { audioController.startSleepTimer(it) },
-                    onCancelTimer = { audioController.cancelSleepTimer() }
-                )
-            }
-            if (showQuoteDialog) {
-                QuoteDialog(
-                    onDismiss = { showQuoteDialog = false },
-                    bookTitle = book.title,
-                    bookAuthor = book.author,
-                    onShare = { /* Paylaşım logic */ }
-                )
-            }
+        // Yorum Listesi
+        comments.forEach { comment ->
+            CommentItem(
+                comment = comment,
+                currentUserId = userId,
+                bookId = bookId,
+                bookTitle = bookTitle,
+                isPremium = comment.isPremium,
+                onEditComment = { _, _ -> },
+                onDeleteComment = {},
+                onToggleLike = {},
+                onAddReply = {},
+                onLoadReplies = {},
+                replies = emptyList(),
+                isLoadingReplies = false
+            )
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
