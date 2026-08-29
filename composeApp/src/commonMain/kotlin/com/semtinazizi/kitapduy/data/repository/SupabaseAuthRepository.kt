@@ -1,4 +1,4 @@
-ï»¿package com.semtinazizi.kitapduy.data.repository
+package com.semtinazizi.kitapduy.data.repository
 
 import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import com.semtinazizi.kitapduy.model.UserProfile
@@ -20,17 +20,17 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
     override suspend fun awaitSessionInitialization() {
         try {
             supabaseClient.auth.awaitInitialization()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
         }
     }
 
     override fun getUserProfileFlow(uid: String): Flow<UserProfile?> = flow {
-        // Normalde Realtime veya akÄ±ÅŸkan bir yapÄ± kurulabilir.
-        // Basitlik adÄ±na tek seferlik Ã§ekip emit ediyoruz. Gerekirse flow mantÄ±ÄŸÄ± geniÅŸletilebilir.
+        // Normalde Realtime veya akýþkan bir yapý kurulabilir.
+        // Basitlik adýna tek seferlik çekip emit ediyoruz. Gerekirse flow mantýðý geniþletilebilir.
         emit(getUserProfile(uid))
         
-        // GerÃ§ekte: supabaseClient.realtime ile tablo dinlenip gÃ¼ncellemeler emit edilir.
+        // Gerçekte: supabaseClient.realtime ile tablo dinlenip güncellemeler emit edilir.
     }
 
     override suspend fun getUserProfile(uid: String): UserProfile? {
@@ -40,7 +40,7 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
                     filter { eq("uid", uid) }
                 }
                 .decodeSingleOrNull<UserProfile>()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
             null
         }
@@ -53,7 +53,7 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
                 this.password = password
             }
             true
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
             false
         }
@@ -66,18 +66,18 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
                 this.password = password
             }
             
-            // EÄŸer kayÄ±t baÅŸarÄ±lÄ±ysa users tablosuna ekle
+            // Eðer kayýt baþarýlýysa users tablosuna ekle
             val uid = supabaseClient.auth.currentUserOrNull()?.id
             if (uid != null) {
                 val newUser = UserProfile(
                     uid = uid,
                     name = name,
-                    bio = "Merhaba, ben yeni bir KitapDuy kullanÄ±cÄ±sÄ±yÄ±m!"
+                    bio = "Merhaba, ben yeni bir KitapDuy kullanýcýsýyým!"
                 )
                 supabaseClient.postgrest["users"].insert(newUser)
             }
             true
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
             false
         }
@@ -85,10 +85,10 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
 
     override suspend fun signInWithGoogle(): Boolean {
         return try {
-            // Web tarayÄ±cÄ±sÄ± Ã¼zerinden Google OAuth baÅŸlatÄ±r ve geri dÃ¶ner
+            // Web tarayýcýsý üzerinden Google OAuth baþlatýr ve geri döner
             supabaseClient.auth.signInWith(io.github.jan.supabase.auth.providers.Google)
             true
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
             false
         }
@@ -112,7 +112,7 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
         return try {
             supabaseClient.auth.signInWith(io.github.jan.supabase.auth.providers.Apple)
             true
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
             false
         }
@@ -130,7 +130,7 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
                     filter { eq("uid", uid) }
                 }
             true
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
             false
         }
@@ -144,7 +144,7 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
                     filter { eq("uid", uid) }
                 }
             true
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
             false
         }
@@ -163,10 +163,10 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
                         uid = uid, 
                         name = safeName, 
                         username = "misafir_${uid.take(5)}",
-                        bio = "Merhaba, ben bir misafir kullanÄ±cÄ±yÄ±m!"
+                        bio = "Merhaba, ben bir misafir kullanýcýyým!"
                     )
                     supabaseClient.postgrest["users"].upsert(profile)
-                } catch (e: Exception) {
+                } catch (e: Throwable) {
                     e.printStackTrace()
                 }
                 true
@@ -174,7 +174,7 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
                 println("Auth Error: Current user is null after signInAnonymously")
                 false
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             println("Auth Error: ${e.message}")
             e.printStackTrace()
             false
@@ -183,7 +183,7 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
     override suspend fun signOut() {
         try {
             supabaseClient.auth.signOut()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
         }
     }

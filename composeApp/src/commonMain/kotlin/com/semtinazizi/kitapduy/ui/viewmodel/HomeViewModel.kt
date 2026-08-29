@@ -79,7 +79,7 @@ class HomeViewModel(
                         val grouped = fetchedBooks.groupBy { if (it.category.isBlank()) "Genel" else it.category }
                         _groupedBooks.value = grouped
                         _recommendedBooks.value = fetchedBooks.shuffled().take(10)
-                    } catch (e: Exception) { println("HomeVM Books Error: ${e.message}") }
+                    } catch (e: Throwable) { println("HomeVM Books Error: ${e.message}") }
                 }
                 
                 launch {
@@ -88,7 +88,7 @@ class HomeViewModel(
                         val fetchedPodcasts = bookRepository.getPodcasts()
                         println("HomeViewModel: Received ${fetchedPodcasts.size} podcasts from repository")
                         _podcasts.value = fetchedPodcasts
-                    } catch (e: Exception) { println("HomeVM Podcasts Error: ${e.message}") }
+                    } catch (e: Throwable) { println("HomeVM Podcasts Error: ${e.message}") }
                 }
 
                 // Makaleler ve diğerleri
@@ -96,7 +96,7 @@ class HomeViewModel(
                 _dailySummary.value = bookRepository.getDailySummary()
                 _dailyQuote.value = bookRepository.getDailyQuote() ?: Triple("Bir kitap okuyan her şeyi okuyabilir.", "Sabahattin Ali", "Kürk Mantolu Madonna")
 
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 e.printStackTrace()
             } finally {
                 // Not: Paralel launch'lar bitene kadar beklemek gerekirse join() kullanılır. 
@@ -130,7 +130,7 @@ class HomeViewModel(
             allArticles.addAll(parseRssFeed("https://khosann.com/feed/", "Khosann"))
             
             _articles.value = allArticles.distinctBy { it.title }.shuffled().take(20)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             println("Science Articles error: ${e.message}")
         }
     }
@@ -180,7 +180,7 @@ class HomeViewModel(
                     )
                 )
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             println("Parser error for $sourceName: ${e.message}")
         }
         return resultList
