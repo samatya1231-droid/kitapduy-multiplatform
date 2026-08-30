@@ -1,6 +1,5 @@
+@file:OptIn(kotlin.experimental.ExperimentalNativeApi::class)
 package com.semtinazizi.kitapduy.platform
-
-import kotlin.native.Platform
 
 /**
  * Kotlin/Native global unhandled exception hook.
