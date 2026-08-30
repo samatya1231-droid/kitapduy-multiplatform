@@ -4,6 +4,7 @@ import androidx.compose.ui.window.ComposeUIViewController
 import com.semtinazizi.kitapduy.di.appModules
 import com.semtinazizi.kitapduy.platform.IOSBuildConfig
 import com.semtinazizi.kitapduy.platform.DailyQuoteScheduler
+import com.semtinazizi.kitapduy.platform.installKotlinExceptionHook
 import org.koin.core.context.startKoin
 
 /**
@@ -12,6 +13,13 @@ import org.koin.core.context.startKoin
  */
 fun MainViewController() = ComposeUIViewController(
     configure = {
+        // Kotlin/Native global exception hook - arka plan thread crash'lerini önler
+        try {
+            installKotlinExceptionHook()
+        } catch (e: Throwable) {
+            println("Exception hook install failed: ${e.message}")
+        }
+
         try {
             startKoin {
                 modules(appModules)
