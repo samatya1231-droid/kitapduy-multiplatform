@@ -75,10 +75,26 @@ workflows:
       - name: Build KMP iOS Release Framework
         script: |
           chmod +x gradlew
+          # Hem linkRelease hem de embedAndSign task'larını önceden çalıştır
+          # Böylece Xcode'un "Compile Kotlin" build phase'i bunları cache'den kullanır
           ./gradlew :composeApp:linkReleaseFrameworkIosArm64 --stacktrace
+          ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode \
+            -PXCODE_ACTION=install \
+            -PSDK_NAME=iphoneos \
+            -PPLATFORM_NAME=iphoneos \
+            -PCONFIGURATION=Release \
+            -PPRODUCT_NAME=iosApp \
+            -PFRAMEWORKS_FOLDER_PATH="Frameworks" \
+            -PEXPANDED_CODE_SIGN_IDENTITY=- \
+            -PEXPANDED_CODE_SIGN_IDENTITY_NAME=- \
+            --stacktrace || true
       - name: Build and Sign IPA
         script: |
           cd iosApp
+          
+          # Xcode build için bellek artır
+          export GRADLE_OPTS="-Xmx8g -XX:MaxMetaspaceSize=512m"
+          export _JAVA_OPTIONS="-Xmx8g"
           
           # Manuel export_options.plist oluştur
           cat <<EOF > /Users/builder/export_options.plist
