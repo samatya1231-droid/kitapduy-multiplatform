@@ -72,16 +72,9 @@ workflows:
           keychain initialize
           keychain add-certificates
           xcode-project use-profiles
-      - name: Build KMP iOS Release Framework
-        script: |
-          chmod +x gradlew
-          ./gradlew :composeApp:linkReleaseFrameworkIosArm64 --stacktrace
       - name: Build and Sign IPA
         script: |
           cd iosApp
-          
-          # CI=true set edildiğinde Xcode'un "Compile Kotlin" build phase'i otomatik atlanır
-          export CI=true
           
           # Manuel export_options.plist oluştur
           cat <<EOF > /Users/builder/export_options.plist
