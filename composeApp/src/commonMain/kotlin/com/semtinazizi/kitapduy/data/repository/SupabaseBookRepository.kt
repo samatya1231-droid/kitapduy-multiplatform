@@ -4,8 +4,38 @@ import com.semtinazizi.kitapduy.domain.repository.BookRepository
 import com.semtinazizi.kitapduy.model.Book
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
-
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 import com.semtinazizi.kitapduy.platform.AppConfig
+
+@Serializable
+private data class BookDto(
+    val id: String? = null,
+    val title: String? = null,
+    val author: String? = null,
+    val category: String? = null,
+    @SerialName("cover_url") val coverUrl: String? = null,
+    @SerialName("audio_url") val audioUrl: String? = null,
+    val description: String? = null,
+    val duration: Long? = null,
+    @SerialName("listen_count") val listenCount: Long? = null,
+    @SerialName("view_count") val viewCount: Int? = null,
+    @SerialName("like_count") val likeCount: Int? = null
+) {
+    fun toBook() = Book(
+        id = id ?: "",
+        title = title ?: "",
+        author = author ?: "",
+        category = category ?: "",
+        coverUrl = coverUrl ?: "",
+        audioUrl = audioUrl ?: "",
+        description = description ?: "",
+        duration = duration ?: 0L,
+        listenCount = listenCount ?: 0L,
+        viewCount = viewCount ?: 0,
+        likeCount = likeCount ?: 0
+    )
+}
 
 class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookRepository {
     
@@ -31,7 +61,7 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
         return try {
             val books = supabaseClient.postgrest["books"]
                 .select()
-                .decodeList<Book>()
+                .decodeList<BookDto>().map { it.toBook() }
             
             books.filter { it.title.isNotBlank() && it.author.isNotBlank() }.map { 
                 it.copy(
@@ -94,7 +124,7 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
                         }
                     }
                 }
-                .decodeList<Book>()
+                .decodeList<BookDto>().map { it.toBook() }
                 
             books.filter { it.title.isNotBlank() && it.author.isNotBlank() }.map { 
                 it.copy(
@@ -113,7 +143,7 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
             println("SupabaseRepository: Fetching from 'podcasts' table...")
             val response = supabaseClient.postgrest["podcasts"].select()
             
-            val podcasts = response.decodeList<com.semtinazizi.kitapduy.model.Podcast>()
+            val podcasts = response.decodeList<com.semtinazizi.kitapduy.model.PodcastDto>().map { it.toPodcast() }
             println("SupabaseRepository: Decoded ${podcasts.size} podcasts")
             
             podcasts.map { it.copy(
@@ -138,7 +168,7 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
                         }
                     }
                 }
-                .decodeList<com.semtinazizi.kitapduy.model.Podcast>()
+                .decodeList<com.semtinazizi.kitapduy.model.PodcastDto>().map { it.toPodcast() }
                 
             podcasts.map { it.copy(
                 imageUrl = fixImageUrl(it.imageUrl),

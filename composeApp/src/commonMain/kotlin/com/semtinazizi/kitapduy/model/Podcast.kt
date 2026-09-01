@@ -14,6 +14,25 @@ data class Podcast(
 )
 
 @Serializable
+data class PodcastDto(
+    val id: String? = null,
+    val name: String? = null,
+    val author: String? = null,
+    @SerialName("rss_url") val rssUrl: String? = null,
+    @SerialName("image_url") val imageUrl: String? = null,
+    val category: String? = null
+) {
+    fun toPodcast() = Podcast(
+        id = id ?: "",
+        name = name ?: "",
+        author = author ?: "",
+        rssUrl = rssUrl ?: "",
+        imageUrl = imageUrl ?: "",
+        category = category ?: ""
+    )
+}
+
+@Serializable
 data class PodcastEpisode(
     val id: String = "",
     val title: String = "",
