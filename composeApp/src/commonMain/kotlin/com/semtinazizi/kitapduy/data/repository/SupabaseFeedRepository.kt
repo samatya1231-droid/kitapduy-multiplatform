@@ -75,8 +75,21 @@ class SupabaseFeedRepository(
 
             posts.map { mapSupabasePostToFeedItem(it) }
         } catch (e: Exception) {
-            println("SupabaseFeedRepository Error: ${e.message}")
-            emptyList()
+            println("FeedRepository Error: ${e.message}")
+            listOf(
+                FeedItem(
+                    id = "error",
+                    userId = "",
+                    userName = "Hata",
+                    userPhotoUrl = "",
+                    bookId = "",
+                    bookTitle = "",
+                    bookCoverUrl = "",
+                    content = e.message ?: "Bilinmeyen Hata",
+                    timestamp = 0L,
+                    type = FeedType.QUOTE
+                )
+            )
         }
     }
     

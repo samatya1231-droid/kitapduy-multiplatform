@@ -71,7 +71,7 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
             }
         } catch (e: Exception) {
             println("GET_BOOKS_ERROR: ${e.stackTraceToString()}")
-            emptyList()
+            listOf(Book(id = "error", title = "Hata", author = e.message ?: "Bilinmeyen Hata"))
         }
     }
 
