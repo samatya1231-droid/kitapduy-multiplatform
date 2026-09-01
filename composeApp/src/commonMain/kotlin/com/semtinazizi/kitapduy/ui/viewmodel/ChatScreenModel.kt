@@ -38,7 +38,8 @@ class ChatScreenModel(
 
     init {
         loadMessages()
-        setupRealtimeSubscription()
+        // Realtime plugin devre dışı - crash önleniyor
+        // setupRealtimeSubscription()
     }
 
     private fun loadMessages() {

@@ -39,7 +39,8 @@ class AskidaViewModel(
     private var activeBookId: String? = null
 
     init {
-        setupBooksRealtimeSubscription()
+        // Realtime plugin devre dışı - sadece fetch kullan
+        // setupBooksRealtimeSubscription()
     }
 
     private fun setupBooksRealtimeSubscription() {

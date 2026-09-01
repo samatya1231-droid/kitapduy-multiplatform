@@ -4,7 +4,6 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
-import io.github.jan.supabase.realtime.Realtime
 import io.github.jan.supabase.storage.Storage
 
 /**
@@ -28,7 +27,11 @@ object SupabaseManager {
             })
             install(Postgrest)
             install(Storage)
-            install(Realtime)
+            // Realtime plugin iOS'ta WebSocket bağlantısı açıyor:
+            // NSURLSession callback'leri GCD utility-qos kuyruğunda çalışıyor
+            // ve exception fırlatınca SIGABRT crash'e neden oluyor.
+            // iOS stabilitesi sağlanana kadar Realtime devre dışı.
+            // install(Realtime)
             install(Auth) {
                 scheme = "kitapduy"
                 host = "login-callback"

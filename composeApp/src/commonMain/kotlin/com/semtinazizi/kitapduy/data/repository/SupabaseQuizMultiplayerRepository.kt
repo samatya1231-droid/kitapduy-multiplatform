@@ -1,4 +1,4 @@
-﻿package com.semtinazizi.kitapduy.data.repository
+package com.semtinazizi.kitapduy.data.repository
 
 import com.semtinazizi.kitapduy.data.model.QuizLeaderboardEntry
 import com.semtinazizi.kitapduy.data.model.QuizMatch
@@ -139,26 +139,8 @@ class SupabaseQuizMultiplayerRepository(
 
     
     override fun observeMatch(matchId: String): Flow<QuizMatch> = kotlinx.coroutines.flow.flow {
-        try {
-            supabaseClient.realtime.connect()
-            val channel = supabaseClient.realtime.channel("public:quiz_matches:$matchId")
-            val flow = channel.postgresChangeFlow<PostgresAction.Update>(schema = "public") {
-                table = "quiz_matches"
-            }
-            channel.subscribe()
-            flow.collect { action ->
-                try {
-                    val jsonStr = action.record.toString()
-                    val match = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString<QuizMatch>(jsonStr)
-                    if (match.matchId == matchId) {
-                        emit(match)
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        // Realtime plugin devre dışı - HTTP polling ile alternatif yapılabilir
+        // Şimdilik boş flow döndürülüyor, crash önleniyor
+        println("observeMatch: Realtime plugin devre dışı")
     }
 }

@@ -7,21 +7,12 @@ import com.semtinazizi.kitapduy.model.SupabaseInsertPost
 import com.semtinazizi.kitapduy.model.SupabasePost
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
-import io.github.jan.supabase.realtime.channel
-import io.github.jan.supabase.realtime.postgresChangeFlow
-import io.github.jan.supabase.realtime.decodeRecord
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
 
 import com.semtinazizi.kitapduy.platform.AppConfig
 
 class SupabaseFeedRepository(
     private val supabaseClient: SupabaseClient
 ) : FeedRepository {
-
-    private var realtimeChannel: io.github.jan.supabase.realtime.RealtimeChannel? = null
-    private var realtimeJob: kotlinx.coroutines.Job? = null
 
     private fun fixUrl(url: String?): String {
         if (url.isNullOrBlank()) return ""
@@ -90,38 +81,12 @@ class SupabaseFeedRepository(
     }
     
     override fun startRealtimeListening(onNewPost: (FeedItem) -> Unit) {
-        realtimeJob?.cancel()
-        
-        realtimeJob = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
-            realtimeChannel?.unsubscribe()
-            try {
-                realtimeChannel = supabaseClient.channel("public:posts_feed")
-                
-                realtimeChannel?.postgresChangeFlow<io.github.jan.supabase.realtime.PostgresAction.Insert>(schema = "public") {
-                    table = "posts"
-                }?.onEach { action ->
-                    val newPost = action.decodeRecord<SupabasePost>()
-                    val feedItem = mapSupabasePostToFeedItem(newPost)
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        onNewPost(feedItem)
-                    }
-                }?.launchIn(this)
-
-                realtimeChannel?.subscribe()
-            } catch (e: Exception) {
-                println("Realtime listening failed: ${e.message}")
-            }
-        }
+        // Realtime plugin iOS'ta crash'e neden olduğu için devre dışı
+        println("FeedRepository: Realtime listening devre dışı (iOS stabilitesi için)")
     }
 
     override fun stopRealtimeListening() {
-        val oldChannel = realtimeChannel
-        realtimeChannel = null
-        realtimeJob?.cancel()
-        realtimeJob = null
-        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.Default) {
-            oldChannel?.unsubscribe()
-        }
+        // Realtime plugin devre dışı - no-op
     }
 
     override suspend fun createPost(
