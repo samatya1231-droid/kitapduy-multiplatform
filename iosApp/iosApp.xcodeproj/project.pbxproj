@@ -170,7 +170,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd \"$SRCROOT/..\"\nif [ \"$CI\" = \"true\" ] || [ -n \"$CODEMAGIC_BUILD_ID\" ]; then\n  export GRADLE_OPTS=\"-Dorg.gradle.daemon=false -Dkotlin.native.jvmArgs=-Xmx4g -Xmx3g\"\n  ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode --no-daemon\nelse\n  ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\nfi\n";
+			shellScript = "cd \"$SRCROOT/..\"\nif [ \"$CI\" = \"true\" ] || [ -n \"$CODEMAGIC_BUILD_ID\" ]; then\n  export GRADLE_OPTS=\"-Dorg.gradle.daemon=false\"\n  ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode --no-daemon\nelse\n  ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
