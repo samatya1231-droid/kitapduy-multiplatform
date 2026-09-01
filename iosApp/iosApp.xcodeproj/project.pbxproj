@@ -170,7 +170,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd \"$SRCROOT/..\"\n./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\n";
+			shellScript = "# CI ortamında (Codemagic) Step 5 zaten framework'ü derledi.\n# Xcode'un tekrar derlemesine gerek yok - bellek yetersizliği önleniyor.\nif [ \"$CI\" = \"true\" ] || [ -n \"$CODEMAGIC_BUILD_ID\" ] || [ \"$SKIP_KOTLIN_COMPILE\" = \"true\" ]; then\n  echo \"CI ortamı tespit edildi: Compile Kotlin adımı atlanıyor (framework zaten derlendi)\"\n  exit 0\nfi\ncd \"$SRCROOT/..\"\n./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
