@@ -35,7 +35,7 @@ object SupabaseManager {
             install(Auth) {
                 scheme = "kitapduy"
                 host = "login-callback"
-                alwaysAutoRefresh = false
+                alwaysAutoRefresh = true
                 sessionManager = AppSessionManager()
             }
         }
