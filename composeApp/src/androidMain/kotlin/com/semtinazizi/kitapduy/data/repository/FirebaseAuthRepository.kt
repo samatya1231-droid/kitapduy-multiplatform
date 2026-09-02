@@ -156,8 +156,10 @@ class FirebaseAuthRepository(
             val updateMap = mutableMapOf<String, Any>()
             if (photoUrl != null) {
                 updateMap["photoUrl"] = photoUrl
+                updateMap["photo_url"] = photoUrl
             } else {
                 updateMap["photoUrl"] = com.google.firebase.firestore.FieldValue.delete()
+                updateMap["photo_url"] = com.google.firebase.firestore.FieldValue.delete()
             }
             db.collection("users").document(uid).update(updateMap).await()
             true

@@ -88,13 +88,15 @@ class ProfileEditScreen : Screen {
                 // Profile Picture Section
                 Box(contentAlignment = Alignment.Center) {
                     SmartImage(
-                        imageUrl = userProfile?.photoUrl ?: "",
+                        imageUrl = userProfile?.photoUrl,
                         modifier = Modifier
                             .size(120.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.surfaceVariant)
                             .clickable { if (!isImageUploading) imagePicker.launch() },
-                        contentDescription = "Profil Fotoğrafı"
+                        contentDescription = "Profil Fotoğrafı",
+                        isAvatar = true,
+                        fallbackText = userProfile?.name ?: ""
                     )
                     
                     if (isImageUploading) {

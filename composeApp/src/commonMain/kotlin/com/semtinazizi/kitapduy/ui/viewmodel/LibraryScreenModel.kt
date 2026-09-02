@@ -39,7 +39,7 @@ class LibraryScreenModel(
                 // Örn: "FAVORITE", "LISTENING", "FINISHED", "DOWNLOADED"
                 val items = bookRepository.getBookshelf(userId = uid, shelfType = shelfType)
                 _bookshelfItems.value = items
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 _errorMessage.value = e.message ?: "Bir hata oluştu."
                 _bookshelfItems.value = emptyList()
             } finally {

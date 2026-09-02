@@ -158,7 +158,8 @@ class UserProfileScreen(val targetUserId: String? = null) : Screen {
                                         .border(4.dp, MaterialTheme.colorScheme.background, CircleShape)
                                         .border(if (isPremium) 6.dp else 4.dp, if (isPremium) BrandGold else Color.Gray.copy(0.3f), CircleShape),
                                     contentScale = ContentScale.Crop,
-                                    isAvatar = true
+                                    isAvatar = true,
+                                    fallbackText = userProfile?.name ?: ""
                                 )
                                 if (isPremium) {
                                     PremiumBadge(modifier = Modifier.align(Alignment.BottomCenter).offset(y = 10.dp))

@@ -60,7 +60,7 @@ class AskidaViewModel(
                 }?.launchIn(screenModelScope)
 
                 booksChannel?.subscribe()
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 // Ignore or log
             }
         }
@@ -82,7 +82,7 @@ class AskidaViewModel(
                         order("timestamp", order = Order.DESCENDING)
                     }.decodeList<AskidaKitap>()
                 _availableBooks.value = books.map { it.copy(imageUrl = fixUrl(it.imageUrl)) }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 // Hata durumu
             } finally {
                 _isLoading.value = false
@@ -107,7 +107,7 @@ class AskidaViewModel(
                         order("timestamp", order = Order.DESCENDING)
                     }.decodeList<AskidaKitap>()
                 _myChats.value = books.map { it.copy(imageUrl = fixUrl(it.imageUrl)) }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 // Hata durumu
             } finally {
                 _isLoading.value = false
@@ -134,7 +134,7 @@ class AskidaViewModel(
                     ) {
                         filter { eq("id", book.id) }
                     }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 // Revert if failed
                 loadAskidaBooks()
                 loadMyChats()
@@ -179,7 +179,7 @@ class AskidaViewModel(
 
                 SupabaseManager.postgrest.from("askida_kitap").insert(newBook)
                 onResult(true)
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 // Revert
                 loadAskidaBooks()
                 onResult(false)
@@ -201,7 +201,7 @@ class AskidaViewModel(
                         order("timestamp", order = Order.ASCENDING)
                     }.decodeList<AskidaMesaj>()
                 _currentChatMessages.value = messages
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 // Hata
             }
         }
@@ -230,7 +230,7 @@ class AskidaViewModel(
                 }?.launchIn(screenModelScope)
 
                 messagesChannel?.subscribe()
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 // Ignore
             }
         }
@@ -252,7 +252,7 @@ class AskidaViewModel(
                 _currentChatMessages.value = _currentChatMessages.value + newMessage
 
                 SupabaseManager.postgrest.from("askida_mesaj").insert(newMessage)
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 // Revert or reload
                 loadChatMessages(bookId)
             }

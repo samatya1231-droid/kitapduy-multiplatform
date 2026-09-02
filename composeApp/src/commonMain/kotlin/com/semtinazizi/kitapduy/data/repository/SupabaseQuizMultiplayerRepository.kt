@@ -27,7 +27,7 @@ class SupabaseQuizMultiplayerRepository(
                     limit(100)
                 }
                 .decodeList<QuizLeaderboardEntry>()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
             emptyList()
         }
@@ -49,7 +49,7 @@ class SupabaseQuizMultiplayerRepository(
             )
             
             supabaseClient.postgrest["quiz_leaderboard"].upsert(newEntry)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
         }
     }
@@ -67,7 +67,7 @@ class SupabaseQuizMultiplayerRepository(
             supabaseClient.postgrest["quiz_matches"]
                 .insert(newMatch) { select() }
                 .decodeSingle<QuizMatch>()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
             null
         }
@@ -87,7 +87,7 @@ class SupabaseQuizMultiplayerRepository(
                     select()
                 }
                 .decodeSingle<QuizMatch>()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
             null
         }
@@ -101,7 +101,7 @@ class SupabaseQuizMultiplayerRepository(
                     limit(1)
                 }
                 .decodeSingleOrNull<QuizMatch>()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
             null
         }
@@ -121,7 +121,7 @@ class SupabaseQuizMultiplayerRepository(
             supabaseClient.postgrest["quiz_matches"].update(update) {
                 filter { eq("match_id", matchId) }
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
         }
     }
@@ -132,7 +132,7 @@ class SupabaseQuizMultiplayerRepository(
             supabaseClient.postgrest["quiz_matches"].update(update) {
                 filter { eq("match_id", matchId) }
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
         }
     }

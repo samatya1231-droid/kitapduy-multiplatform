@@ -42,7 +42,7 @@ class PodcastEpisodesViewModel(
                 val parsedEpisodes = parseEpisodes(responseText)
                 println("PodcastViewModel: Parsed ${parsedEpisodes.size} episodes")
                 _episodes.value = parsedEpisodes
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 println("PodcastViewModel: Error loading RSS: ${e.message}")
                 _error.value = "Bölümler yüklenirken hata oluştu: ${e.message}"
             } finally {

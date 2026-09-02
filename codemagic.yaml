@@ -24,7 +24,7 @@ workflows:
           echo "SUPABASE_URL=DUMMY" >> local.properties
           echo "SUPABASE_KEY=DUMMY" >> local.properties
           echo "CF_ACCOUNT_ID=DUMMY" >> local.properties
-          echo "CF_PUBLIC_URL=DUMMY" >> local.properties
+          echo "CF_PUBLIC_URL=DUMMY" >> local.properties`n          echo "CF_WORKER_URL=DUMMY" >> local.properties
 
       - name: Build KMP iOS Framework
         script: |
@@ -65,7 +65,7 @@ workflows:
           echo "SUPABASE_URL=DUMMY" >> local.properties
           echo "SUPABASE_KEY=DUMMY" >> local.properties
           echo "CF_ACCOUNT_ID=DUMMY" >> local.properties
-          echo "CF_PUBLIC_URL=DUMMY" >> local.properties
+          echo "CF_PUBLIC_URL=DUMMY" >> local.properties`n          echo "CF_WORKER_URL=DUMMY" >> local.properties
           chmod +x gradlew
       - name: Set up keychain and profiles
         script: |

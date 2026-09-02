@@ -339,7 +339,7 @@ class QuizScreenModel(private val authRepo: AuthRepository, private val multipla
                     val userName = profile?.name ?: "Anonim"
                     multiplayerRepo.updateLeaderboard(uid, userName, _score.value.toLong())
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 e.printStackTrace()
             }
         }
@@ -426,7 +426,7 @@ class QuizScreenModel(private val authRepo: AuthRepository, private val multipla
                         _lobbyState.value = "Oda oluşturulamadı."
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 _lobbyState.value = "Hata: ${e.message}"
             }
         }
@@ -450,7 +450,7 @@ class QuizScreenModel(private val authRepo: AuthRepository, private val multipla
             _showHintDialog.value = false
             _eliminatedOptions.value = emptyList()
             loadNextQuestion()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             println("QUIZ_ERROR: CRASH IN startGame: ${e.message}")
             e.printStackTrace()
         }
@@ -476,7 +476,7 @@ class QuizScreenModel(private val authRepo: AuthRepository, private val multipla
             _timeLeft.value = 15
             
             startTimer()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             println("QUIZ_ERROR: CRASH IN loadNextQuestion: ${e.message}")
             e.printStackTrace()
         }

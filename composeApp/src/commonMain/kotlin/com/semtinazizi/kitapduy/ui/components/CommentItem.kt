@@ -29,7 +29,6 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.model.Comment
 
 // Utility for relative time in KMP
@@ -240,29 +239,14 @@ fun CommentAvatar(
 ) {
     Box(modifier = Modifier.size(size)) {
         val avatarModifier = Modifier.fillMaxSize().clip(CircleShape)
-        if (!userPhotoUrl.isNullOrEmpty() && !userPhotoUrl.startsWith("data:image")) {
-            AsyncImage(
-                model = userPhotoUrl,
-                contentDescription = null,
-                modifier = avatarModifier,
-                contentScale = ContentScale.Crop
-            )
-        } else {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = if (userName.isNotEmpty()) userName.take(1).uppercase() else "?",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-            }
-        }
+        SmartImage(
+            imageUrl = userPhotoUrl,
+            contentDescription = userName,
+            modifier = avatarModifier,
+            contentScale = ContentScale.Crop,
+            isAvatar = true,
+            fallbackText = userName
+        )
         
         if (isPremium) {
             Box(

@@ -2,15 +2,21 @@ package com.semtinazizi.kitapduy.data.repository
 
 import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import com.semtinazizi.kitapduy.model.UserProfile
+import com.semtinazizi.kitapduy.platform.AppConfig
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.delay
 
 class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthRepository {
     
+    private fun fixUrl(url: String?): String {
+        if (url.isNullOrBlank()) return ""
+        if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:image")) return url
+        return "${AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
+    }
+
     override val currentUserUid: String?
         get() = supabaseClient.auth.currentUserOrNull()?.id
 
@@ -26,20 +32,24 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
     }
 
     override fun getUserProfileFlow(uid: String): Flow<UserProfile?> = flow {
-        // Normalde Realtime veya akýþkan bir yapý kurulabilir.
-        // Basitlik adýna tek seferlik çekip emit ediyoruz. Gerekirse flow mantýðý geniþletilebilir.
+        // Normalde Realtime veya akï¿½ï¿½kan bir yapï¿½ kurulabilir.
+        // Basitlik adï¿½na tek seferlik ï¿½ekip emit ediyoruz. Gerekirse flow mantï¿½ï¿½ï¿½ geniï¿½letilebilir.
         emit(getUserProfile(uid))
         
-        // Gerçekte: supabaseClient.realtime ile tablo dinlenip güncellemeler emit edilir.
+        // Gerï¿½ekte: supabaseClient.realtime ile tablo dinlenip gï¿½ncellemeler emit edilir.
     }
 
     override suspend fun getUserProfile(uid: String): UserProfile? {
         return try {
-            supabaseClient.postgrest["users"]
+            val profile = supabaseClient.postgrest["users"]
                 .select {
                     filter { eq("uid", uid) }
                 }
                 .decodeSingleOrNull<UserProfile>()
+            profile?.copy(
+                photoUrl = fixUrl(profile.photoUrl),
+                coverPhotoUrl = fixUrl(profile.coverPhotoUrl)
+            )
         } catch (e: Throwable) {
             e.printStackTrace()
             null
@@ -66,13 +76,13 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
                 this.password = password
             }
             
-            // Eðer kayýt baþarýlýysa users tablosuna ekle
+            // Eï¿½er kayï¿½t baï¿½arï¿½lï¿½ysa users tablosuna ekle
             val uid = supabaseClient.auth.currentUserOrNull()?.id
             if (uid != null) {
                 val newUser = UserProfile(
                     uid = uid,
                     name = name,
-                    bio = "Merhaba, ben yeni bir KitapDuy kullanýcýsýyým!"
+                    bio = "Merhaba, ben yeni bir KitapDuy kullanï¿½cï¿½sï¿½yï¿½m!"
                 )
                 supabaseClient.postgrest["users"].insert(newUser)
             }
@@ -85,7 +95,7 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
 
     override suspend fun signInWithGoogle(): Boolean {
         return try {
-            // Web tarayýcýsý üzerinden Google OAuth baþlatýr ve geri döner
+            // Web tarayï¿½cï¿½sï¿½ ï¿½zerinden Google OAuth baï¿½latï¿½r ve geri dï¿½ner
             supabaseClient.auth.signInWith(io.github.jan.supabase.auth.providers.Google)
             true
         } catch (e: Throwable) {
@@ -138,7 +148,7 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
 
     override suspend fun updateProfilePhoto(uid: String, photoUrl: String?): Boolean {
         return try {
-            val updateMap = mapOf("photoUrl" to photoUrl)
+            val updateMap = mapOf("photo_url" to photoUrl)
             supabaseClient.postgrest["users"]
                 .update(updateMap) {
                     filter { eq("uid", uid) }
@@ -163,7 +173,7 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
                         uid = uid, 
                         name = safeName, 
                         username = "misafir_${uid.take(5)}",
-                        bio = "Merhaba, ben bir misafir kullanýcýyým!"
+                        bio = "Merhaba, ben bir misafir kullanï¿½cï¿½yï¿½m!"
                     )
                     supabaseClient.postgrest["users"].upsert(profile)
                 } catch (e: Throwable) {

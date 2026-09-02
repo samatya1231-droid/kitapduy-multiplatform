@@ -66,7 +66,7 @@ class FeedScreenModel(
                 }
 
                 _isLoading.value = false
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 println("Feed yüklenirken hata oluştu: ${e.message}")
             } finally {
                 _isLoading.value = false
@@ -163,7 +163,7 @@ class FeedScreenModel(
                     pollOptions = null
                 )
                 if (success) loadFeed(true) else _isLoading.value = false
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 println("Resim yükleme/paylaşma hatası: ${e.message}")
                 _isLoading.value = false
             }

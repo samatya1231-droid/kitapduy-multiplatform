@@ -56,7 +56,7 @@ class ChatScreenModel(
                     }.decodeList<ChatMessage>()
                 
                 _messages.value = result
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 _errorMessage.value = "Mesajlar yüklenemedi: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -87,7 +87,7 @@ class ChatScreenModel(
                 }?.launchIn(screenModelScope)
 
                 channel?.subscribe()
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 _errorMessage.value = "Canlı sohbet başlatılamadı."
             }
         }
@@ -116,7 +116,7 @@ class ChatScreenModel(
                 _messages.value = currentList
 
                 SupabaseManager.postgrest.from("chat_messages").insert(newMessage)
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 _errorMessage.value = "Mesaj gönderilemedi."
                 // Revert optimistic update
                 loadMessages() 

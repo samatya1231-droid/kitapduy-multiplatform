@@ -36,31 +36,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.model.FeedItem
 import com.semtinazizi.kitapduy.model.FeedType
-
-@Composable
-fun SmartImage(
-    imageUrl: String?,
-    modifier: Modifier = Modifier,
-    fallbackText: String = "",
-    isAvatar: Boolean = false,
-    contentScale: ContentScale = ContentScale.Crop
-) {
-    if (!imageUrl.isNullOrBlank()) {
-        AsyncImage(
-            model = imageUrl,
-            contentDescription = fallbackText,
-            modifier = modifier,
-            contentScale = contentScale
-        )
-    } else {
-        Box(modifier = modifier.background(Color.Gray), contentAlignment = Alignment.Center) {
-            Text(if (fallbackText.isNotEmpty()) fallbackText.take(1).uppercase() else "?", color = Color.White)
-        }
-    }
-}
 
 @Composable
 fun PremiumBadge() {

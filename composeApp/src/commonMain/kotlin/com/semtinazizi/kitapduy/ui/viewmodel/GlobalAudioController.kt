@@ -157,7 +157,7 @@ class GlobalAudioController(
                     _downloadProgress.value = progress
                 }
                 onComplete(true)
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 onComplete(false)
             } finally {
                 _isDownloading.value = false

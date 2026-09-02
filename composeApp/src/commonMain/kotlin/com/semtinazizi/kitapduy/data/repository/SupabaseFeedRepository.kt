@@ -74,7 +74,7 @@ class SupabaseFeedRepository(
                 .decodeList<SupabasePost>()
 
             posts.map { mapSupabasePostToFeedItem(it) }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             println("FeedRepository Error: ${e.message}")
             listOf(
                 FeedItem(
@@ -133,7 +133,7 @@ class SupabaseFeedRepository(
             
             supabaseClient.postgrest["posts"].insert(insertPost)
             true
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             println("SupabaseFeedRepository Insert Error: ${e.message}")
             false
         }

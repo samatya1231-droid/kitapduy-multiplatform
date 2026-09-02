@@ -48,7 +48,7 @@ class SupabaseSocialRepository(
                     coverPhotoUrl = fixUrl(it.coverPhotoUrl)
                 )
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
             emptyList()
         }
@@ -103,7 +103,7 @@ class SupabaseSocialRepository(
                     pollVoters = post.pollVoters ?: emptyList()
                 )
             }.sortedByDescending { it.id.toLongOrNull() ?: 0L }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             println("SupabaseSocialRepository Error: ${e.message}")
             emptyList()
         }
@@ -116,7 +116,7 @@ class SupabaseSocialRepository(
                     filter { eq("user_id", userId) }
                 }
                 .decodeList<SupabaseBookshelf>()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             emptyList()
         }
     }
@@ -126,7 +126,7 @@ class SupabaseSocialRepository(
             supabaseClient.postgrest["followers"]
                 .select { filter { eq("following_id", userId) } }
                 .decodeList<SupabaseFollowRecord>()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             emptyList()
         }
     }
@@ -136,7 +136,7 @@ class SupabaseSocialRepository(
             supabaseClient.postgrest["followers"]
                 .select { filter { eq("follower_id", userId) } }
                 .decodeList<SupabaseFollowRecord>()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             emptyList()
         }
     }
@@ -152,7 +152,7 @@ class SupabaseSocialRepository(
                 }
                 .decodeList<SupabaseFollowRecord>()
             result.isNotEmpty()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             false
         }
     }
@@ -160,7 +160,7 @@ class SupabaseSocialRepository(
     override suspend fun follow(followerId: String, followingId: String) {
         try {
             supabaseClient.postgrest["followers"].insert(SupabaseFollowRecord(followerId, followingId))
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             println("Social Follow Error: ${e.message}")
         }
     }
@@ -173,7 +173,7 @@ class SupabaseSocialRepository(
                     eq("following_id", followingId)
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             println("Social Unfollow Error: ${e.message}")
         }
     }
@@ -186,7 +186,7 @@ class SupabaseSocialRepository(
                 type = type
             )
             supabaseClient.postgrest["notifications"].insert(notification)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             println("Social Notification Error: ${e.message}")
         }
     }

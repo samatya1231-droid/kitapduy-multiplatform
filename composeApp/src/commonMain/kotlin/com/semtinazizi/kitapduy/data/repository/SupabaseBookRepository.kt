@@ -69,7 +69,7 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
                     audioUrl = fixUrl(it.audioUrl)
                 ) 
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             println("GET_BOOKS_ERROR: ${e.stackTraceToString()}")
             listOf(Book(id = "error", title = "Hata", author = e.message ?: "Bilinmeyen Hata"))
         }
@@ -86,7 +86,7 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
                 .decodeList<Map<String, String>>()
             
             result.mapNotNull { it["book_id"] }.toSet()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
             emptySet()
         }
@@ -106,7 +106,7 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
             if (result != null) {
                 Triple(result["quote"] ?: "", result["author"] ?: "", result["book"] ?: "")
             } else null
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Local Fallback
             Triple("Bir kitap okuyan her şeyi okuyabilir.", "Sabahattin Ali", "Kürk Mantolu Madonna")
         }
@@ -132,7 +132,7 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
                     audioUrl = fixUrl(it.audioUrl)
                 ) 
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
             emptyList()
         }
@@ -150,7 +150,7 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
                 imageUrl = fixImageUrl(it.imageUrl),
                 rssUrl = fixUrl(it.rssUrl)
             ) }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             println("SupabaseRepository ERROR: ${e.message}")
             emptyList()
         }
@@ -174,7 +174,7 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
                 imageUrl = fixImageUrl(it.imageUrl),
                 rssUrl = fixUrl(it.rssUrl)
             ) }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             emptyList()
         }
     }
@@ -189,7 +189,7 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
                     }
                 }
                 .decodeList<com.semtinazizi.kitapduy.model.SupabaseBookshelf>()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
             emptyList()
         }

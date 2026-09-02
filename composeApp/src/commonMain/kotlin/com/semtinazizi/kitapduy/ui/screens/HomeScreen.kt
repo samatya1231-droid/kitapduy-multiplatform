@@ -361,16 +361,13 @@ class HomeScreen : Screen {
                 .clickable { onClick() },
             contentAlignment = Alignment.Center
         ) {
-            if (!photoUrl.isNullOrEmpty()) {
-                AsyncImage(
-                    model = photoUrl,
-                    contentDescription = "Profile",
-                    modifier = Modifier.fillMaxSize().clip(CircleShape),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Icon(Icons.Filled.Person, contentDescription = "Profile", tint = SleekChampagne, modifier = Modifier.size(24.dp))
-            }
+            SmartImage(
+                imageUrl = photoUrl,
+                contentDescription = "Profile",
+                modifier = Modifier.fillMaxSize().clip(CircleShape),
+                contentScale = ContentScale.Crop,
+                isAvatar = true
+            )
         }
     }
 
