@@ -35,7 +35,10 @@ object SupabaseManager {
             install(Auth) {
                 scheme = "kitapduy"
                 host = "login-callback"
-                alwaysAutoRefresh = true
+                // iOS'ta alwaysAutoRefresh = true, GCD utility-qos thread'inde
+                // background coroutine başlatıyor ve exception -> SIGABRT crash'e yol açıyor.
+                // Token yenileme manuel olarak yapılacak.
+                alwaysAutoRefresh = false
                 sessionManager = AppSessionManager()
             }
         }

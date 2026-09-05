@@ -62,7 +62,7 @@ kotlin {
 
             // Supabase KMP
             implementation(libs.supabase.postgrest)
-            implementation(libs.supabase.realtime)
+            // NOT: supabase.realtime kaldırıldı - WebSocket/GCD crash'e yol açıyordu (iOS SIGABRT)
             implementation(libs.supabase.storage)
             implementation(libs.supabase.auth)
             implementation(libs.supabase.compose.auth)
