@@ -62,7 +62,9 @@ kotlin {
 
             // Supabase KMP
             implementation(libs.supabase.postgrest)
-            // NOT: supabase.realtime kaldırıldı - WebSocket/GCD crash'e yol açıyordu (iOS SIGABRT)
+            // Realtime dependency kütüphanesi gerekli (ChatScreenModel, AskidaViewModel, SupabaseQuizMultiplayerRepository kullanıyor)
+            // Ancak SupabaseManager'da install(Realtime) KAPALIIDIR - WebSocket bağlantısı açılmaz
+            implementation(libs.supabase.realtime)
             implementation(libs.supabase.storage)
             implementation(libs.supabase.auth)
             implementation(libs.supabase.compose.auth)
