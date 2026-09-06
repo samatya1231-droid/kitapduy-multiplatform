@@ -6,7 +6,8 @@ import com.semtinazizi.kitapduy.platform.IOSBuildConfig
 import com.semtinazizi.kitapduy.platform.DailyQuoteScheduler
 import com.semtinazizi.kitapduy.platform.installKotlinExceptionHook
 import org.koin.core.context.startKoin
-
+import kotlinx.coroutines.launch
+import io.github.jan.supabase.auth.auth
 /**
  * iOS giriş noktası - Swift/Xcode tarafından çağrılır
  * Bu fonksiyon KMP framework'ü içinden Swift'e export edilir

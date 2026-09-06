@@ -173,6 +173,7 @@
 			);
 			inputPaths = (
 			);
+			alwaysOutOfDate = 1;
 			name = "Compile Kotlin";
 			outputFileListPaths = (
 			);
