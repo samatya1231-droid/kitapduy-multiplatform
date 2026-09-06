@@ -170,6 +170,12 @@ class FirebaseAuthRepository(
     }
 
     override suspend fun signInAnonymously(name: String): Boolean = false
+    // Legacy provider: production authentication uses SupabaseAuthRepository.
+    // Do not report successful deletion without backend data cleanup.
+    override suspend fun deleteAccount(): Boolean = false
+    override suspend fun getBlockedUsers(uid: String): List<String> =
+        throw UnsupportedOperationException("Blocked users are managed by the Supabase provider")
+
     override suspend fun signOut() {
         auth.signOut()
     }

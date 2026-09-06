@@ -30,17 +30,21 @@ workflows:
       - name: Build KMP iOS Framework
         script: |
           chmod +x gradlew
-          ./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64
+          KOTLIN_BUILD_LOG=/tmp/kotlin-simulator.log bash ci/compile-ios.sh :composeApp:linkDebugFrameworkIosSimulatorArm64
 
-      - name: Verify Swift Files Compile
+      - name: Build Complete Simulator App
         script: |
-          swiftc -sdk $(xcrun --sdk iphonesimulator --show-sdk-path) \
-            -target arm64-apple-ios14.0-simulator \
-            -F composeApp/build/xcode-frameworks/Debug/iphonesimulator \
-            iosApp/iosApp/KitapDuyApp.swift \
-            iosApp/iosApp/ContentView.swift \
-            -o /tmp/KitapDuyTest || true
-          echo "✅ Kotlin/Native framework built successfully!"
+          #!/usr/bin/env bash
+          set -euo pipefail
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp \
+            -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee /tmp/xcode-simulator.log
+
+    artifacts:
+      - /tmp/kotlin-simulator.log
+      - /tmp/kotlin-xcode.log
+      - /tmp/xcode-simulator.log
 
   ios-release:
     name: iOS App Store Release
@@ -78,9 +82,7 @@ workflows:
         script: |
           chmod +x gradlew
           export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx6g -Dkotlin.native.jvmArgs=-Xmx6g"
-          ./gradlew :composeApp:linkReleaseFrameworkIosArm64 --no-daemon --info 2>&1 | tee /tmp/kotlin_build.log
-          echo "=== Son 100 satir ==="
-          tail -100 /tmp/kotlin_build.log
+          KOTLIN_BUILD_LOG=/tmp/kotlin-preflight.log bash ci/compile-ios.sh :composeApp:linkReleaseFrameworkIosArm64
 
       - name: Build and Sign IPA
         script: |
@@ -114,7 +116,8 @@ workflows:
     artifacts:
       - iosApp/build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
-      - /tmp/kotlin_build.log
+      - /tmp/kotlin-preflight.log
+      - /tmp/kotlin-xcode.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
 
     publishing:

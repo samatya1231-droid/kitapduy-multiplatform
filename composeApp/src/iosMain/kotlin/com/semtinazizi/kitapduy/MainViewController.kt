@@ -3,11 +3,9 @@ package com.semtinazizi.kitapduy
 import androidx.compose.ui.window.ComposeUIViewController
 import com.semtinazizi.kitapduy.di.appModules
 import com.semtinazizi.kitapduy.platform.IOSBuildConfig
-import com.semtinazizi.kitapduy.platform.DailyQuoteScheduler
+import com.semtinazizi.kitapduy.platform.IosAuthenticationBridge
 import com.semtinazizi.kitapduy.platform.installKotlinExceptionHook
 import org.koin.core.context.startKoin
-import kotlinx.coroutines.launch
-import io.github.jan.supabase.auth.auth
 /**
  * iOS giriş noktası - Swift/Xcode tarafından çağrılır
  * Bu fonksiyon KMP framework'ü içinden Swift'e export edilir
@@ -54,22 +52,8 @@ fun initializeIOSConfig(
 /**
  * kitapduy://login-callback URL'ini Supabase Auth'a iletir.
  * Google/Apple OAuth donusunde Swift tarafindan cagirilir.
- * supabase-kt 3.x: auth.parseFragmentAndImportSession(url)
+ * PKCE kodunu mevcut kimlik dogrulama koprusu uzerinden isler.
  */
 fun handleOAuthDeepLink(url: String) {
-    if (url.isBlank()) return
-    try {
-        val supabaseClient = com.semtinazizi.kitapduy.data.SupabaseManager.client
-        // Coroutine scope - MainScope iOS main thread'inde calismak icin guvenli
-        kotlinx.coroutines.MainScope().launch {
-            try {
-                supabaseClient.auth.parseFragmentAndImportSession(url)
-                println("KitapDuy: OAuth oturumu basariyla icerik aktarildi")
-            } catch (e: Throwable) {
-                println("KitapDuy: OAuth deep link isleme hatasi: ${e.message}")
-            }
-        }
-    } catch (e: Throwable) {
-        println("KitapDuy: OAuth deep link hatasi (Supabase hazir degil): ${e.message}")
-    }
+    IosAuthenticationBridge.handleCallback(url)
 }

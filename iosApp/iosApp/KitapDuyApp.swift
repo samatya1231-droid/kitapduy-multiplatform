@@ -12,8 +12,10 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 }
 
 @main
+@MainActor
 struct KitapDuyApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @Environment(\.scenePhase) private var scenePhase
     
     init() {
         MainViewControllerKt.initializeIOSConfig(
@@ -22,6 +24,8 @@ struct KitapDuyApp: App {
             cfAccountId: Bundle.main.infoDictionary?["CF_ACCOUNT_ID"] as? String ?? "",
             cfPublicUrl: Bundle.main.infoDictionary?["CF_PUBLIC_URL"] as? String ?? ""
         )
+        AuthenticationService.shared.configure()
+        StoreService.shared.configure()
     }
     
     var body: some Scene {
@@ -31,6 +35,11 @@ struct KitapDuyApp: App {
                 // kitapduy://login-callback OAuth don us URL isleyici
                 .onOpenURL { url in
                     MainViewControllerKt.handleOAuthDeepLink(url: url.absoluteString)
+                }
+                .onChange(of: scenePhase) { phase in
+                    if phase == .active {
+                        Task { await StoreService.shared.refreshEntitlements() }
+                    }
                 }
         }
     }

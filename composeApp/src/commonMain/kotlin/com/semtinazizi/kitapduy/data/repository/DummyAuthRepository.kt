@@ -62,6 +62,10 @@ class DummyAuthRepository : AuthRepository {
     }
 
     override suspend fun signInAnonymously(name: String): Boolean = false
+    // This preview repository has no backend account to delete.
+    override suspend fun deleteAccount(): Boolean = false
+    override suspend fun getBlockedUsers(uid: String): List<String> = emptyList()
+
     override suspend fun signOut() {
         // Session'ı temizle (Gerekliyse)
         delay(500)

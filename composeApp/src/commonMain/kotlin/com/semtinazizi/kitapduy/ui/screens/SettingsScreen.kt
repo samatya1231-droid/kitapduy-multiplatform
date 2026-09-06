@@ -66,7 +66,7 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
                                     showDeleteConfirmation = false
                                     navigator.replaceAll(LoginScreen())
                                 } else {
-                                    deleteError = "Hesap silinemedi. Lutfen tekrar deneyin veya destek@kitapduy.app adresine yazin."
+                                    deleteError = "Hesap silinemedi. Lütfen tekrar deneyin veya ${LegalContent.supportEmail} adresine yazın."
                                 }
                             }
                         },
