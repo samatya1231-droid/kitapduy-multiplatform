@@ -144,8 +144,8 @@ kotlin {
         // iOS ONLY: iOS'a özel kütüphaneler
         // ─────────────────────────────────────────────────
         iosMain.dependencies {
-            // Ktor iOS engine olarak Darwin yerine CIO kullanıyoruz (Crash'i önlemek için)
-            implementation(libs.ktor.client.cio)
+            // iOS'ta HTTPS ve NSURLSession entegrasyonu için desteklenen motor Darwin'dir.
+            implementation(libs.ktor.client.darwin)
         }
     }
 }
