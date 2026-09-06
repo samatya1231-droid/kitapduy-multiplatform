@@ -87,9 +87,10 @@ actual object DailyQuoteScheduler {
         for (i in 1..minOf(7, quotes.size)) {
             val quote = quotes[i - 1]
             val content = UNMutableNotificationContent().apply {
-                title = "Günün İlhamı"
-                body = "«${quote.first}»\n\n— ${quote.second}"
-                sound = UNNotificationSound.defaultSound
+                // Objective-C mutable overrides expose setters, not Kotlin var properties.
+                setTitle("Günün İlhamı")
+                setBody("«${quote.first}»\n\n— ${quote.second}")
+                setSound(UNNotificationSound.defaultSound)
             }
 
             // Target time: tomorrow + i days at 10:00 AM
