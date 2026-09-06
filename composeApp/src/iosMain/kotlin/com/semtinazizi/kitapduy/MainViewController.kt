@@ -53,13 +53,17 @@ fun initializeIOSConfig(
 /**
  * kitapduy://login-callback URL'ini Supabase Auth'a iletir.
  * Google/Apple OAuth donusunde Swift tarafindan cagirilir.
+ * supabase-kt 3.x: auth.parseFragmentAndImportSession(url)
  */
 fun handleOAuthDeepLink(url: String) {
+    if (url.isBlank()) return
     try {
         val supabaseClient = com.semtinazizi.kitapduy.data.SupabaseManager.client
-        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+        // Coroutine scope - MainScope iOS main thread'inde calismak icin guvenli
+        kotlinx.coroutines.MainScope().launch {
             try {
                 supabaseClient.auth.parseFragmentAndImportSession(url)
+                println("KitapDuy: OAuth oturumu basariyla icerik aktarildi")
             } catch (e: Throwable) {
                 println("KitapDuy: OAuth deep link isleme hatasi: ${e.message}")
             }

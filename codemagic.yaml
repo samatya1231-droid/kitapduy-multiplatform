@@ -106,6 +106,7 @@ workflows:
     artifacts:
       - iosApp/build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
+      - /tmp/kotlin_build.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
 
     publishing:

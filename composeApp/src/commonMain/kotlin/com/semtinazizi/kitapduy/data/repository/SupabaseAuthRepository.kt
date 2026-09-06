@@ -1,4 +1,4 @@
-﻿package com.semtinazizi.kitapduy.data.repository
+package com.semtinazizi.kitapduy.data.repository
 
 import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import com.semtinazizi.kitapduy.model.UserProfile
@@ -175,9 +175,9 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
         return try {
             supabaseClient.postgrest["posts"].delete { filter { eq("user_id", uid) } }
             supabaseClient.postgrest["user_bookshelves"].delete { filter { eq("user_id", uid) } }
-            supabaseClient.postgrest["followers"].delete {
-                filter { or { eq("follower_id", uid); eq("following_id", uid) } }
-            }
+            // Takip kayitlarini iki ayri sorguyla sil (or{} DSL supabase 3.x'te farkli)
+            supabaseClient.postgrest["followers"].delete { filter { eq("follower_id", uid) } }
+            supabaseClient.postgrest["followers"].delete { filter { eq("following_id", uid) } }
             supabaseClient.postgrest["notifications"].delete { filter { eq("receiver_id", uid) } }
             supabaseClient.postgrest["users"].delete { filter { eq("uid", uid) } }
             supabaseClient.auth.signOut()
