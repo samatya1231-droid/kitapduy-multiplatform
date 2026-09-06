@@ -82,6 +82,23 @@ actual class BillingManager(private val activity: Activity) : PurchasesUpdatedLi
         }
     }
 
+    actual suspend fun loadProducts(): List<SubscriptionProduct> {
+        kotlinx.coroutines.withTimeout(20_000) {
+            while (productDetailsList.isEmpty()) kotlinx.coroutines.delay(200)
+        }
+        return productDetailsList.mapNotNull { product ->
+            val phases = product.subscriptionOfferDetails?.firstOrNull()?.pricingPhases?.pricingPhaseList
+            val renewal = phases?.lastOrNull() ?: return@mapNotNull null
+            val period = when (renewal.billingPeriod) {
+                "P1M" -> "1 ay"
+                "P3M" -> "3 ay"
+                "P1Y" -> "1 yıl"
+                else -> renewal.billingPeriod
+            }
+            SubscriptionProduct(product.productId, product.name, renewal.formattedPrice, period)
+        }
+    }
+
     actual suspend fun startSubscription(productId: String): PurchaseResult {
         val productDetails = productDetailsList.find { it.productId == productId }
             ?: return PurchaseResult.ERROR

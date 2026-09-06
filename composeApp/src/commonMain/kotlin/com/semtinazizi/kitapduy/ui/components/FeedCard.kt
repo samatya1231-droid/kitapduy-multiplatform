@@ -98,13 +98,16 @@ fun FeedCard(
     isAudioLoading: Boolean,
     audioProgress: Float,
     isFullWidth: Boolean = true,
-    showCommentSection: Boolean = true
+    showCommentSection: Boolean = true,
+    onReportPost: ((postId: String, reason: String) -> Unit)? = null,
+    onBlockUser: ((userId: String) -> Unit)? = null
 ) {
     var showMenu by remember(item.id) { mutableStateOf(false) }
+    var showReportDialog by remember { mutableStateOf(false) }
     val isMyPost = currentUserId == item.userId
     val canDeletePost = isMyPost || isAdmin
     val isPremiumUserPost = item.isPremium || item.badges.contains("premium") || item.userName == "Dünyazede"
-    
+
     val safeName = if (item.userName.isNotBlank()) item.userName else "Anonim"
     val haptic = LocalHapticFeedback.current
 
@@ -112,6 +115,48 @@ fun FeedCard(
         mutableStateOf(item.likedBy.any { it.startsWith(currentUserId ?: "") })
     }
     var likeCountLocally by remember(item.id, item.likedBy) { mutableIntStateOf(item.likedBy.size) }
+
+    // Şikayet Et Dialog
+    if (showReportDialog) {
+        val reasons = listOf("Spam", "Nefret söylemi", "Taciz", "Yanlış bilgi", "Telif ihlali", "Diğer")
+        var selectedReason by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showReportDialog = false },
+            title = { Text("Gönderiyi Şikayet Et", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("Şikayet nedeninizi seçin:", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(8.dp))
+                    reasons.forEach { reason ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            RadioButton(
+                                selected = selectedReason == reason,
+                                onClick = { selectedReason = reason }
+                            )
+                            Text(reason, modifier = Modifier.clickable { selectedReason = reason })
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (selectedReason.isNotBlank()) {
+                            onReportPost?.invoke(item.id, selectedReason)
+                            showReportDialog = false
+                        }
+                    },
+                    enabled = selectedReason.isNotBlank()
+                ) { Text("Şikayet Et") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showReportDialog = false }) { Text("Vazgeç") }
+            }
+        )
+    }
 
     Card(
         modifier = Modifier
@@ -178,8 +223,15 @@ fun FeedCard(
                             DropdownMenuItem(
                                 text = { Text("Şikayet Et") },
                                 leadingIcon = { Icon(Icons.Filled.Flag, null) },
-                                onClick = { showMenu = false }
+                                onClick = { showMenu = false; showReportDialog = true }
                             )
+                            if (onBlockUser != null && !item.userId.isNullOrBlank()) {
+                                DropdownMenuItem(
+                                    text = { Text("Engelle", color = MaterialTheme.colorScheme.error) },
+                                    leadingIcon = { Icon(Icons.Filled.Block, null, tint = MaterialTheme.colorScheme.error) },
+                                    onClick = { onBlockUser.invoke(item.userId); showMenu = false }
+                                )
+                            }
                         }
                     }
                 }

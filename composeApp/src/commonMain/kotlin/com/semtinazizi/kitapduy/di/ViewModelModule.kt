@@ -7,7 +7,7 @@ import org.koin.dsl.module
 
 val viewModelModule = module {
     viewModel { HomeViewModel(get(), get()) }
-    viewModel { AuthViewModel(get(), get()) }
+    viewModel { AuthViewModel(get(), get(), get()) }
     viewModel { com.semtinazizi.kitapduy.ui.viewmodel.PodcastEpisodesViewModel(get()) }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.FeedScreenModel(get<com.semtinazizi.kitapduy.domain.repository.FeedRepository>(), get<com.semtinazizi.kitapduy.data.repository.StorageRepository>()) }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.LibraryScreenModel(get(), get()) }

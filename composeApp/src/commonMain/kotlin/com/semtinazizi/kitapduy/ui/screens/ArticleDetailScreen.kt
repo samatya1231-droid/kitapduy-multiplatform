@@ -1,13 +1,16 @@
-package com.semtinazizi.kitapduy.ui.screens
+﻿package com.semtinazizi.kitapduy.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
@@ -17,16 +20,24 @@ import com.semtinazizi.kitapduy.platform.BannerAdView
 import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
-data class ArticleDetailScreen(val articleId: String, val title: String) : Screen {
+data class ArticleDetailScreen(val articleId: String, val title: String, val articleUrl: String = "") : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val scrollState = rememberScrollState()
+        val uriHandler = LocalUriHandler.current
         val authViewModel = koinViewModel<AuthViewModel>()
         val userProfile by authViewModel.userProfile.collectAsState()
         val isPremium = userProfile?.hasPremium() ?: false
-        
+
+        // Makale URL'si varsa hemen dis tarayicide ac, icerik placeholder gosterme
+        LaunchedEffect(articleUrl) {
+            if (articleUrl.isNotBlank()) {
+                uriHandler.openUri(articleUrl)
+                navigator.pop()
+            }
+        }
+
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -36,42 +47,27 @@ data class ArticleDetailScreen(val articleId: String, val title: String) : Scree
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri")
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background
-                    )
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
                 )
             }
         ) { paddingValues ->
+            // URL yoksa basit bir acilma ekrani goster (asil icerik dista acilir)
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .verticalScroll(scrollState)
-                    .padding(16.dp)
+                modifier = Modifier.fillMaxSize().padding(paddingValues).padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Text(
-                    text = "Yazar: KitapDuy Editör • 5 dk okuma",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                Text(
-                    text = "Makale içeriği KMP yapısına taşınıyor. Bu ekran yakında veritabanından dinamik olarak yüklenecek ve tüm makaleler burada gösterilecektir.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
-                    lineHeight = MaterialTheme.typography.bodyLarge.lineHeight
-                )
+                if (articleUrl.isNotBlank()) {
+                    CircularProgressIndicator()
+                    Spacer(Modifier.height(16.dp))
+                    Text("Makale aciliyor...", style = MaterialTheme.typography.bodyMedium)
+                } else {
+                    Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(16.dp))
+                    Text("Bu makale icin icerk mevcut degil.", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(24.dp))
+                    Button(onClick = { navigator.pop() }) { Text("Geri Don") }
+                }
 
                 if (!isPremium) {
                     Spacer(modifier = Modifier.height(24.dp))

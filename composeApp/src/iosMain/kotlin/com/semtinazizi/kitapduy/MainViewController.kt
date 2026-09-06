@@ -49,3 +49,22 @@ fun initializeIOSConfig(
     // Zamanlanmis gunluk alinti bildirimleri iOS'ta crash yaptigi icin gecici olarak devre disi birakildi
     // DailyQuoteScheduler.scheduleDaily(null)
 }
+
+/**
+ * kitapduy://login-callback URL'ini Supabase Auth'a iletir.
+ * Google/Apple OAuth donusunde Swift tarafindan cagirilir.
+ */
+fun handleOAuthDeepLink(url: String) {
+    try {
+        val supabaseClient = com.semtinazizi.kitapduy.data.SupabaseManager.client
+        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+            try {
+                supabaseClient.auth.parseFragmentAndImportSession(url)
+            } catch (e: Throwable) {
+                println("KitapDuy: OAuth deep link isleme hatasi: ${e.message}")
+            }
+        }
+    } catch (e: Throwable) {
+        println("KitapDuy: OAuth deep link hatasi (Supabase hazir degil): ${e.message}")
+    }
+}

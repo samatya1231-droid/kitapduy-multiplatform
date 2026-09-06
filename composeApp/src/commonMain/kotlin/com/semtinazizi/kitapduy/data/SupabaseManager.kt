@@ -35,10 +35,10 @@ object SupabaseManager {
             install(Auth) {
                 scheme = "kitapduy"
                 host = "login-callback"
-                // iOS'ta alwaysAutoRefresh = true, GCD utility-qos thread'inde
-                // background coroutine başlatıyor ve exception -> SIGABRT crash'e yol açıyor.
-                // Token yenileme manuel olarak yapılacak.
-                alwaysAutoRefresh = false
+                alwaysAutoRefresh = true
+                if (com.semtinazizi.kitapduy.platform.platformName.startsWith("iOS")) {
+                    flowType = io.github.jan.supabase.auth.FlowType.PKCE
+                }
                 sessionManager = AppSessionManager()
             }
         }

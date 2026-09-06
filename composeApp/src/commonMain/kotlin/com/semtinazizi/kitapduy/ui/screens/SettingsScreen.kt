@@ -23,34 +23,68 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import com.semtinazizi.kitapduy.data.SupabaseManager
+import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 
 data class SettingsScreen(val isPremium: Boolean = false) : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        val authRepository = koinInject<AuthRepository>()
         val coroutineScope = rememberCoroutineScope()
         var showDeleteConfirmation by remember { mutableStateOf(false) }
+        var isDeletingAccount by remember { mutableStateOf(false) }
+        var deleteError by remember { mutableStateOf<String?>(null) }
 
         if (showDeleteConfirmation) {
             AlertDialog(
-                onDismissRequest = { showDeleteConfirmation = false },
-                title = { Text("Hesabı Sil 🗑️", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Black) },
-                text = { Text("Hesabınızı silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve tüm verileriniz kalıcı olarak silinecektir.", color = Color.LightGray) },
+                onDismissRequest = { if (!isDeletingAccount) showDeleteConfirmation = false },
+                title = { Text("Hesabi Sil", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Black) },
+                text = {
+                    Column {
+                        Text(
+                            "Hesabinizi silmek istediginize emin misiniz? Bu islem geri alinamaz ve tum verileriniz kalici olarak silinecektir.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (deleteError != null) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(deleteError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                },
                 confirmButton = {
                     Button(
                         onClick = {
-                            showDeleteConfirmation = false
-                            // TODO: Implement delete account in KMP
+                            isDeletingAccount = true
+                            deleteError = null
+                            coroutineScope.launch {
+                                val success = authRepository.deleteAccount()
+                                isDeletingAccount = false
+                                if (success) {
+                                    showDeleteConfirmation = false
+                                    navigator.replaceAll(LoginScreen())
+                                } else {
+                                    deleteError = "Hesap silinemedi. Lutfen tekrar deneyin veya destek@kitapduy.app adresine yazin."
+                                }
+                            }
                         },
+                        enabled = !isDeletingAccount,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF4B4B)),
                         shape = RoundedCornerShape(50)
-                    ) { Text("Evet, Sil", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) }
+                    ) {
+                        if (isDeletingAccount) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                            Spacer(Modifier.width(8.dp))
+                        }
+                        Text("Evet, Sil", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showDeleteConfirmation = false }) { Text("Vazgeç", color = Color.Gray) }
+                    TextButton(onClick = { if (!isDeletingAccount) showDeleteConfirmation = false }) {
+                        Text("Vazgec", color = Color.Gray)
+                    }
                 },
                 containerColor = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(28.dp)
@@ -81,55 +115,54 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
             ) {
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Premium Banner
                 if (isPremium) {
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
                         shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFFFD700).copy(alpha = 0.2f))
                     ) {
-                        Row(
-                            modifier = Modifier.padding(20.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Filled.WorkspacePremium, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(40.dp))
+                        Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.WorkspacePremium, null, tint = Color(0xFFFFD700), modifier = Modifier.size(40.dp))
                             Spacer(Modifier.width(16.dp))
                             Column {
-                                Text("Premium Üyesiniz \uD83D\uDC51", fontWeight = FontWeight.Black, color = Color(0xFFFFD700), fontSize = 18.sp)
-                                Text("Tüm özelliklerin tadını çıkarın!", color = Color.LightGray, fontSize = 13.sp)
+                                Text("Premium Uyesiniz", fontWeight = FontWeight.Black, color = Color(0xFFFFD700), fontSize = 18.sp)
+                                Text("Tum ozelliklerin tadini cikarin!", color = Color.LightGray, fontSize = 13.sp)
                             }
                         }
                     }
                 }
 
-                // General Settings
                 SettingsSectionTitle("Genel")
-                SettingsItem(icon = Icons.Filled.Language, title = "Uygulama Dili", subtitle = "Türkçe") { }
-                SettingsItem(icon = Icons.Filled.Notifications, title = "Bildirimler", subtitle = "Açık") { }
+                SettingsItem(icon = Icons.Filled.Language, title = "Uygulama Dili", subtitle = "Turkce") { }
+                SettingsItem(icon = Icons.Filled.Notifications, title = "Bildirimler", subtitle = "Acik") { }
+                SettingsItem(icon = Icons.Filled.Info, title = "Gizlilik Politikasi") {
+                    navigator.push(LegalScreen(LegalDocument.PRIVACY))
+                }
+                SettingsItem(icon = Icons.Filled.Description, title = "Kullanim Kosullari") {
+                    navigator.push(LegalScreen(LegalDocument.TERMS))
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Account
                 SettingsSectionTitle("Hesap")
                 SettingsItem(
                     icon = Icons.AutoMirrored.Filled.Logout,
-                    title = "Çıkış Yap",
+                    title = "Cikis Yap",
                     iconTint = Color(0xFFFF4B4B),
                     titleColor = Color(0xFFFF4B4B)
                 ) {
                     coroutineScope.launch {
                         try {
-                            SupabaseManager.auth.signOut()
+                            authRepository.signOut()
                             navigator.replaceAll(LoginScreen())
-                        } catch (e: Exception) {
-                            // Handle error
-                        }
+                        } catch (e: Exception) { }
                     }
                 }
-                
+
                 SettingsItem(
                     icon = Icons.Filled.DeleteForever,
-                    title = "Hesabı Sil",
+                    title = "Hesabi Sil",
+                    subtitle = "Tum verileriniz kalici olarak silinir",
                     iconTint = Color(0xFFFF4B4B),
                     titleColor = Color(0xFFFF4B4B)
                 ) {
@@ -137,14 +170,7 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
                 }
 
                 Spacer(modifier = Modifier.height(40.dp))
-                
-                Text(
-                    text = "KitapDuy v2.0.0",
-                    color = Color.Gray,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 24.dp)
-                )
+                Text(text = "KitapDuy v1.0.1", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 24.dp))
             }
         }
     }
@@ -157,9 +183,7 @@ fun SettingsSectionTitle(title: String) {
         color = MaterialTheme.colorScheme.primary,
         fontWeight = FontWeight.Black,
         fontSize = 14.sp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 12.dp, start = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp, start = 8.dp),
         textAlign = TextAlign.Start
     )
 }
@@ -177,27 +201,16 @@ fun SettingsItem(
         onClick = onClick,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         shape = RoundedCornerShape(16.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 8.dp)
+        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = CircleShape,
-                color = iconTint.copy(alpha = 0.1f),
-                modifier = Modifier.size(40.dp)
-            ) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(shape = CircleShape, color = iconTint.copy(alpha = 0.1f), modifier = Modifier.size(40.dp)) {
                 Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.padding(8.dp))
             }
             Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = title, fontWeight = FontWeight.Bold, color = titleColor, fontSize = 16.sp)
-                if (subtitle != null) {
-                    Text(text = subtitle, color = Color.Gray, fontSize = 13.sp)
-                }
+                if (subtitle != null) Text(text = subtitle, color = Color.Gray, fontSize = 13.sp)
             }
         }
     }

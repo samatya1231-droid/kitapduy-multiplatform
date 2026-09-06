@@ -1,4 +1,4 @@
-﻿package com.semtinazizi.kitapduy.di
+package com.semtinazizi.kitapduy.di
 
 import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import com.semtinazizi.kitapduy.domain.repository.BookRepository
@@ -37,13 +37,17 @@ class DummyAuthRepository : AuthRepository {
     override suspend fun getGoogleOAuthUrl(): String = ""
     override suspend fun getAppleOAuthUrl(): String = ""
     override suspend fun updateProfilePhoto(uid: String, photoUrl: String?): Boolean = true
+    override suspend fun deleteAccount(): Boolean = false
+    override suspend fun getBlockedUsers(uid: String): List<String> = emptyList()
 }
 
 actual val platformModule: Module = module {
 
-    
     single<com.semtinazizi.kitapduy.platform.AudioPlayer> { 
         com.semtinazizi.kitapduy.platform.createAudioPlayer() 
     }
-}
 
+    // BillingManager - SubscriptionPaywallScreen ve diğer ekranlar için gerekli
+    single { com.semtinazizi.kitapduy.platform.createBillingManager() }
+    single { com.semtinazizi.kitapduy.platform.createAdManager() }
+}

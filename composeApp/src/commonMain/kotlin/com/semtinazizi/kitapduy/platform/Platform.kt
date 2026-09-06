@@ -105,9 +105,18 @@ enum class PurchaseResult {
  * Satın alma yönetimi için ortak arayüz.
  * [isPremium] akışını dinleyerek UI premium/free arasında otomatik güncellenir.
  */
+@kotlinx.serialization.Serializable
+data class SubscriptionProduct(
+    val id: String,
+    val title: String,
+    val price: String,
+    val period: String
+)
+
 expect class BillingManager {
     /** Kullanıcının aktif premium aboneliği var mı? */
     val isPremium: kotlinx.coroutines.flow.StateFlow<Boolean>
+    suspend fun loadProducts(): List<SubscriptionProduct>
     /** Abonelik akışını başlatır (Google Play / App Store) */
     suspend fun startSubscription(productId: String): PurchaseResult
     /** Mevcut satın almaları doğrular ve isPremium'u günceller */
@@ -134,4 +143,3 @@ interface FileDownloader {
 }
 
 expect fun createFileDownloader(): FileDownloader
-

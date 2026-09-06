@@ -180,14 +180,43 @@ class SupabaseSocialRepository(
 
     override suspend fun sendNotification(receiverId: String, message: String, type: String) {
         try {
-            val notification = SupabaseInsertNotification(
-                receiverId = receiverId,
-                message = message,
-                type = type
-            )
+            val notification = SupabaseInsertNotification(receiverId = receiverId, message = message, type = type)
             supabaseClient.postgrest["notifications"].insert(notification)
         } catch (e: Throwable) {
             println("Social Notification Error: ${e.message}")
+        }
+    }
+
+    /** Apple Guideline 1.2 - Icerik raporlama */
+    override suspend fun reportPost(postId: String, reporterId: String, reason: String): Boolean {
+        return try {
+            @kotlinx.serialization.Serializable
+            data class Report(
+                @kotlinx.serialization.SerialName("post_id") val postId: String,
+                @kotlinx.serialization.SerialName("reporter_id") val reporterId: String,
+                @kotlinx.serialization.SerialName("reason") val reason: String
+            )
+            supabaseClient.postgrest["reports"].insert(Report(postId, reporterId, reason))
+            true
+        } catch (e: Throwable) {
+            println("Report Error: ${e.message}")
+            false
+        }
+    }
+
+    /** Apple Guideline 1.2 - Kullanici engelleme */
+    override suspend fun blockUser(blockerId: String, blockedUid: String): Boolean {
+        return try {
+            @kotlinx.serialization.Serializable
+            data class BlockRecord(
+                @kotlinx.serialization.SerialName("blocker_uid") val blockerUid: String,
+                @kotlinx.serialization.SerialName("blocked_uid") val blockedUid: String
+            )
+            supabaseClient.postgrest["blocked_users"].upsert(BlockRecord(blockerId, blockedUid))
+            true
+        } catch (e: Throwable) {
+            println("Block Error: ${e.message}")
+            false
         }
     }
 }

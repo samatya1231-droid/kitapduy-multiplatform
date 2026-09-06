@@ -1,102 +1,81 @@
 package com.semtinazizi.kitapduy.platform
 
-import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import platform.StoreKit.*
-import platform.Foundation.*
-import platform.darwin.NSObject
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+
+/** Swift calls these entry points on the main thread. */
+object IosBillingBridge {
+    var loadProducts: ((String) -> Unit)? = null
+    var purchase: ((String, String) -> Unit)? = null
+    var restore: ((String) -> Unit)? = null
+    internal val premium = MutableStateFlow(false)
+    private var nextRequestId = 0L
+    private val pending = mutableMapOf<String, CompletableDeferred<BillingReply>>()
+    private val json = Json { ignoreUnknownKeys = true }
+
+    fun updateEntitlement(active: Boolean) { premium.value = active }
+
+    fun complete(requestId: String, responseJson: String) {
+        val request = pending.remove(requestId) ?: return
+        try {
+            request.complete(json.decodeFromString<BillingReply>(responseJson))
+        } catch (error: Exception) {
+            request.completeExceptionally(IllegalStateException("Mağaza yanıtı okunamadı."))
+        }
+    }
+
+    internal suspend fun request(action: (String) -> Unit): BillingReply = withContext(Dispatchers.Main) {
+        val requestId = (++nextRequestId).toString()
+        val result = CompletableDeferred<BillingReply>()
+        pending[requestId] = result
+        try {
+            action(requestId)
+            withTimeout(180_000) { result.await() }.also {
+                if (it.status == "error") error(it.message ?: "Mağaza işlemi tamamlanamadı.")
+            }
+        } finally {
+            pending.remove(requestId)
+            result.cancel()
+        }
+    }
+}
+
+@Serializable
+internal data class BillingReply(
+    val status: String,
+    val products: List<SubscriptionProduct> = emptyList(),
+    val message: String? = null
+)
 
 actual class BillingManager {
-    private val _isPremium = MutableStateFlow(false)
-    actual val isPremium: StateFlow<Boolean> = _isPremium
-    
-    private var purchaseContinuation: kotlin.coroutines.Continuation<PurchaseResult>? = null
+    actual val isPremium: StateFlow<Boolean> = IosBillingBridge.premium
 
-    private val transactionObserver = object : NSObject(), SKPaymentTransactionObserverProtocol {
-        override fun paymentQueue(queue: SKPaymentQueue, updatedTransactions: List<*>) {
-            for (transaction in updatedTransactions) {
-                if (transaction is SKPaymentTransaction) {
-                    when (transaction.transactionState) {
-                        SKPaymentTransactionState.SKPaymentTransactionStatePurchased,
-                        SKPaymentTransactionState.SKPaymentTransactionStateRestored -> {
-                            _isPremium.value = true
-                            SKPaymentQueue.defaultQueue().finishTransaction(transaction)
-                            purchaseContinuation?.resume(PurchaseResult.SUCCESS)
-                            purchaseContinuation = null
-                        }
-                        SKPaymentTransactionState.SKPaymentTransactionStateFailed -> {
-                            SKPaymentQueue.defaultQueue().finishTransaction(transaction)
-                            val error = transaction.error
-                            if (error != null && error.code == 2L) {
-                                purchaseContinuation?.resume(PurchaseResult.CANCELLED)
-                            } else {
-                                purchaseContinuation?.resume(PurchaseResult.ERROR)
-                            }
-                            purchaseContinuation = null
-                        }
-                        else -> {
-                            // Diğer durumlar (Purchasing, Deferred) için bir şey yapmıyoruz.
-                        }
-                    }
-                }
-            }
-        }
-
-        override fun paymentQueueRestoreCompletedTransactionsFinished(queue: SKPaymentQueue) {
-            // Restore başarılı oldu, eğer daha önce alınmış bir ürün varsa updatedTransactions içinde stateRestored olarak gelecektir.
-        }
-
-        override fun paymentQueue(queue: SKPaymentQueue, restoreCompletedTransactionsFailedWithError: NSError) {
-            // Restore hatası
-        }
-    }
-
-    init {
-        SKPaymentQueue.defaultQueue().addTransactionObserver(transactionObserver)
-    }
+    actual suspend fun loadProducts(): List<SubscriptionProduct> = IosBillingBridge.request { id ->
+        checkNotNull(IosBillingBridge.loadProducts) { "App Store bağlantısı hazır değil." }(id)
+    }.products
 
     actual suspend fun startSubscription(productId: String): PurchaseResult {
-        if (!SKPaymentQueue.canMakePayments()) {
-            return PurchaseResult.ERROR
+        val reply = IosBillingBridge.request { id ->
+            checkNotNull(IosBillingBridge.purchase) { "App Store bağlantısı hazır değil." }(id, productId)
         }
-
-        return suspendCoroutine { continuation ->
-            purchaseContinuation = continuation
-            
-            val productIdentifiers = setOf(productId)
-            val request = SKProductsRequest(productIdentifiers)
-            
-            val requestDelegate = object : NSObject(), SKProductsRequestDelegateProtocol {
-                override fun productsRequest(request: SKProductsRequest, didReceiveResponse: SKProductsResponse) {
-                    val products = didReceiveResponse.products
-                    if (products.isNotEmpty()) {
-                        val product = products.first() as SKProduct
-                        val payment = SKPayment.paymentWithProduct(product)
-                        SKPaymentQueue.defaultQueue().addPayment(payment)
-                    } else {
-                        purchaseContinuation?.resume(PurchaseResult.ERROR)
-                        purchaseContinuation = null
-                    }
-                }
-                
-                override fun request(request: SKRequest, didFailWithError: NSError) {
-                    purchaseContinuation?.resume(PurchaseResult.ERROR)
-                    purchaseContinuation = null
-                }
-            }
-            
-            request.delegate = requestDelegate
-            request.start()
+        return when (reply.status) {
+            "success" -> PurchaseResult.SUCCESS
+            "cancelled" -> PurchaseResult.CANCELLED
+            "pending" -> error("Satın alma onay bekliyor. Onaylandığında Premium otomatik açılacak.")
+            else -> PurchaseResult.ERROR
         }
     }
 
     actual suspend fun restorePurchases() {
-        SKPaymentQueue.defaultQueue().restoreCompletedTransactions()
+        IosBillingBridge.request { id ->
+            checkNotNull(IosBillingBridge.restore) { "App Store bağlantısı hazır değil." }(id)
+        }
     }
 }
 

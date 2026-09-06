@@ -45,7 +45,15 @@ class WelcomeScreen : Screen {
 
         val isLoggedIn by authViewModel.isLoggedIn.collectAsState()
         val authError by authViewModel.error.collectAsState()
+        val callbackError by com.semtinazizi.kitapduy.platform.AuthenticationMessages.error.collectAsState()
         val uriHandler = LocalUriHandler.current
+
+        LaunchedEffect(callbackError) {
+            callbackError?.let {
+                snackbarHostState.showSnackbar(it)
+                com.semtinazizi.kitapduy.platform.AuthenticationMessages.error.value = null
+            }
+        }
 
         LaunchedEffect(authError) {
             authError?.let {
@@ -143,7 +151,7 @@ class WelcomeScreen : Screen {
                                 isLoading = true
                                 try {
                                     val url = authViewModel.getGoogleOAuthUrl()
-                                    if (url.isNotEmpty()) uriHandler.openUri(url)
+                                    if (url.isNotEmpty()) com.semtinazizi.kitapduy.platform.openAuthenticationUrl(url)
                                 } catch (e: Exception) { e.printStackTrace() }
                                 isLoading = false
                             }
@@ -177,7 +185,7 @@ class WelcomeScreen : Screen {
                                 isLoading = true
                                 try {
                                     val url = authViewModel.getAppleOAuthUrl()
-                                    if (url.isNotEmpty()) uriHandler.openUri(url)
+                                    if (url.isNotEmpty()) com.semtinazizi.kitapduy.platform.openAuthenticationUrl(url)
                                 } catch (e: Exception) { e.printStackTrace() }
                                 isLoading = false
                             }
