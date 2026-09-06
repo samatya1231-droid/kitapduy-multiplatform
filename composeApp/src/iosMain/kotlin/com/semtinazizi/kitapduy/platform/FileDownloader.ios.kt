@@ -9,7 +9,7 @@ import platform.Foundation.*
 @OptIn(ExperimentalForeignApi::class)
 class IosFileDownloader : FileDownloader {
 
-    private val fileManager = NSFileManager.defaultManager()
+    private val fileManager = NSFileManager.defaultManager
 
     private fun getDownloadsDir(): String {
         val urls = fileManager.URLsForDirectory(NSDocumentDirectory, inDomains = NSUserDomainMask)

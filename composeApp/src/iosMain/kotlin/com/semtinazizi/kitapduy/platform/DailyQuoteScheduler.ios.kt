@@ -87,9 +87,9 @@ actual object DailyQuoteScheduler {
         for (i in 1..minOf(7, quotes.size)) {
             val quote = quotes[i - 1]
             val content = UNMutableNotificationContent().apply {
-                setTitle("✨ Günün İlhamı")
-                setBody("“${quote.first}”\n\n— ${quote.second}")
-                setSound(UNNotificationSound.defaultSound)
+                title = "Günün İlhamı"
+                body = "«${quote.first}»\n\n— ${quote.second}"
+                sound = UNNotificationSound.defaultSound
             }
 
             // Target time: tomorrow + i days at 10:00 AM
@@ -97,11 +97,11 @@ actual object DailyQuoteScheduler {
                 .toLocalDateTime(systemTZ)
                 
             val dateComponents = NSDateComponents().apply {
-                setHour(10)
-                setMinute(0)
-                setDay(targetDateTime.dayOfMonth.toLong())
-                setMonth(targetDateTime.monthNumber.toLong())
-                setYear(targetDateTime.year.toLong())
+                hour = 10
+                minute = 0
+                day = targetDateTime.dayOfMonth.toLong()
+                month = targetDateTime.monthNumber.toLong()
+                year = targetDateTime.year.toLong()
             }
 
             val trigger = UNCalendarNotificationTrigger.triggerWithDateMatchingComponents(
