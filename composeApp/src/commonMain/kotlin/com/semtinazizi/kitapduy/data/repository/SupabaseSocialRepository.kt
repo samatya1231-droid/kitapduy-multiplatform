@@ -190,13 +190,7 @@ class SupabaseSocialRepository(
     /** Apple Guideline 1.2 - Icerik raporlama */
     override suspend fun reportPost(postId: String, reporterId: String, reason: String): Boolean {
         return try {
-            @kotlinx.serialization.Serializable
-            data class Report(
-                @kotlinx.serialization.SerialName("post_id") val postId: String,
-                @kotlinx.serialization.SerialName("reporter_id") val reporterId: String,
-                @kotlinx.serialization.SerialName("reason") val reason: String
-            )
-            supabaseClient.postgrest["reports"].insert(Report(postId, reporterId, reason))
+            supabaseClient.postgrest["reports"].insert(ReportRecord(postId, reporterId, reason))
             true
         } catch (e: Throwable) {
             println("Report Error: ${e.message}")
@@ -207,12 +201,7 @@ class SupabaseSocialRepository(
     /** Apple Guideline 1.2 - Kullanici engelleme */
     override suspend fun blockUser(blockerId: String, blockedUid: String): Boolean {
         return try {
-            @kotlinx.serialization.Serializable
-            data class BlockRecord(
-                @kotlinx.serialization.SerialName("blocker_uid") val blockerUid: String,
-                @kotlinx.serialization.SerialName("blocked_uid") val blockedUid: String
-            )
-            supabaseClient.postgrest["blocked_users"].upsert(BlockRecord(blockerId, blockedUid))
+            supabaseClient.postgrest["blocked_users"].upsert(SocialBlockRecord(blockerId, blockedUid))
             true
         } catch (e: Throwable) {
             println("Block Error: ${e.message}")
@@ -220,3 +209,17 @@ class SupabaseSocialRepository(
         }
     }
 }
+
+@kotlinx.serialization.Serializable
+data class ReportRecord(
+    @kotlinx.serialization.SerialName("post_id") val postId: String,
+    @kotlinx.serialization.SerialName("reporter_id") val reporterId: String,
+    @kotlinx.serialization.SerialName("reason") val reason: String
+)
+
+@kotlinx.serialization.Serializable
+data class SocialBlockRecord(
+    @kotlinx.serialization.SerialName("blocker_uid") val blockerUid: String,
+    @kotlinx.serialization.SerialName("blocked_uid") val blockedUid: String
+)
+

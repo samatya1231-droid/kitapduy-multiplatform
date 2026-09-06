@@ -191,12 +191,15 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
     /** Engellenen kullanici UID listesi - blocked_users tablosu yoksa bos liste doner */
     override suspend fun getBlockedUsers(uid: String): List<String> {
         return try {
-            @kotlinx.serialization.Serializable
-            data class BlockRecord(@kotlinx.serialization.SerialName("blocked_uid") val blockedUid: String)
             supabaseClient.postgrest["blocked_users"]
                 .select { filter { eq("blocker_uid", uid) } }
-                .decodeList<BlockRecord>()
+                .decodeList<AuthBlockRecord>()
                 .map { it.blockedUid }
         } catch (e: Throwable) { emptyList() }
     }
 }
+
+@kotlinx.serialization.Serializable
+data class AuthBlockRecord(
+    @kotlinx.serialization.SerialName("blocked_uid") val blockedUid: String
+)
