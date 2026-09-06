@@ -74,6 +74,14 @@ workflows:
           keychain initialize
           keychain add-certificates
           xcode-project use-profiles
+      - name: Kotlin Derlemesini Test Et (Tam Hata Gormek Icin)
+        script: |
+          chmod +x gradlew
+          export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx6g -Dkotlin.native.jvmArgs=-Xmx6g"
+          ./gradlew :composeApp:linkReleaseFrameworkIosArm64 --no-daemon --info 2>&1 | tee /tmp/kotlin_build.log
+          echo "=== Son 100 satir ==="
+          tail -100 /tmp/kotlin_build.log
+
       - name: Build and Sign IPA
         script: |
           cd iosApp
