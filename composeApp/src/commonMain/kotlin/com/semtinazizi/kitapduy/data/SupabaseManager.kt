@@ -35,7 +35,7 @@ object SupabaseManager {
             install(Auth) {
                 scheme = "kitapduy"
                 host = "login-callback"
-                alwaysAutoRefresh = true
+                alwaysAutoRefresh = false // CRASH FIX: iOS'te utility-qos arka plan thread'inde crash'e neden oluyor
                 if (com.semtinazizi.kitapduy.platform.platformName.startsWith("iOS")) {
                     flowType = io.github.jan.supabase.auth.FlowType.PKCE
                 }
