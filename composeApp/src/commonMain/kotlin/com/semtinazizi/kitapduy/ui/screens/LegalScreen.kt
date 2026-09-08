@@ -36,6 +36,10 @@ object LegalContent {
         Hesap ve veritabanı işlemlerinde Supabase, içerik ve dosya altyapısında Cloudflare kullanılır. Google/Apple ile giriş tercih edildiğinde ilgili sağlayıcının hizmeti açılır. Abonelik işlemlerini Apple yürütür; ödeme kartı bilgilerinizi KitapDuy almaz. Uygulama, Apple'ın doğruladığı abonelik durumunu Premium erişimi sağlamak için kullanır. Dış içerik bağlantıları açıldığında ilgili sitenin kendi gizlilik koşulları geçerlidir.
 
         Cihaz izinleri
+        iOS reklamları
+        Reklam sunumu için Google AdMob ve izin tercihleri için Google User Messaging Platform kullanılır. Reklam hizmeti ağ bilgileri (örneğin IP adresi), cihaz/uygulama bilgileri, reklam etkileşimleri ve tanılama verilerini işleyebilir. Bu sürüm kişiselleştirilmemiş reklam ister ve IDFA erişim izni istemez. Gereken bölgelerde izin formu gösterilir; kullanılabilir olduğunda Ayarlar > Reklam gizliliği tercihleri bölümünden seçiminizi değiştirebilirsiniz.
+
+        Cihaz izinleri
         Fotoğraf veya kamera erişimi, ilgili özelliği kullanmayı seçtiğinizde ve cihazda izin verdiğiniz ölçüde kullanılır. Bu izinleri iOS Ayarlar uygulamasından değiştirebilirsiniz. İndirilen içerikler ve bazı tercihler cihazda tutulur.
 
         Hesap silme ve talepler

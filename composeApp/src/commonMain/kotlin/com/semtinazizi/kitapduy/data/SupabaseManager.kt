@@ -35,7 +35,9 @@ object SupabaseManager {
             install(Auth) {
                 scheme = "kitapduy"
                 host = "login-callback"
-                alwaysAutoRefresh = false // CRASH FIX: iOS'te utility-qos arka plan thread'inde crash'e neden oluyor
+                // Refresh expired persisted sessions on both platforms.
+                // A background queue alone does not identify the cause of a crash.
+                alwaysAutoRefresh = true
                 if (com.semtinazizi.kitapduy.platform.platformName.startsWith("iOS")) {
                     flowType = io.github.jan.supabase.auth.FlowType.PKCE
                 }

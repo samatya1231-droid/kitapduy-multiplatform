@@ -11,6 +11,10 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
 import io.github.jan.supabase.auth.status.SessionStatus
+import com.semtinazizi.kitapduy.data.AccountDeletionClient
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 
 class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthRepository {
     override val authenticationChanges: Flow<Boolean?> = supabaseClient.auth.sessionStatus.map { status ->
@@ -173,17 +177,20 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
     override suspend fun deleteAccount(): Boolean {
         val uid = currentUserUid ?: return false
         return try {
-            supabaseClient.postgrest["posts"].delete { filter { eq("user_id", uid) } }
-            supabaseClient.postgrest["user_bookshelves"].delete { filter { eq("user_id", uid) } }
-            // Takip kayitlarini iki ayri sorguyla sil (or{} DSL supabase 3.x'te farkli)
-            supabaseClient.postgrest["followers"].delete { filter { eq("follower_id", uid) } }
-            supabaseClient.postgrest["followers"].delete { filter { eq("following_id", uid) } }
-            supabaseClient.postgrest["notifications"].delete { filter { eq("receiver_id", uid) } }
-            supabaseClient.postgrest["users"].delete { filter { eq("uid", uid) } }
-            supabaseClient.auth.signOut()
-            true
-        } catch (e: Throwable) {
-            e.printStackTrace()
+            withTimeout(30_000) {
+                // Never delete rows piecemeal from the device. The server verifies the JWT
+                // and deletes only its owner, including Auth, provider tokens and stored media.
+                val token = supabaseClient.auth.currentAccessTokenOrNull() ?: return@withTimeout false
+                val confirmed = AccountDeletionClient.delete(uid, token)
+                if (confirmed) supabaseClient.auth.clearSession()
+                confirmed
+            }
+        } catch (_: TimeoutCancellationException) {
+            false
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // Never log JWTs or server bodies. Keep the session until deletion is confirmed.
             false
         }
     }

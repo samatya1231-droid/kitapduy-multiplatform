@@ -37,6 +37,9 @@ kotlin {
     }
 
     sourceSets {
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
         // ─────────────────────────────────────────────────
         // COMMON: Hem Android hem iOS'ta çalışan kod
         // ─────────────────────────────────────────────────

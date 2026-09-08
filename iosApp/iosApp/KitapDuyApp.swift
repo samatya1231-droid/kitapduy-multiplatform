@@ -1,11 +1,15 @@
 import SwiftUI
+import UIKit
 import ComposeApp
-import GoogleMobileAds
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-        GADMobileAds.sharedInstance().start(completionHandler: nil)
-        AdMobBridge.setup()
+        // iOS 26.x Liquid Glass: CUIDesignLibraryCatalog'u ana thread'de ön-yükle.
+        // Bu olmadan SwiftUI'ın Color.resolve çağrısı SIGABRT ile çöküyor.
+        // Crash analizi: iki ayrı log'da aynı stack: stat() → CUIDesignLibraryCatalog → Color.resolve.
+        let traits = UITraitCollection.current
+        _ = UIColor.systemBackground.resolvedColor(with: traits)
+        _ = UIColor.label.resolvedColor(with: traits)
         return true
     }
     
@@ -29,18 +33,21 @@ struct KitapDuyApp: App {
         )
         AuthenticationService.shared.configure()
         StoreService.shared.configure()
+        AdMobBridge.shared.configure()
     }
     
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .ignoresSafeArea(.keyboard)
+                .onAppear { AdMobBridge.shared.requestConsent() }
                 // kitapduy://login-callback OAuth don us URL isleyici
                 .onOpenURL { url in
                     MainViewControllerKt.handleOAuthDeepLink(url: url.absoluteString)
                 }
                 .onChange(of: scenePhase) { phase in
                     if phase == .active {
+                        AdMobBridge.shared.requestConsent()
                         Task { await StoreService.shared.refreshEntitlements() }
                     }
                 }

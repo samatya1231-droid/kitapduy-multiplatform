@@ -26,6 +26,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import com.semtinazizi.kitapduy.platform.AdsPrivacyBridge
 
 data class SettingsScreen(val isPremium: Boolean = false) : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -34,6 +35,7 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
         val navigator = LocalNavigator.currentOrThrow
         val authRepository = koinInject<AuthRepository>()
         val coroutineScope = rememberCoroutineScope()
+        val showAdsPrivacy by AdsPrivacyBridge.isRequired.collectAsState()
         var showDeleteConfirmation by remember { mutableStateOf(false) }
         var isDeletingAccount by remember { mutableStateOf(false) }
         var deleteError by remember { mutableStateOf<String?>(null) }
@@ -45,7 +47,7 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
                 text = {
                     Column {
                         Text(
-                            "Hesabinizi silmek istediginize emin misiniz? Bu islem geri alinamaz ve tum verileriniz kalici olarak silinecektir.",
+                            "Hesabınızın ve ilişkili kişisel verilerinizin kalıcı olarak silinmesini onaylıyor musunuz? Bu işlem geri alınamaz. Mağaza aboneliğiniz otomatik iptal edilmez; aboneliğinizi ayrıca mağazadan yönetmelisiniz.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         if (deleteError != null) {
@@ -60,13 +62,15 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
                             isDeletingAccount = true
                             deleteError = null
                             coroutineScope.launch {
-                                val success = authRepository.deleteAccount()
-                                isDeletingAccount = false
-                                if (success) {
-                                    showDeleteConfirmation = false
-                                    navigator.replaceAll(LoginScreen())
-                                } else {
-                                    deleteError = "Hesap silinemedi. Lütfen tekrar deneyin veya ${LegalContent.supportEmail} adresine yazın."
+                                try {
+                                    if (authRepository.deleteAccount()) {
+                                        showDeleteConfirmation = false
+                                        navigator.replaceAll(LoginScreen())
+                                    } else {
+                                        deleteError = "Hesabın silindiği doğrulanamadı. Lütfen tekrar deneyin veya ${LegalContent.supportEmail} adresine yazın."
+                                    }
+                                } finally {
+                                    isDeletingAccount = false
                                 }
                             }
                         },
@@ -140,6 +144,11 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
                 }
                 SettingsItem(icon = Icons.Filled.Description, title = "Kullanim Kosullari") {
                     navigator.push(LegalScreen(LegalDocument.TERMS))
+                }
+                if (showAdsPrivacy) {
+                    SettingsItem(icon = Icons.Filled.PrivacyTip, title = "Reklam gizliliği tercihleri") {
+                        AdsPrivacyBridge.openOptions()
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
