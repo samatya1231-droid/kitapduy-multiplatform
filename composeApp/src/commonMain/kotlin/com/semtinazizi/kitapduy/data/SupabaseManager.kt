@@ -2,9 +2,15 @@ package com.semtinazizi.kitapduy.data
 
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.storage.Storage
+import io.github.jan.supabase.storage.storage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 /**
  * KMP Supabase Manager
@@ -37,11 +43,26 @@ object SupabaseManager {
                 host = "login-callback"
                 // Refresh expired persisted sessions on both platforms.
                 // A background queue alone does not identify the cause of a crash.
-                alwaysAutoRefresh = true
                 if (com.semtinazizi.kitapduy.platform.platformName.startsWith("iOS")) {
+                    alwaysAutoRefresh = false
                     flowType = io.github.jan.supabase.auth.FlowType.PKCE
+                } else {
+                    alwaysAutoRefresh = true
                 }
                 sessionManager = AppSessionManager()
+            }
+        }
+
+        // iOS'ta alwaysAutoRefresh = false yaptigimiz icin uygulama acilisinda
+        // tokenin yenilenmesi gerekiyorsa bunu guvenli bir coroutine icinde manuel yapiyoruz.
+        // Boylece background thread unhandled exception yuzunden app crash olmaz.
+        if (com.semtinazizi.kitapduy.platform.platformName.startsWith("iOS")) {
+            GlobalScope.launch(Dispatchers.Default) {
+                try {
+                    client.auth.refreshCurrentSession()
+                } catch (e: Exception) {
+                    println("Supabase manual refresh failed: ${e.message}")
+                }
             }
         }
     }
@@ -49,7 +70,7 @@ object SupabaseManager {
     val client: SupabaseClient
         get() = _client ?: error("SupabaseManager henüz başlatılmadı. initialize() çağır.")
 
-    val auth get() = client.pluginManager.getPlugin(Auth)
-    val postgrest get() = client.pluginManager.getPlugin(Postgrest)
-    val storage get() = client.pluginManager.getPlugin(Storage)
+    val auth get() = client.auth
+    val postgrest get() = client.postgrest
+    val storage get() = client.storage
 }
