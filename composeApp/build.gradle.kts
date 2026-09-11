@@ -148,7 +148,7 @@ kotlin {
         // ─────────────────────────────────────────────────
         iosMain.dependencies {
             // iOS'ta HTTPS ve NSURLSession entegrasyonu için desteklenen motor Darwin'dir.
-            implementation(libs.ktor.client.darwin)
+            implementation(libs.ktor.client.cio)
         }
     }
 }
