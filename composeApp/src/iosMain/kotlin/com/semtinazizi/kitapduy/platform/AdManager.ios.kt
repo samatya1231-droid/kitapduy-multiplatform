@@ -38,13 +38,13 @@ actual class AdManager {
     }
 
     actual fun grantAdFreeTime() {
-        val newEndTime = platform.Foundation.NSDate().timeIntervalSince1970 * 1000 + (30 * 60 * 1000)
+        val newEndTime = platform.Foundation.NSDate.date().timeIntervalSince1970() * 1000 + (30 * 60 * 1000)
         platform.Foundation.NSUserDefaults.standardUserDefaults.setDouble(newEndTime, "AdFreeEndTime")
     }
 
     actual fun isAdFreeActive(): Boolean {
         val endTime = platform.Foundation.NSUserDefaults.standardUserDefaults.doubleForKey("AdFreeEndTime")
-        return (platform.Foundation.NSDate().timeIntervalSince1970 * 1000) < endTime
+        return (platform.Foundation.NSDate.date().timeIntervalSince1970() * 1000) < endTime
     }
 }
 
