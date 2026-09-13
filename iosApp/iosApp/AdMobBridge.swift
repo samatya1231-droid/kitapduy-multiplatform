@@ -31,7 +31,7 @@ final class AdMobBridge: NSObject, FullScreenContentDelegate {
             Task { @MainActor in await AdMobBridge.shared.showPrivacyOptions() }
         }
         AdMobSwiftBridge.shared.showRewardedAd = { [weak self] onRewarded in
-            Task { @MainActor in await self?.showRewarded(onRewarded: onRewarded) }
+            Task { @MainActor in await self?.showRewarded(onRewarded: { _ = onRewarded() }) }
         }
     }
 
