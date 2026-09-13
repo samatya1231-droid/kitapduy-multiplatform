@@ -22,6 +22,7 @@ class IosAudioPlayer : AudioPlayer {
     private var currentUrl: String = ""
     private var currentTitle: String = ""
     private var currentArtist: String = ""
+    private var atmosphereLoopObserver: platform.darwin.NSObjectProtocol? = null
 
     override fun initialize() {
         // AVAudioSession ayarları (Arka planda çalma için gerekli)
@@ -33,11 +34,34 @@ class IosAudioPlayer : AudioPlayer {
     }
 
     private fun setupRemoteCommandCenter() {
-        // Devre disi birakildi - iOS'ta arka plan thread'inde crash'e sebep oluyor
+        platform.darwin.dispatch_async(platform.darwin.dispatch_get_main_queue()) {
+            val commandCenter = MPRemoteCommandCenter.sharedCommandCenter()
+            commandCenter.playCommand.addTargetWithHandler { _ ->
+                resume()
+                MPRemoteCommandHandlerStatusSuccess
+            }
+            commandCenter.pauseCommand.addTargetWithHandler { _ ->
+                pause()
+                MPRemoteCommandHandlerStatusSuccess
+            }
+            commandCenter.stopCommand.addTargetWithHandler { _ ->
+                stop()
+                MPRemoteCommandHandlerStatusSuccess
+            }
+        }
     }
 
     private fun updateNowPlayingInfo() {
-        // Devre disi birakildi - iOS'ta arka plan thread'inde crash'e sebep oluyor
+        platform.darwin.dispatch_async(platform.darwin.dispatch_get_main_queue()) {
+            val center = MPNowPlayingInfoCenter.defaultCenter()
+            val info = mutableMapOf<Any?, Any?>()
+            info[MPMediaItemPropertyTitle] = currentTitle
+            info[MPMediaItemPropertyArtist] = currentArtist
+            info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = getCurrentPosition() / 1000.0
+            info[MPMediaItemPropertyPlaybackDuration] = getDuration() / 1000.0
+            info[MPNowPlayingInfoPropertyPlaybackRate] = if (isPlaying()) 1.0f else 0.0f
+            center.nowPlayingInfo = info
+        }
     }
 
     override fun play(url: String) {
@@ -119,10 +143,26 @@ class IosAudioPlayer : AudioPlayer {
         atmospherePlayer?.volume = volume
         atmospherePlayer?.play()
         
-        // Loop için observer eklenebilir, şimdilik tek seferlik çalıyor.
+        atmosphereLoopObserver?.let {
+            platform.Foundation.NSNotificationCenter.defaultCenter.removeObserver(it)
+            atmosphereLoopObserver = null
+        }
+        
+        atmosphereLoopObserver = platform.Foundation.NSNotificationCenter.defaultCenter.addObserverForName(
+            name = platform.AVFoundation.AVPlayerItemDidPlayToEndTimeNotification,
+            `object` = atmospherePlayer?.currentItem,
+            queue = null
+        ) { _ ->
+            atmospherePlayer?.seekToTime(platform.CoreMedia.CMTimeMake(0, 1))
+            atmospherePlayer?.play()
+        }
     }
 
     override fun stopAtmosphere() {
+        atmosphereLoopObserver?.let {
+            platform.Foundation.NSNotificationCenter.defaultCenter.removeObserver(it)
+            atmosphereLoopObserver = null
+        }
         atmospherePlayer?.pause()
         atmospherePlayer = null
     }

@@ -1,4 +1,4 @@
-﻿package com.semtinazizi.kitapduy.platform
+package com.semtinazizi.kitapduy.platform
 
 /**
  * iOS AdMob implementasyonu.
@@ -8,14 +8,18 @@
 object AdMobSwiftBridge {
     var loadInterstitialAd: (() -> Unit)? = null
     var showInterstitialAdIfReady: (() -> Unit)? = null
+    var showRewardedAd: ((() -> Unit) -> Unit)? = null
 }
 
 actual class AdManager {
     // iOS banner reklam birim ID'si
     actual val bannerAdUnitId: String = "ca-app-pub-1229684690212629/9310593353" // Real ID
 
-    // iOS Interstitial reklam birim ID'si (Swift tarafÄ±nda kullanÄ±lmak Ã¼zere referans)
+    // iOS Interstitial reklam birim ID'si (Swift tarafında kullanılmak üzere referans)
     val interstitialAdUnitId: String = "ca-app-pub-1229684690212629/2226310253"
+
+    // iOS Rewarded reklam birim ID'si
+    val rewardedAdUnitId: String = "ca-app-pub-1229684690212629/2810760779"
 
     actual fun loadInterstitial() {
         AdMobSwiftBridge.loadInterstitialAd?.invoke()
@@ -26,17 +30,21 @@ actual class AdManager {
     }
 
     actual fun showRewardedAd(onRewarded: () -> Unit) {
-        // TODO: iOS Reward Ad implementasyonu Swift bridge uzerinden yapilacak
-        onRewarded()
+        if (AdMobSwiftBridge.showRewardedAd != null) {
+            AdMobSwiftBridge.showRewardedAd?.invoke(onRewarded)
+        } else {
+            onRewarded()
+        }
     }
 
     actual fun grantAdFreeTime() {
-        // TODO: NSUserDefaults ile iOS kisminda saklanabilir
+        val newEndTime = platform.Foundation.NSDate().timeIntervalSince1970 * 1000 + (30 * 60 * 1000)
+        platform.Foundation.NSUserDefaults.standardUserDefaults.setDouble(newEndTime, "AdFreeEndTime")
     }
 
     actual fun isAdFreeActive(): Boolean {
-        // TODO: NSUserDefaults ile iOS kisminda kontrol edilecek
-        return false
+        val endTime = platform.Foundation.NSUserDefaults.standardUserDefaults.doubleForKey("AdFreeEndTime")
+        return (platform.Foundation.NSDate().timeIntervalSince1970 * 1000) < endTime
     }
 }
 

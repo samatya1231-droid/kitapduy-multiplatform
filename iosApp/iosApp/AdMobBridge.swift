@@ -14,6 +14,9 @@ final class AdMobBridge: NSObject, FullScreenContentDelegate {
     private var loadingInterstitial = false
     private var consentGeneration = 0
     private var interstitial: InterstitialAd?
+    private var rewardedAd: RewardedAd?
+    private var loadingRewarded = false
+    private var rewardedAdUnitId: String { ComposeApp.AdManager().rewardedAdUnitId }
     var canRequestAds: Bool { sdkReady && ConsentInformation.shared.canRequestAds }
 
     func configure() {
@@ -26,6 +29,9 @@ final class AdMobBridge: NSObject, FullScreenContentDelegate {
         }
         AdsPrivacyBridge.shared.showOptions = {
             Task { @MainActor in await AdMobBridge.shared.showPrivacyOptions() }
+        }
+        AdMobSwiftBridge.shared.showRewardedAd = { [weak self] onRewarded in
+            Task { @MainActor in await self?.showRewarded(onRewarded: onRewarded) }
         }
     }
 
@@ -56,11 +62,14 @@ final class AdMobBridge: NSObject, FullScreenContentDelegate {
             value: ConsentInformation.shared.privacyOptionsRequirementStatus == .required)
         consentGeneration += 1
         loadingInterstitial = false
+        loadingRewarded = false
         interstitial = nil
+        rewardedAd = nil
         NotificationCenter.default.post(name: Self.adsChanged, object: nil)
         guard ConsentInformation.shared.canRequestAds else { return }
         if sdkReady {
             loadInterstitial()
+            loadRewarded()
         } else if !startingSDK {
             startingSDK = true
             // No IDFA/ATT request. Disable publisher first-party ID; request non-personalized ads.
@@ -70,6 +79,7 @@ final class AdMobBridge: NSObject, FullScreenContentDelegate {
                     self.sdkReady = true
                     NotificationCenter.default.post(name: Self.adsChanged, object: nil)
                     self.loadInterstitial()
+                    self.loadRewarded()
                 }
             }
         }
@@ -106,9 +116,46 @@ final class AdMobBridge: NSObject, FullScreenContentDelegate {
         ad.present(from: presenter)
     }
 
-    func adDidDismissFullScreenContent(_ ad: FullScreenPresentingAd) { loadInterstitial() }
+    private func loadRewarded() {
+        guard canRequestAds, !loadingRewarded, rewardedAd == nil else { return }
+        loadingRewarded = true
+        let generation = consentGeneration
+        RewardedAd.load(with: rewardedAdUnitId,
+                        request: Self.adRequest()) { [weak self] ad, _ in
+            Task { @MainActor in
+                guard let self, generation == self.consentGeneration else { return }
+                self.loadingRewarded = false
+                guard self.canRequestAds else { return }
+                self.rewardedAd = ad
+                self.rewardedAd?.fullScreenContentDelegate = self
+            }
+        }
+    }
+
+    private func showRewarded(onRewarded: @escaping () -> Void) async {
+        guard canRequestAds, let presenter = Self.presenter else {
+            onRewarded()
+            return
+        }
+        guard let ad = rewardedAd else {
+            loadRewarded()
+            onRewarded()
+            return
+        }
+        rewardedAd = nil
+        ad.present(from: presenter) {
+            onRewarded()
+        }
+    }
+
+    func adDidDismissFullScreenContent(_ ad: FullScreenPresentingAd) {
+        if ad is InterstitialAd { loadInterstitial() }
+        else if ad is RewardedAd { loadRewarded() }
+    }
+    
     func ad(_ ad: FullScreenPresentingAd, didFailToPresentFullScreenContentWithError error: Error) {
-        interstitial = nil
+        if ad is InterstitialAd { interstitial = nil }
+        else if ad is RewardedAd { rewardedAd = nil }
     }
 
     static var presenter: UIViewController? {
