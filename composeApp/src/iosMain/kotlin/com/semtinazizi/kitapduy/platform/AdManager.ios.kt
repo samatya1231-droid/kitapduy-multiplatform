@@ -1,5 +1,6 @@
 package com.semtinazizi.kitapduy.platform
 
+import kotlinx.datetime.Clock
 /**
  * iOS AdMob implementasyonu.
  * Xcode projesine GoogleMobileAds SDK eklendikten sonra
@@ -38,13 +39,13 @@ actual class AdManager {
     }
 
     actual fun grantAdFreeTime() {
-        val newEndTime = platform.Foundation.NSDate.date().timeIntervalSince1970() * 1000 + (30 * 60 * 1000)
+        val newEndTime = Clock.System.now().toEpochMilliseconds().toDouble() + (30 * 60 * 1000)
         platform.Foundation.NSUserDefaults.standardUserDefaults.setDouble(newEndTime, "AdFreeEndTime")
     }
 
     actual fun isAdFreeActive(): Boolean {
         val endTime = platform.Foundation.NSUserDefaults.standardUserDefaults.doubleForKey("AdFreeEndTime")
-        return (platform.Foundation.NSDate.date().timeIntervalSince1970() * 1000) < endTime
+        return Clock.System.now().toEpochMilliseconds().toDouble() < endTime
     }
 }
 
