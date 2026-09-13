@@ -20,33 +20,27 @@ fun KitapduyTheme(
     val DarkColorScheme = darkColorScheme(
         primary = SleekChampagne,
         onPrimary = Color.Black,
-        primaryContainer = SleekChampagne.copy(alpha = 0.12f),
+        primaryContainer = SleekChampagne.copy(alpha = 0.2f),
         onPrimaryContainer = SleekChampagne,
         secondary = SleekBronze,
-        onSecondary = Color.White,
-        tertiary = PremiumBronze,
+        onSecondary = Color.Black,
+        tertiary = SleekBronze,
         background = SleekDarkBackground,
         onBackground = SleekOnSurface,
         surface = SleekSurface,
         onSurface = SleekOnSurface,
-        surfaceVariant = Color(0xFF2C2C2E),
+        surfaceVariant = SleekSurface.copy(alpha = 0.7f),
         onSurfaceVariant = SleekGray
     )
 
     val LightColorScheme = lightColorScheme(
-        primary = Color(0xFF7D5233),
-        onPrimary = Color.White,
-        primaryContainer = Color(0xFF7D5233).copy(alpha = 0.1f),
-        onPrimaryContainer = Color(0xFF7D5233),
-        secondary = Color(0xFFB08D6A),
-        onSecondary = Color.White,
-        tertiary = PremiumBronze,
-        background = Color(0xFFF5F0EB),
-        onBackground = PremiumNavy,
-        surface = Color(0xFFFAF7F4),
-        onSurface = PremiumNavy,
-        surfaceVariant = Color(0xFFEDE8E1),
-        onSurfaceVariant = Color(0xFF5A5A5C)
+        primary = Color(0xFF8B6B00), // Gold-ish brown for light mode
+        secondary = Color(0xFF625b71),
+        tertiary = Color(0xFF7D5260),
+        background = PremiumPaper,
+        onBackground = PremiumDarkBackground,
+        surface = Color.White,
+        onSurface = PremiumDarkBackground
     )
 
     val colorScheme = if (isDark) DarkColorScheme else LightColorScheme
