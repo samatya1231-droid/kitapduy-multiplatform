@@ -1,6 +1,8 @@
 package com.semtinazizi.kitapduy.platform
 
 import com.semtinazizi.kitapduy.data.SupabaseManager
+import io.github.jan.supabase.auth.providers.Apple
+import io.github.jan.supabase.auth.providers.builtin.IDToken
 import io.ktor.http.Url
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -35,9 +37,47 @@ object IosAuthenticationBridge {
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (error: Exception) {
-                    // Never log callback URLs: they contain authentication codes.
                     fail("Giriş tamamlanamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.")
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Native Apple Sign In köprüsü.
+ * Swift tarafı (AuthenticationService.swift) bu objeye lambda atar.
+ * Lambda çağrıldığında Swift, ASAuthorizationController başlatır.
+ * Kimlik doğrulama başarılı olunca Swift, handleAppleSignIn() fonksiyonunu çağırır.
+ */
+object IosAppleSignInBridge {
+    /** Swift tarafından set edilir — ASAuthorizationController'ı başlatır */
+    var startSignIn: (() -> Unit)? = null
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    fun fail(message: String) { AuthenticationMessages.error.value = message }
+
+    /**
+     * Swift, Apple kimlik doğrulaması başarılı olduğunda bu fonksiyonu çağırır.
+     * identityToken: Apple'ın döndürdüğü JWT kimlik token'ı
+     * nonce: SHA256 hash'lenmiş rastgele string (replay attack'e karşı)
+     */
+    fun handleAppleSignIn(identityToken: String, rawNonce: String) {
+        scope.launch {
+            try {
+                withTimeout(30_000) {
+                    SupabaseManager.auth.awaitInitialization()
+                    SupabaseManager.auth.signInWith(IDToken) {
+                        idToken = identityToken
+                        provider = Apple
+                        nonce = rawNonce
+                    }
+                }
+                AuthenticationMessages.error.value = null
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (e: Exception) {
+                fail("Apple ile giriş tamamlanamadı. Lütfen tekrar deneyin.")
             }
         }
     }
@@ -48,3 +88,11 @@ actual fun openAuthenticationUrl(url: String) {
     if (open == null) IosAuthenticationBridge.fail("Giriş penceresi hazır değil. Lütfen tekrar deneyin.")
     else open(url)
 }
+
+/** iOS'ta native Apple Sign In akışını başlatır (ASAuthorizationController) */
+actual fun triggerNativeAppleSignIn() {
+    val start = IosAppleSignInBridge.startSignIn
+    if (start == null) IosAppleSignInBridge.fail("Apple giriş servisi hazır değil. Lütfen tekrar deneyin.")
+    else start()
+}
+

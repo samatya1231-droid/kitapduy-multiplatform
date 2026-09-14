@@ -1,4 +1,4 @@
-﻿package com.semtinazizi.kitapduy.ui.screens
+package com.semtinazizi.kitapduy.ui.screens
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.*
@@ -177,18 +177,15 @@ class WelcomeScreen : Screen {
 
                 Spacer(Modifier.height(12.dp))
 
-                // Apple Login
+                // Apple Login - iOS'ta native ASAuthorizationController kullanır (WebView değil)
                 Surface(
                     onClick = {
                         if (!isLoading) {
-                            scope.launch {
-                                isLoading = true
-                                try {
-                                    val url = authViewModel.getAppleOAuthUrl()
-                                    if (url.isNotEmpty()) com.semtinazizi.kitapduy.platform.openAuthenticationUrl(url)
-                                } catch (e: Exception) { e.printStackTrace() }
-                                isLoading = false
-                            }
+                            isLoading = true
+                            try {
+                                com.semtinazizi.kitapduy.platform.triggerNativeAppleSignIn()
+                            } catch (e: Exception) { e.printStackTrace() }
+                            isLoading = false
                         }
                     },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -204,6 +201,7 @@ class WelcomeScreen : Screen {
                         }
                     }
                 }
+
 
                 Spacer(Modifier.height(12.dp))
 

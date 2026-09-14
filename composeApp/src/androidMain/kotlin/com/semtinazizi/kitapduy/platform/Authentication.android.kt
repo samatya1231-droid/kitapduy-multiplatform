@@ -9,3 +9,6 @@ actual fun openAuthenticationUrl(url: String) {
     if (activity == null) AuthenticationMessages.error.value = "Giriş penceresi açılamadı."
     else activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
 }
+
+// Android, Apple Sign In'i OAuth URL akışıyla yapıyor. Bu fonksiyon iOS'a özel.
+actual fun triggerNativeAppleSignIn() { /* no-op on Android */ }

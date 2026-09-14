@@ -7,3 +7,9 @@ object AuthenticationMessages {
 }
 
 expect fun openAuthenticationUrl(url: String)
+
+/**
+ * iOS'ta native Apple Sign In (ASAuthorizationController) başlatır.
+ * Android'de no-op; Android tarafı OAuth URL flow'unu kullanır.
+ */
+expect fun triggerNativeAppleSignIn()
