@@ -1,10 +1,14 @@
 package com.semtinazizi.kitapduy.ui.screens.tabs
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -28,7 +32,7 @@ import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.model.SupabaseBookshelf
 import com.semtinazizi.kitapduy.ui.viewmodel.LibraryScreenModel
 import org.koin.compose.viewmodel.koinViewModel
-import org.koin.core.parameter.parametersOf
+import com.semtinazizi.kitapduy.ui.screens.BookDetailScreen
 import cafe.adriel.voyager.koin.koinScreenModel
 import com.semtinazizi.kitapduy.ui.components.PremiumUpgradeCard
 import com.semtinazizi.kitapduy.ui.screens.SubscriptionPaywallScreen
@@ -42,7 +46,7 @@ object LibraryTab : Tab {
         get() {
             val title = "Kitaplık"
             val icon = rememberVectorPainter(Icons.Default.Favorite)
-            
+
             return remember {
                 TabOptions(
                     index = 1u,
@@ -57,20 +61,21 @@ object LibraryTab : Tab {
         val navigator = LocalNavigator.currentOrThrow
         // Koin üzerinden ViewModel oluşturuyoruz
         val viewModel = koinScreenModel<LibraryScreenModel>()
-        
+
+        var showShelves by remember { mutableStateOf(false) }
         var selectedTab by remember { mutableIntStateOf(0) }
-        val tabs = listOf("Dinlediklerim", "Favoriler", "İndirilenler", "Bitirdiklerim")
-        val shelfTypes = listOf("LISTENING", "FAVORITE", "DOWNLOADED", "FINISHED")
+        val tabs = listOf("Favoriler", "İndirilenler", "Geçmiş")
+        val shelfTypes = listOf("FAVORITE", "DOWNLOADED", "LISTENING")
 
         val bookshelfItems by viewModel.bookshelfItems.collectAsState()
         val isLoading by viewModel.isLoading.collectAsState()
         val errorMessage by viewModel.errorMessage.collectAsState()
-        
+
         val authViewModel = koinViewModel<AuthViewModel>()
         val userProfile by authViewModel.userProfile.collectAsState()
-        val isPremium = userProfile?.isPremium == true
+        val isPremium = userProfile?.hasPremium() == true
 
-        LaunchedEffect(selectedTab) {
+        LaunchedEffect(selectedTab, userProfile?.uid) {
             viewModel.loadBookshelf(shelfTypes[selectedTab])
         }
 
@@ -84,12 +89,23 @@ object LibraryTab : Tab {
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
-            
-            Spacer(Modifier.height(24.dp))
+
+            Box {
+                TextButton(onClick = { showShelves = true }) { Text("Raflarım") }
+                DropdownMenu(expanded = showShelves, onDismissRequest = { showShelves = false }) {
+                    listOf("READING" to "Dinliyorum", "FINISHED" to "Bitirdiklerim", "WISHLIST" to "Dinleyeceklerim").forEach { (type, title) ->
+                        DropdownMenuItem(text = { Text(title) }, onClick = {
+                            showShelves = false
+                            (navigator.parent ?: navigator).push(com.semtinazizi.kitapduy.ui.screens.PrideShelfScreen(type, title))
+                        })
+                    }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
 
             // Sekmeler
             Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth().height(48.dp)
             ) {
@@ -106,7 +122,7 @@ object LibraryTab : Tab {
                                 .fillMaxHeight()
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primary 
+                                    if (isSelected) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
                                     else Color.Transparent
                                 )
                                 .clickable { selectedTab = i },
@@ -114,7 +130,7 @@ object LibraryTab : Tab {
                         ) {
                             Text(
                                 text = title,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary 
+                                color = if (isSelected) MaterialTheme.colorScheme.onSurface
                                         else MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
@@ -130,7 +146,7 @@ object LibraryTab : Tab {
             PremiumUpgradeCard(
                 modifier = Modifier.padding(top = 16.dp),
                 isPremium = isPremium,
-                onClick = { navigator.parent?.push(SubscriptionPaywallScreen()) }
+                onClick = { (navigator.parent ?: navigator).push(SubscriptionPaywallScreen()) }
             )
 
             Spacer(Modifier.height(16.dp))
@@ -140,11 +156,12 @@ object LibraryTab : Tab {
                 if (isLoading) {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 } else if (errorMessage != null) {
-                    Text(
-                        text = errorMessage ?: "Bir hata oluştu",
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(errorMessage.orEmpty(), color = MaterialTheme.colorScheme.error)
+                        if (shelfTypes[selectedTab] != "FAVORITE") {
+                            TextButton(onClick = { viewModel.loadBookshelf(shelfTypes[selectedTab]) }) { Text("Tekrar dene") }
+                        }
+                    }
                 } else if (bookshelfItems.isEmpty()) {
                     Text(
                         text = "${tabs[selectedTab]} listeniz şu an boş.",
@@ -152,20 +169,22 @@ object LibraryTab : Tab {
                         modifier = Modifier.align(Alignment.Center)
                     )
                 } else {
-                    LazyColumn(
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
                         contentPadding = PaddingValues(bottom = 80.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(24.dp)
                     ) {
                         if (!isPremium) {
-                            item {
+                            item(span = { GridItemSpan(2) }) {
                                 BannerAdView(modifier = Modifier.padding(bottom = 8.dp))
                             }
                         }
-                        items(bookshelfItems) { item ->
-                            BookshelfItemCard(
+                        items(bookshelfItems, key = { it.bookId }) { item ->
+                            LibraryCoverCard(
                                 item = item,
                                 onClick = {
-                                    // navigator.push(BookDetailScreen(item.bookId)) // Kitap detaya gidilebilir
+                                    viewModel.bookFor(item)?.let { (navigator.parent ?: navigator).push(BookDetailScreen(it)) }
                                 }
                             )
                         }
@@ -233,5 +252,18 @@ fun BookshelfItemCard(item: SupabaseBookshelf, onClick: () -> Unit) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun LibraryCoverCard(item: SupabaseBookshelf, onClick: () -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        AsyncImage(model = item.bookCoverUrl, contentDescription = item.bookTitle,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxWidth().aspectRatio(0.72f).clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant))
+        Spacer(Modifier.height(10.dp))
+        Text(item.bookTitle.orEmpty(), style = MaterialTheme.typography.titleMedium,
+            maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }

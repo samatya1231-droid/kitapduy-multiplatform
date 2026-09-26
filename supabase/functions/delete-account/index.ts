@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { deleteVerifiedAccount } from './cleanup.ts'
 
 // ─── Kullanıcı verisi bulunan tüm tablolar ───────────────────────────────────
 // Otomatik cascade olanlar (auth.users silinince zaten temizlenir):
@@ -65,66 +66,16 @@ Deno.serve(async (req: Request) => {
     }
     const uid = user.id   // UUID string
 
-    // 5. Uygulama verilerini temizle
-    //    Sıralama önemli: önce bağımlı tablolar, sonra ana tablolar.
-
-    // 5a. Takip ilişkileri (her iki yön)
-    await supabase.from('followers').delete().eq('follower_id', uid)
-    await supabase.from('followers').delete().eq('following_id', uid)
-
-    // 5b. Kulüp üyelikleri
-    await supabase.from('user_clubs').delete().eq('user_id', uid)
-
-    // 5c. Sahip olduğu kulüpler (user_clubs ON DELETE CASCADE ile üyeler de silinir)
-    await supabase.from('reading_clubs').delete().eq('ownerid', uid)
-
-    // 5d. Gönderiler (posts silinince comments ON DELETE CASCADE ile silinir)
-    await supabase.from('posts').delete().eq('user_id', uid)
-
-    // 5e. Diğer tablolardaki yorum kayıtları
-    await supabase.from('feed_comments').delete().eq('user_id', uid)
-    await supabase.from('comments').delete().eq('user_id', uid)
-
-    // 5f. Şiirler
-    await supabase.from('poems').delete().eq('user_id', uid)
-
-    // 5g. Kitaplık
-    await supabase.from('user_bookshelves').delete().eq('user_id', uid)
-
-    // 5h. Global sohbet mesajları
-    await supabase.from('global_chat').delete().eq('user_id', uid)
-
-    // 5i. Bildirimler
-    await supabase.from('notifications').delete().eq('receiver_id', uid)
-
-    // 5j. FCM push token
-    await supabase.from('fcm_tokens').delete().eq('user_id', uid)
-
-    // 5k. Profil tablosu (public.profiles)
-    await supabase.from('profiles').delete().eq('id', uid)
-
-    // 5l. users tablosu — app kodu postgrest["users"] kullanıyor;
-    //     schema'da görünmüyorsa hata fırlatmaz, sessizce geçer.
-    await supabase.from('users').delete().eq('uid', uid)
-
-    // 5m. Quiz liderlik tablosu (FK cascade var ama açık silelim)
-    await supabase.from('quiz_leaderboard').delete().eq('user_id', uid)
-
-    // 6. Auth kullanıcısını sil (bu adım quiz_leaderboard cascade'ini de tetikler)
-    const { error: deleteError } = await supabase.auth.admin.deleteUser(uid)
-    if (deleteError) {
-      // Uygulama verisi silinmiş olsa bile auth kaydı silinemedi → hata döndür.
-      // İstemci oturumu temizlemez; kullanıcı tekrar deneyebilir.
-      console.error('auth.admin.deleteUser hatası:', deleteError.message)
-      return json({ error: 'Hesap silinemedi. Lütfen tekrar deneyin.' }, 500)
-    }
+    // Returned PostgREST errors do not throw automatically; validate every result.
+    // Do not delete Auth or claim success after any application-data cleanup failure.
+    await deleteVerifiedAccount(supabase, uid)
 
     // 7. Başarı — istemci bu yanıtı alınca yerel oturumu temizler ve çıkış ekranına gider.
     return json({ deleted: true, user_id: uid }, 200)
 
   } catch (err) {
     // Hiçbir zaman hata ayrıntısını (token, kullanıcı verisi) dışarıya sızdırma.
-    console.error('delete-account beklenmedik hata:', err instanceof Error ? err.message : String(err))
+    console.error('delete-account cleanup failed')
     return json({ error: 'Sunucu hatası' }, 500)
   }
 })

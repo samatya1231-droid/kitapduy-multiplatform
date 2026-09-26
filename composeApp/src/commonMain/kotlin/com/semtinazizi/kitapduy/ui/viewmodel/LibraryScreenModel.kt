@@ -4,46 +4,89 @@ import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import com.semtinazizi.kitapduy.domain.repository.BookRepository
+import com.semtinazizi.kitapduy.model.Book
 import com.semtinazizi.kitapduy.model.SupabaseBookshelf
+import com.semtinazizi.kitapduy.platform.FileDownloader
+import com.semtinazizi.kitapduy.util.KmpBookProgressManager
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 
 class LibraryScreenModel(
     private val bookRepository: BookRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val downloader: FileDownloader,
+    private val progress: KmpBookProgressManager,
+    private val suppliedScope: CoroutineScope? = null
 ) : ScreenModel {
-
+    private val scope get() = suppliedScope ?: screenModelScope
+    private var loadJob: Job? = null
+    private var books = emptyMap<String, Book>()
     private val _bookshelfItems = MutableStateFlow<List<SupabaseBookshelf>>(emptyList())
-    val bookshelfItems: StateFlow<List<SupabaseBookshelf>> = _bookshelfItems.asStateFlow()
-
+    val bookshelfItems = _bookshelfItems.asStateFlow()
     private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-
+    val isLoading = _isLoading.asStateFlow()
     private val _errorMessage = MutableStateFlow<String?>(null)
-    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+    val errorMessage = _errorMessage.asStateFlow()
+
+    fun bookFor(item: SupabaseBookshelf): Book? {
+        val local = downloader.getDownloadedFilePath(item.bookId + ".mp3")
+        val book = books[item.bookId]
+        if (book != null) return if (local != null) book.copy(audioUrl = local) else book
+        if (local == null) {
+            _errorMessage.value = "Kitap bilgileri yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin."
+            return null
+        }
+        val metadata = progress.getContentMetadata(item.bookId)
+        return Book(id = item.bookId, title = item.bookTitle.orEmpty(), author = metadata?.second.orEmpty(),
+            coverUrl = item.bookCoverUrl.orEmpty(), audioUrl = local)
+    }
 
     fun loadBookshelf(shelfType: String) {
-        val uid = authRepository.currentUserUid
-        if (uid == null) {
-            _errorMessage.value = "Kullanıcı girişi yapılmamış."
+        loadJob?.cancel()
+        _bookshelfItems.value = emptyList()
+        _errorMessage.value = null
+        _isLoading.value = false
+        if (shelfType == "FAVORITE") {
+            _errorMessage.value = "Android favorilerinizin bu hesapla eşleştirilmesi henüz tamamlanmadı."
             return
         }
-
-        screenModelScope.launch {
-            _isLoading.value = true
-            _errorMessage.value = null
+        val localShelf = shelfType == "LISTENING" || shelfType == "DOWNLOADED"
+        val uid = authRepository.currentUserUid
+        if (!localShelf && uid == null) {
+            _errorMessage.value = "Lütfen giriş yapın."
+            return
+        }
+        fun localItems(): List<SupabaseBookshelf> {
+            val ids = if (shelfType == "DOWNLOADED") downloader.getDownloadedBookIds()
+                else (progress.getHistoryIds() + books.keys.filter { progress.getProgress(it) > 0 }).distinct()
+            return ids.map { id ->
+                val book = books[id]
+                val metadata = progress.getContentMetadata(id)
+                SupabaseBookshelf(userId = uid.orEmpty(), bookId = id, shelfType = shelfType,
+                    bookTitle = book?.title ?: metadata?.first ?: id,
+                    bookCoverUrl = book?.coverUrl ?: metadata?.third)
+            }
+        }
+        if (localShelf) _bookshelfItems.value = localItems()
+        _isLoading.value = !localShelf
+        loadJob = scope.launch {
             try {
-                // Shelf type API beklediği formata çevrilebilir veya doğrudan yollanabilir
-                // Örn: "FAVORITE", "LISTENING", "FINISHED", "DOWNLOADED"
-                val items = bookRepository.getBookshelf(userId = uid, shelfType = shelfType)
-                _bookshelfItems.value = items
-            } catch (e: Throwable) {
-                _errorMessage.value = e.message ?: "Bir hata oluştu."
-                _bookshelfItems.value = emptyList()
+                if (!localShelf) {
+                    val items = bookRepository.getBookshelf(uid!!, shelfType)
+                    ensureActive()
+                    _bookshelfItems.value = items.distinctBy { it.bookId }
+                }
+                // Device downloads remain usable immediately, even when the catalog is offline.
+                val catalog = withTimeoutOrNull(8_000) { bookRepository.getBooks() }
+                ensureActive()
+                if (catalog != null) books = catalog.filter { it.id.isNotBlank() && it.id != "error" }.associateBy { it.id }
+                if (localShelf) _bookshelfItems.value = localItems()
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                if (!localShelf) _errorMessage.value = "Kitaplık yüklenemedi. Lütfen tekrar deneyin."
             } finally {
-                _isLoading.value = false
+                if (isActive) _isLoading.value = false
             }
         }
     }

@@ -15,9 +15,10 @@ import kotlinx.coroutines.launch
 
 class GlobalAudioController(
     private val audioPlayer: AudioPlayer,
-    private val fileDownloader: FileDownloader
+    private val fileDownloader: FileDownloader,
+    private val progressManager: com.semtinazizi.kitapduy.util.KmpBookProgressManager,
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main + kotlinx.coroutines.SupervisorJob())
 ) {
-    private val scope = CoroutineScope(Dispatchers.Main + Job())
     private var sleepTimerJob: Job? = null
     
     private val _currentBook = MutableStateFlow<Book?>(null)
@@ -48,15 +49,18 @@ class GlobalAudioController(
     val sleepTimerRemainingMinutes: StateFlow<Int> = _sleepTimerRemainingMinutes.asStateFlow()
 
     init {
+        audioPlayer.initialize()
         // Track position periodically
         scope.launch {
             while (true) {
-                if (_isPlaying.value) {
+                _isPlaying.value = audioPlayer.isPlaying()
+                if (audioPlayer.currentMediaId() == (_currentBook.value?.id ?: _currentEpisode.value?.id)) {
                     val pos = audioPlayer.getCurrentPosition().toFloat()
                     val dur = audioPlayer.getDuration().toFloat()
                     if (dur > 0) {
                         _duration.value = dur
-                        _currentPosition.value = pos / dur
+                        _currentPosition.value = (pos / dur).coerceIn(0f, 1f)
+                        saveProgress()
                     }
                 }
                 delay(500)
@@ -65,8 +69,13 @@ class GlobalAudioController(
     }
 
     fun playTrack(book: Book, isPremium: Boolean = false) {
+        saveProgress()
         _currentBook.value = book
         _currentEpisode.value = null
+        _currentPosition.value = 0f
+        _duration.value = 0f
+        progressManager.saveLastPlayedBook(book.id)
+        progressManager.saveContentMetadata(book.id, book.title, book.author, book.coverUrl)
         val localPath = fileDownloader.getDownloadedFilePath(book.id + ".mp3")
         val playUrl = localPath ?: book.audioUrl
 
@@ -90,11 +99,13 @@ class GlobalAudioController(
                 url = playUrl,
                 title = book.title,
                 artist = book.author,
-                artworkUrl = book.coverUrl
+                artworkUrl = book.coverUrl,
+                startPositionMs = progressManager.getProgress(book.id)
             )
             audioPlayer.playQueue(listOf(preRollAd, mainItem, postRollAd))
         } else {
-            audioPlayer.play(playUrl)
+            audioPlayer.playQueue(listOf(AudioMediaItem(book.id, playUrl, book.title, book.author,
+                book.coverUrl, progressManager.getProgress(book.id))))
         }
 
         _isPlaying.value = true
@@ -103,16 +114,34 @@ class GlobalAudioController(
     }
 
     fun playPodcastEpisode(episode: com.semtinazizi.kitapduy.model.PodcastEpisode) {
+        saveProgress()
         _currentEpisode.value = episode
         _currentBook.value = null
-        audioPlayer.play(episode.audioUrl)
+        _currentPosition.value = 0f
+        _duration.value = 0f
+        audioPlayer.playQueue(listOf(AudioMediaItem(episode.id, episode.audioUrl, episode.title,
+            artworkUrl = episode.imageUrl.orEmpty(), startPositionMs = progressManager.getProgress(episode.id))))
         _isPlaying.value = true
         _playbackSpeed.value = 1.0f
         audioPlayer.setPlaybackSpeed(1.0f)
     }
 
+    fun playFeedAudio(item: com.semtinazizi.kitapduy.model.FeedItem, url: String, position: Long) {
+        saveProgress()
+        val id = "feed_" + item.id
+        _currentBook.value = Book(id = id, title = item.bookTitle.ifBlank { item.userName },
+            author = item.userName, coverUrl = item.bookCoverUrl, audioUrl = url)
+        _currentEpisode.value = null
+        _currentPosition.value = 0f
+        _duration.value = 0f
+        audioPlayer.playQueue(listOf(AudioMediaItem(id, url, item.bookTitle, item.userName,
+            item.bookCoverUrl, position)))
+        _isPlaying.value = true
+    }
+
     fun togglePlayPause() {
-        if (_isPlaying.value) {
+        if (audioPlayer.isPlaying()) {
+            saveProgress()
             audioPlayer.pause()
             _isPlaying.value = false
         } else {
@@ -122,9 +151,10 @@ class GlobalAudioController(
     }
 
     fun seekTo(fraction: Float) {
+        if (audioPlayer.currentMediaId() != (_currentBook.value?.id ?: _currentEpisode.value?.id)) return
         val dur = audioPlayer.getDuration()
         if (dur > 0) {
-            val targetMs = (dur * fraction).toLong()
+            val targetMs = (dur * fraction.coerceIn(0f, 1f)).toLong()
             audioPlayer.seekTo(targetMs)
             _currentPosition.value = fraction
         }
@@ -147,8 +177,9 @@ class GlobalAudioController(
         audioPlayer.setAtmosphereVolume(volume)
     }
 
-    fun downloadCurrentBook(onComplete: (Boolean) -> Unit) {
-        val book = _currentBook.value ?: return
+    fun downloadBook(book: Book, onComplete: (Boolean) -> Unit) {
+        if (_isDownloading.value) { onComplete(false); return }
+        _isDownloading.value = true
         scope.launch {
             _isDownloading.value = true
             _downloadProgress.value = 0f
@@ -156,8 +187,11 @@ class GlobalAudioController(
                 fileDownloader.downloadFile(book.audioUrl, book.id + ".mp3") { progress ->
                     _downloadProgress.value = progress
                 }
+                progressManager.saveContentMetadata(book.id, book.title, book.author, book.coverUrl)
                 onComplete(true)
-            } catch (e: Throwable) {
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
                 onComplete(false)
             } finally {
                 _isDownloading.value = false
@@ -169,6 +203,13 @@ class GlobalAudioController(
         return fileDownloader.getDownloadedFilePath(bookId + ".mp3") != null
     }
 
+    private fun saveProgress() {
+        val id = _currentBook.value?.id ?: _currentEpisode.value?.id ?: return
+        if (audioPlayer.currentMediaId() == id) {
+            progressManager.saveProgress(id, audioPlayer.getCurrentPosition())
+        }
+    }
+
     fun startSleepTimer(minutes: Int) {
         sleepTimerJob?.cancel()
         _sleepTimerRemainingMinutes.value = minutes
@@ -178,9 +219,9 @@ class GlobalAudioController(
                 delay(60_000) // 1 minute
                 _sleepTimerRemainingMinutes.value -= 1
             }
-            if (_isPlaying.value) {
-                togglePlayPause()
-            }
+            saveProgress()
+            audioPlayer.pause()
+            _isPlaying.value = false
         }
     }
 

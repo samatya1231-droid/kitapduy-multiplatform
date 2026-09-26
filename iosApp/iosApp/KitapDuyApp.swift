@@ -1,7 +1,9 @@
 import SwiftUI
 import UIKit
 import ComposeApp
+import OneSignalFramework
 
+@MainActor
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         // iOS 26.x Liquid Glass: CUIDesignLibraryCatalog'u ana thread'de ön-yükle.
@@ -10,6 +12,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         let traits = UITraitCollection.current
         _ = UIColor.systemBackground.resolvedColor(with: traits)
         _ = UIColor.label.resolvedColor(with: traits)
+        PushService.shared.configure(launchOptions: launchOptions)
         return true
     }
     
@@ -48,9 +51,73 @@ struct KitapDuyApp: App {
                 .onChange(of: scenePhase) { phase in
                     if phase == .active {
                         AdMobBridge.shared.requestConsent()
+                        PushService.shared.refreshPermission()
                         Task { await StoreService.shared.refreshEntitlements() }
                     }
                 }
         }
+    }
+}
+
+
+@MainActor
+final class PushService: NSObject, OSNotificationPermissionObserver, OSPushSubscriptionObserver {
+    static let shared = PushService()
+    private var configured = false
+
+    func configure(launchOptions: [UIApplication.LaunchOptionsKey: Any]?) {
+        guard !configured,
+              let appId = Bundle.main.object(forInfoDictionaryKey: "ONESIGNAL_APP_ID") as? String,
+              UUID(uuidString: appId) != nil else { return }
+        configured = true
+        OneSignal.initialize(appId, withLaunchOptions: launchOptions)
+        OneSignal.Notifications.addPermissionObserver(self)
+        OneSignal.User.pushSubscription.addObserver(self)
+        PushNotificationBridge.shared.configureIdentity { userId in
+            // FIFO main-queue delivery preserves rapid login/logout/account-switch order.
+            DispatchQueue.main.async {
+                if let userId = userId, !userId.isEmpty {
+                    OneSignal.login(userId)
+                } else {
+                    OneSignal.logout()
+                }
+            }
+        }
+        PushNotificationBridge.shared.enableNotifications = {
+            DispatchQueue.main.async { PushService.shared.enable() }
+        }
+        PushNotificationBridge.shared.disableNotifications = {
+            DispatchQueue.main.async {
+                OneSignal.User.pushSubscription.optOut()
+                PushService.shared.refreshPermission()
+            }
+        }
+        PushNotificationBridge.shared.refreshPermission = {
+            DispatchQueue.main.async { PushService.shared.refreshPermission() }
+        }
+        refreshPermission()
+    }
+
+    private func enable() {
+        OneSignal.Notifications.requestPermission({ accepted in
+            DispatchQueue.main.async {
+                if accepted { OneSignal.User.pushSubscription.optIn() }
+                PushService.shared.refreshPermission()
+            }
+        }, fallbackToSettings: true)
+    }
+
+    func refreshPermission() {
+        guard configured else { return }
+        PushNotificationBridge.shared.updatePermission(
+            enabled: OneSignal.Notifications.permission && OneSignal.User.pushSubscription.optedIn)
+    }
+
+    nonisolated func onNotificationPermissionDidChange(_ granted: Bool) {
+        DispatchQueue.main.async { PushService.shared.refreshPermission() }
+    }
+
+    nonisolated func onPushSubscriptionDidChange(state: OSPushSubscriptionChangedState) {
+        DispatchQueue.main.async { PushService.shared.refreshPermission() }
     }
 }

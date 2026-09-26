@@ -37,6 +37,10 @@ kotlin {
     }
 
     sourceSets {
+        androidUnitTest.dependencies {
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+            implementation("io.ktor:ktor-client-mock:${libs.versions.ktor.get()}")
+        }
         commonTest.dependencies {
             implementation(kotlin("test"))
         }

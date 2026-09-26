@@ -15,10 +15,17 @@ import com.semtinazizi.kitapduy.platform.AudioMediaItem
 class AndroidAudioPlayer : AudioPlayer {
     private var exoPlayer: ExoPlayer? = null
     private var context: Context? = null
+    private var queuedItems: List<AudioMediaItem> = emptyList()
 
     fun setContext(ctx: Context) {
         context = ctx
         exoPlayer = ExoPlayer.Builder(ctx).build()
+        exoPlayer?.addListener(object : Player.Listener {
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                val item = queuedItems.getOrNull(exoPlayer?.currentMediaItemIndex ?: -1) ?: return
+                if (item.startPositionMs > 0) exoPlayer?.seekTo(item.startPositionMs)
+            }
+        })
     }
 
     override fun initialize() {
@@ -35,6 +42,8 @@ class AndroidAudioPlayer : AudioPlayer {
 
     override fun playQueue(items: List<AudioMediaItem>, startIndex: Int, startPositionMs: Long) {
         val player = exoPlayer ?: return
+        if (items.isEmpty()) return
+        queuedItems = items
         
         val mediaItems = items.map { item ->
             MediaItem.Builder()
@@ -51,7 +60,8 @@ class AndroidAudioPlayer : AudioPlayer {
                 .build()
         }
         
-        player.setMediaItems(mediaItems, startIndex, startPositionMs)
+        val index = startIndex.coerceIn(items.indices)
+        player.setMediaItems(mediaItems, index, if (startPositionMs > 0) startPositionMs else items[index].startPositionMs)
         player.prepare()
         player.play()
     }
@@ -83,6 +93,7 @@ class AndroidAudioPlayer : AudioPlayer {
     override fun isPlaying(): Boolean {
         return exoPlayer?.isPlaying ?: false
     }
+    override fun currentMediaId(): String? = exoPlayer?.currentMediaItem?.mediaId
 
     override fun setPlaybackSpeed(speed: Float) {
         val params = androidx.media3.common.PlaybackParameters(speed)

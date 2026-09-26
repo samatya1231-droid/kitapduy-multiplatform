@@ -66,12 +66,44 @@ data class BookDetailScreen(val book: Book) : Screen {
         val userName = userProfile?.name ?: "Kullanıcı"
 
         val viewModel = koinScreenModel<BookDetailScreenModel>()
-        
+
         val viewCount by viewModel.viewCount.collectAsState()
         val likeCount by viewModel.likeCount.collectAsState()
         val isLiked by viewModel.isLiked.collectAsState()
         val activeListeners by viewModel.activeListeners.collectAsState()
         val comments by viewModel.comments.collectAsState()
+        val actionError by viewModel.error.collectAsState()
+        actionError?.let { message ->
+            AlertDialog(onDismissRequest = { viewModel.error.value = null }, text = { Text(message) },
+                confirmButton = { TextButton(onClick = { viewModel.error.value = null }) { Text("Tamam") } })
+        }
+
+        var showShelfDialog by remember { mutableStateOf(false) }
+        var addingToShelf by remember { mutableStateOf(false) }
+        var shelfMessage by remember { mutableStateOf<String?>(null) }
+        shelfMessage?.let { message ->
+            AlertDialog(onDismissRequest = { shelfMessage = null }, text = { Text(message) },
+                confirmButton = { TextButton(onClick = { shelfMessage = null }) { Text("Tamam") } })
+        }
+        if (showShelfDialog) {
+            AlertDialog(onDismissRequest = { if (!addingToShelf) showShelfDialog = false },
+                title = { Text("Kitaplığıma ekle") },
+                text = {
+                    Column {
+                        listOf("READING" to "Şu an dinliyorum", "FINISHED" to "Bitirdiklerim",
+                            "WISHLIST" to "Dinleyeceklerim").forEach { (type, label) ->
+                            TextButton(enabled = !addingToShelf, onClick = {
+                                addingToShelf = true
+                                viewModel.addToShelf(book, type,
+                                    onSuccess = { addingToShelf = false; showShelfDialog = false; shelfMessage = "Kitap rafınıza eklendi." },
+                                    onError = { addingToShelf = false; showShelfDialog = false; shelfMessage = it })
+                            }) { Text(label) }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = { TextButton(enabled = !addingToShelf, onClick = { showShelfDialog = false }) { Text("Vazgeç") } })
+        }
 
         var commentText by remember { mutableStateOf("") }
         var isDescriptionExpanded by remember { mutableStateOf(false) }
@@ -80,21 +112,25 @@ data class BookDetailScreen(val book: Book) : Screen {
         val isPlaying by audioController.isPlaying.collectAsState()
         val currentPosition by audioController.currentPosition.collectAsState()
         val currentBook by audioController.currentBook.collectAsState()
-        
+
         var showAtmosphereDialog by remember { mutableStateOf(false) }
         var showSpeedDialog by remember { mutableStateOf(false) }
         var showTimerDialog by remember { mutableStateOf(false) }
         var showQuoteDialog by remember { mutableStateOf(false) }
-        
+
         val currentSpeed by audioController.playbackSpeed.collectAsState()
         var currentAtmosphere by remember { mutableStateOf<String?>(null) }
         var atmosphereVolume by remember { mutableStateOf(0.5f) }
         val timerRemaining by audioController.sleepTimerRemainingMinutes.collectAsState()
         val isDownloading by audioController.isDownloading.collectAsState()
+        var downloadMessage by remember { mutableStateOf<String?>(null) }
+        downloadMessage?.let { message ->
+            AlertDialog(onDismissRequest = { downloadMessage = null }, text = { Text(message) },
+                confirmButton = { TextButton(onClick = { downloadMessage = null }) { Text("Tamam") } })
+        }
 
         LaunchedEffect(book.id) {
-            viewModel.loadBookData(book.id, userId)
-            viewModel.incrementViewCount(book.id)
+            viewModel.loadBookData(book, userId)
         }
 
         Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -110,7 +146,7 @@ data class BookDetailScreen(val book: Book) : Screen {
                 ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(bottom = 120.dp)) {
                         Spacer(Modifier.height(24.dp))
-                        
+
                         // Başlık
                         Text(
                             text = book.title,
@@ -156,7 +192,9 @@ data class BookDetailScreen(val book: Book) : Screen {
                             onDownloadClick = {
                                 if (isPremium) {
                                     if (!audioController.isDownloaded(book.id)) {
-                                        audioController.downloadCurrentBook {}
+                                        audioController.downloadBook(book) { success ->
+                                            downloadMessage = if (success) "Kitap indirildi." else "Kitap indirilemedi. Lütfen tekrar deneyin."
+                                        }
                                     }
                                 } else {
                                     navigator.push(SubscriptionPaywallScreen())
@@ -165,6 +203,12 @@ data class BookDetailScreen(val book: Book) : Screen {
                         )
 
                         Spacer(Modifier.height(32.dp))
+
+                        OutlinedButton(onClick = { showShelfDialog = true },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+                            Text("Kitaplığıma ekle")
+                        }
+                        Spacer(Modifier.height(16.dp))
 
                         BookDescriptionSection(
                             description = book.description,
@@ -188,9 +232,9 @@ data class BookDetailScreen(val book: Book) : Screen {
                                         userProfile?.photoUrl,
                                         isPremium,
                                         userId,
-                                        userName
+                                        userName,
+                                        onSuccess = { commentText = "" }
                                     )
-                                    commentText = ""
                                 }
                             },
                             userId = userId,
@@ -361,7 +405,7 @@ private fun BookParallaxHeader(book: Book, scrollState: ScrollState) {
 }
 
 @Composable
-private fun BookInfoSection(book: Book, activeListeners: Int) {
+private fun BookInfoSection(book: Book, activeListeners: Int?) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -411,7 +455,7 @@ private fun BookInfoSection(book: Book, activeListeners: Int) {
                     Icon(Icons.Default.Headset, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                 }
                 Spacer(Modifier.height(4.dp))
-                Text(text = "$activeListeners", color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(text = activeListeners?.toString() ?: "—", color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
     }

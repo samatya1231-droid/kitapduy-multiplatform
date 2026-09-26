@@ -63,46 +63,8 @@ class SupabaseSocialRepository(
                 }
                 .decodeList<SupabasePost>()
 
-            posts.map { post ->
-                val isBookPost = !post.bookId.isNullOrEmpty()
-                val isAutoStatus = post.comment?.contains("dinlemeye başlad") == true
-                val isQuotePost = post.startPos != null
-                val hasImage = !post.imageUrl.isNullOrEmpty()
-
-                val feedType = when {
-                    post.bookName == "Anket" -> FeedType.POLL
-                    isQuotePost -> FeedType.QUOTE
-                    hasImage && !isBookPost -> FeedType.IMAGE
-                    isBookPost && isAutoStatus -> FeedType.LISTEN
-                    isBookPost -> FeedType.COMMENT
-                    else -> FeedType.QUOTE
-                }
-
-                val safeLikedByList = post.likedBy?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
-
-                FeedItem(
-                    id = post.id?.toString() ?: "",
-                    userId = post.userId ?: "",
-                    userName = post.userName ?: "Okur",
-                    userPhotoUrl = fixUrl(post.userPhoto),
-                    bookId = post.bookId ?: "",
-                    bookTitle = post.bookName ?: "",
-                    bookCoverUrl = if (isBookPost) fixUrl(post.imageUrl) else "",
-                    postImageUrl = if (!isBookPost) fixUrl(post.imageUrl) else null,
-                    content = post.comment ?: "",
-                    likes = post.likes ?: 0,
-                    likedBy = safeLikedByList,
-                    commentCount = post.commentCount ?: 0,
-                    timestamp = 0L,
-                    type = feedType,
-                    isPremium = post.isPremium ?: false,
-                    audioUrl = fixUrl(post.audioUrl),
-                    startPos = post.startPos,
-                    pollOptions = post.pollOptions ?: emptyList(),
-                    pollVotes = post.pollVotes ?: emptyMap(),
-                    pollVoters = post.pollVoters ?: emptyList()
-                )
-            }.sortedByDescending { it.id.toLongOrNull() ?: 0L }
+            val blocked = authRepository.currentUserUid?.let { authRepository.getBlockedUsers(it).toSet() }.orEmpty()
+            posts.filter { it.userId !in blocked }.map(::mapSupabasePostToFeedItem).sortedByDescending { it.id.toLongOrNull() ?: 0L }
         } catch (e: Throwable) {
             println("SupabaseSocialRepository Error: ${e.message}")
             emptyList()

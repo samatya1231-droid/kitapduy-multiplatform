@@ -16,8 +16,24 @@ import kotlinx.datetime.Clock
 
 class FeedScreenModel(
     private val feedRepository: FeedRepository,
-    private val storageRepository: StorageRepository
+    private val storageRepository: StorageRepository,
+    private val actions: com.semtinazizi.kitapduy.data.repository.FeedActionsRepository
 ) : ScreenModel {
+
+    val actionError = MutableStateFlow<String?>(null)
+    private val pendingActions = mutableSetOf<String>()
+    private fun mutate(id: String, action: suspend () -> Unit) {
+        if (!pendingActions.add(id)) return
+        screenModelScope.launch {
+            try { action(); loadFeed(true) }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { actionError.value = e.message ?: "İşlem tamamlanamadı." }
+            finally { pendingActions.remove(id) }
+        }
+    }
+    fun toggleLike(id: String, reaction: Int) = mutate(id) { actions.toggleLike(id, reaction) }
+    fun vote(id: String, option: Int) = mutate(id) { actions.vote(id, option) }
+    fun deletePost(id: String) = mutate(id) { actions.deletePost(id) }
 
     private val _generalFeedItems = MutableStateFlow<List<FeedItem>>(emptyList())
     val generalFeedItems: StateFlow<List<FeedItem>> = _generalFeedItems.asStateFlow()
@@ -29,7 +45,6 @@ class FeedScreenModel(
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     init {
-        loadFeed()
         feedRepository.startRealtimeListening { newFeedItem ->
             if (newFeedItem.type == FeedType.LISTEN) {
                 val current = _listeningFeedItems.value.toMutableList()

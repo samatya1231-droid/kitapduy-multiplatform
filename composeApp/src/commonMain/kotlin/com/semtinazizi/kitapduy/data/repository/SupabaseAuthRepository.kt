@@ -15,8 +15,27 @@ import com.semtinazizi.kitapduy.data.AccountDeletionClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import com.semtinazizi.kitapduy.platform.PushNotificationBridge
 
 class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthRepository {
+    // This repository is an application singleton. Observe UID changes, not just logged-in booleans.
+    private val pushScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    init {
+        pushScope.launch {
+            supabaseClient.auth.sessionStatus.collect { status ->
+                when (status) {
+                    is SessionStatus.Authenticated -> status.session.user?.id?.let { PushNotificationBridge.updateUser(it) }
+                    is SessionStatus.NotAuthenticated -> PushNotificationBridge.updateUser(null)
+                    else -> Unit // Initializing/refresh errors do not mean logout.
+                }
+            }
+        }
+    }
+
     override val authenticationChanges: Flow<Boolean?> = supabaseClient.auth.sessionStatus.map { status ->
         when (status) {
             is SessionStatus.Authenticated -> status.session.user != null
@@ -170,7 +189,9 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
     }
 
     override suspend fun signOut() {
-        try { supabaseClient.auth.signOut() } catch (e: Throwable) { e.printStackTrace() }
+        supabaseClient.auth.signOut()
+        check(currentUserUid == null) { "Çıkış tamamlanamadı. Lütfen tekrar deneyin." }
+        PushNotificationBridge.updateUser(null)
     }
 
     /** Apple Guideline 5.1.1 - Uygulama ici hesap silme */

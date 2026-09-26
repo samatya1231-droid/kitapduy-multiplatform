@@ -2,14 +2,19 @@ package com.semtinazizi.kitapduy.util
 
 import com.russhwolf.settings.Settings
 
-class KmpBookProgressManager {
-    private val settings: Settings = Settings()
+class KmpBookProgressManager(private val settings: Settings = Settings()) {
 
     fun saveProgress(id: String, pos: Long) {
         if (pos > 0) {
             settings.putLong(id, pos)
         }
     }
+
+    fun getHistoryIds(): List<String> = settings.keys
+        .filter { it.startsWith("meta_") && it.endsWith("_title") }
+        .map { it.removePrefix("meta_").removeSuffix("_title") }
+        .filter { getProgress(it) > 0 }
+        .sorted()
 
     fun getProgress(id: String): Long {
         return settings.getLong(id, 0L)

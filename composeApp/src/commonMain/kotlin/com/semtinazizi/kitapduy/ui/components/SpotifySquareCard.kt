@@ -1,6 +1,9 @@
 package com.semtinazizi.kitapduy.ui.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -21,27 +24,29 @@ import com.semtinazizi.kitapduy.model.Book
 fun SpotifySquareCard(book: Book, subtitle: String, onClick: () -> Unit) {
     Column(
         modifier = Modifier
-            .width(140.dp)
+            .width(136.dp)
             .clickable { onClick() }
     ) {
         SmartImage(
             imageUrl = book.coverUrl,
             modifier = Modifier
-                .size(140.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .fillMaxWidth().aspectRatio(2f / 3f)
+                .clip(RoundedCornerShape(8.dp)),
+            contentScale = ContentScale.Fit
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
         Text(
             text = book.title,
             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-            maxLines = 1,
+            maxLines = 2,
+            minLines = 2,
             overflow = TextOverflow.Ellipsis
         )
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 2,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
     }

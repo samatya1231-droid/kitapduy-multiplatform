@@ -48,7 +48,8 @@ class UserProfileScreen(val targetUserId: String? = null) : Screen {
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = koinScreenModel<ProfileScreenModel>()
         
-        val isOwnProfile = targetUserId == null
+        val auth = org.koin.compose.koinInject<com.semtinazizi.kitapduy.domain.repository.AuthRepository>()
+        val isOwnProfile = targetUserId == null || targetUserId == auth.currentUserUid
         val BrandGold = Color(0xFFFFD700)
 
         // Verileri load et
@@ -254,21 +255,8 @@ class UserProfileScreen(val targetUserId: String? = null) : Screen {
                         }
                     } else {
                         items(userPosts) { post ->
-                            FeedCard(
-                                item = post,
-                                currentUserId = targetUserId,
-                                onClick = {},
-                                onUserClick = {},
-                                onImageClick = {},
-                                onDeletePost = {},
-                                onToggleLike = { _, _, _ -> },
-                                onVotePoll = { _, _ -> },
-                                onPlayAudio = { _, _ -> },
-                                onPauseAudio = {},
-                                isAudioPlaying = false,
-                                isAudioLoading = false,
-                                audioProgress = 0f
-                            )
+                            com.semtinazizi.kitapduy.ui.components.InteractiveFeedCard(
+                                item = post, onChanged = { screenModel.loadProfileData(targetUserId) })
                         }
                     }
                 }

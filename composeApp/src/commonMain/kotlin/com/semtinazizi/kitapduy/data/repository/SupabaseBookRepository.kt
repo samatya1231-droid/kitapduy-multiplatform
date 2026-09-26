@@ -38,7 +38,7 @@ private data class BookDto(
 }
 
 class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookRepository {
-    
+
     private fun fixUrl(url: String?): String {
         if (url.isNullOrBlank()) return ""
         if (url.startsWith("http")) return url
@@ -47,13 +47,13 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
 
     private fun fixImageUrl(url: String?): String {
         if (url.isNullOrBlank()) return ""
-        
+
         if (url.contains("r2.cloudflarestorage.com")) {
             return AppConfig.generatePresignedUrl(url)
         }
-        
+
         if (url.startsWith("http")) return url
-        
+
         return "${AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
     }
 
@@ -62,12 +62,12 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
             val books = supabaseClient.postgrest["books"]
                 .select()
                 .decodeList<BookDto>().map { it.toBook() }
-            
-            books.filter { it.title.isNotBlank() && it.author.isNotBlank() }.map { 
+
+            books.filter { it.title.isNotBlank() && it.author.isNotBlank() }.map {
                 it.copy(
                     coverUrl = fixImageUrl(it.coverUrl),
                     audioUrl = fixUrl(it.audioUrl)
-                ) 
+                )
             }
         } catch (e: Throwable) {
             println("GET_BOOKS_ERROR: ${e.stackTraceToString()}")
@@ -84,7 +84,7 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
                     filter { eq("user_id", userId) }
                 }
                 .decodeList<Map<String, String>>()
-            
+
             result.mapNotNull { it["book_id"] }.toSet()
         } catch (e: Throwable) {
             e.printStackTrace()
@@ -102,7 +102,7 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
             val result = supabaseClient.postgrest["daily_quotes"]
                 .select { limit(1) }
                 .decodeSingleOrNull<Map<String, String>>()
-                
+
             if (result != null) {
                 Triple(result["quote"] ?: "", result["author"] ?: "", result["book"] ?: "")
             } else null
@@ -125,12 +125,12 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
                     }
                 }
                 .decodeList<BookDto>().map { it.toBook() }
-                
-            books.filter { it.title.isNotBlank() && it.author.isNotBlank() }.map { 
+
+            books.filter { it.title.isNotBlank() && it.author.isNotBlank() }.map {
                 it.copy(
                     coverUrl = fixImageUrl(it.coverUrl),
                     audioUrl = fixUrl(it.audioUrl)
-                ) 
+                )
             }
         } catch (e: Throwable) {
             e.printStackTrace()
@@ -142,10 +142,10 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
         return try {
             println("SupabaseRepository: Fetching from 'podcasts' table...")
             val response = supabaseClient.postgrest["podcasts"].select()
-            
+
             val podcasts = response.decodeList<com.semtinazizi.kitapduy.model.PodcastDto>().map { it.toPodcast() }
             println("SupabaseRepository: Decoded ${podcasts.size} podcasts")
-            
+
             podcasts.map { it.copy(
                 imageUrl = fixImageUrl(it.imageUrl),
                 rssUrl = fixUrl(it.rssUrl)
@@ -169,7 +169,7 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
                     }
                 }
                 .decodeList<com.semtinazizi.kitapduy.model.PodcastDto>().map { it.toPodcast() }
-                
+
             podcasts.map { it.copy(
                 imageUrl = fixImageUrl(it.imageUrl),
                 rssUrl = fixUrl(it.rssUrl)
@@ -180,8 +180,7 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
     }
 
     override suspend fun getBookshelf(userId: String, shelfType: String): List<com.semtinazizi.kitapduy.model.SupabaseBookshelf> {
-        return try {
-            supabaseClient.postgrest["bookshelf"]
+        return supabaseClient.postgrest["user_bookshelves"]
                 .select {
                     filter {
                         eq("user_id", userId)
@@ -189,9 +188,5 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
                     }
                 }
                 .decodeList<com.semtinazizi.kitapduy.model.SupabaseBookshelf>()
-        } catch (e: Throwable) {
-            e.printStackTrace()
-            emptyList()
-        }
     }
 }

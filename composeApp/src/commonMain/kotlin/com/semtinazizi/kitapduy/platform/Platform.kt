@@ -18,7 +18,8 @@ data class AudioMediaItem(
     val url: String,
     val title: String = "",
     val artist: String = "",
-    val artworkUrl: String = ""
+    val artworkUrl: String = "",
+    val startPositionMs: Long = 0L
 )
 
 interface AudioPlayer {
@@ -32,6 +33,7 @@ interface AudioPlayer {
     fun getCurrentPosition(): Long
     fun getDuration(): Long
     fun isPlaying(): Boolean
+    fun currentMediaId(): String? = null
     fun setPlaybackSpeed(speed: Float)
     fun playAtmosphere(url: String, volume: Float = 0.5f)
     fun stopAtmosphere()
@@ -132,6 +134,7 @@ expect fun createBillingManager(): BillingManager
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface FileDownloader {
+    fun getDownloadedBookIds(): List<String> = emptyList()
     /** İndirme işlemini başlatır ve lokal dosya yolunu (URI) döner */
     suspend fun downloadFile(url: String, fileName: String, onProgress: (Float) -> Unit): String
     

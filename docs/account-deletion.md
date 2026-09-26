@@ -47,3 +47,24 @@ References:
 - https://supabase.com/docs/guides/auth/managing-user-data
 - https://developer.apple.com/support/offering-account-deletion-in-your-app/
 - https://developer.apple.com/documentation/technotes/tn3194-handling-account-deletions-and-revoking-tokens-for-sign-in-with-apple
+
+## 26 September 2026 — checked database cleanup
+
+The existing delete-account endpoint now checks all 15 table-delete results before
+calling Auth deletion. Previously PostgREST errors were ignored and Auth could be
+deleted with application records still present. Missing-table errors also stop the
+operation; do not treat them as proof that cleanup is complete. The target remains
+the UID returned by getUser(token), never a request-body ID. Error logs no longer
+include raw provider/database exception details.
+
+Six offline tests in supabase/functions/delete-account/cleanup.test.mjs exercise
+errors at every table, network failures, UID scoping/order, Auth failures, missing
+identity and retry after partial failure. Run with Node 24:
+
+    node --test supabase/functions/delete-account/cleanup.test.mjs
+
+This is not a database transaction: earlier deletes may have succeeded before a
+later failure. Auth remains available for retry. Live schema verification, storage
+and Apple token cleanup, OneSignal user deletion and deployment remain outstanding.
+No live accounts or database rows were modified. The tests use fake clients; the
+Edge Function was not deployed or executed in Deno/Supabase.

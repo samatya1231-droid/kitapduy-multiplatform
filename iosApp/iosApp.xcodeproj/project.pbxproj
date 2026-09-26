@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A25000000000000000000001 /* OneSignalFramework in Frameworks */ = {isa = PBXBuildFile; productRef = A25000000000000000000002 /* OneSignalFramework */; };
 		A16000000000000000000001 /* AdMobBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A16000000000000000000002 /* AdMobBridge.swift */; };
 		A16000000000000000000003 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = A16000000000000000000004 /* GoogleMobileAds */; };
 		A16000000000000000000005 /* GoogleUserMessagingPlatform in Frameworks */ = {isa = PBXBuildFile; productRef = A16000000000000000000006 /* GoogleUserMessagingPlatform */; };
@@ -20,6 +21,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		A25000000000000000000004 /* iosApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = iosApp.entitlements; sourceTree = "<group>"; };
 		A16000000000000000000002 /* AdMobBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdMobBridge.swift; sourceTree = "<group>"; };
 		A13000000000000000000002 /* StoreService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreService.swift; sourceTree = "<group>"; };
 		A13000000000000000000004 /* AuthenticationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationService.swift; sourceTree = "<group>"; };
@@ -38,6 +40,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A25000000000000000000001 /* OneSignalFramework in Frameworks */,
 				A16000000000000000000003 /* GoogleMobileAds in Frameworks */,
 				A16000000000000000000005 /* GoogleUserMessagingPlatform in Frameworks */,
 			);
@@ -82,6 +85,7 @@
 		7555FF7D242A565900829871 /* iosApp */ = {
 			isa = PBXGroup;
 			children = (
+				A25000000000000000000004 /* iosApp.entitlements */,
 				A16000000000000000000002 /* AdMobBridge.swift */,
 				A13000000000000000000002 /* StoreService.swift */,
 				A13000000000000000000004 /* AuthenticationService.swift */,
@@ -121,6 +125,7 @@
 			);
 			name = iosApp;
 			packageProductDependencies = (
+				A25000000000000000000002 /* OneSignalFramework */,
 				A16000000000000000000004 /* GoogleMobileAds */,
 				A16000000000000000000006 /* GoogleUserMessagingPlatform */,
 			);
@@ -140,6 +145,7 @@
 				TargetAttributes = {
 					7555FF7A242A565900829871 = {
 						CreatedOnToolsVersion = 11.3.1;
+						SystemCapabilities = { com.apple.Push = { enabled = 1; }; com.apple.BackgroundModes = { enabled = 1; }; };
 					};
 				};
 			};
@@ -153,6 +159,7 @@
 			);
 			mainGroup = 7555FF72242A565900829871;
 			packageReferences = (
+				A25000000000000000000003 /* OneSignal package */,
 				A16000000000000000000007 /* Google Mobile Ads package */,
 				A16000000000000000000008 /* User Messaging Platform package */,
 			);
@@ -347,6 +354,8 @@
 					"$(SRCROOT)/../composeApp/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
 				);
 				INFOPLIST_FILE = iosApp/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = iosApp/iosApp.entitlements;
+				APNS_ENVIRONMENT = development;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -378,6 +387,8 @@
 					"$(SRCROOT)/../composeApp/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
 				);
 				INFOPLIST_FILE = iosApp/Info.plist;
+				CODE_SIGN_ENTITLEMENTS = iosApp/iosApp.entitlements;
+				APNS_ENVIRONMENT = production;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -420,6 +431,11 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+        A25000000000000000000003 /* OneSignal package */ = {
+            isa = XCRemoteSwiftPackageReference;
+            repositoryURL = "https://github.com/OneSignal/OneSignal-XCFramework.git";
+            requirement = {kind = exactVersion; version = 5.7.0; };
+        };
 		A16000000000000000000007 /* Google Mobile Ads package */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/googleads/swift-package-manager-google-mobile-ads.git";
@@ -433,6 +449,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+        A25000000000000000000002 /* OneSignalFramework */ = {
+            isa = XCSwiftPackageProductDependency;
+            package = A25000000000000000000003;
+            productName = OneSignalFramework;
+        };
 		A16000000000000000000004 /* GoogleMobileAds */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A16000000000000000000007;

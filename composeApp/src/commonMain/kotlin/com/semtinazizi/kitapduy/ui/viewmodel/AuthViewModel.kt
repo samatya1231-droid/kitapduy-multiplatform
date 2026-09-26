@@ -114,9 +114,13 @@ class AuthViewModel(
 
     fun signOut() {
         viewModelScope.launch {
-            authRepository.signOut()
-            _isLoggedIn.value = false
-            _userProfile.value = null
+            _error.value = null
+            try {
+                authRepository.signOut()
+                _isLoggedIn.value = false
+                _userProfile.value = null
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { _error.value = "Çıkış yapılamadı. Lütfen tekrar deneyin." }
         }
     }
 

@@ -11,53 +11,9 @@ import io.github.jan.supabase.postgrest.postgrest
 import com.semtinazizi.kitapduy.platform.AppConfig
 
 class SupabaseFeedRepository(
-    private val supabaseClient: SupabaseClient
+    private val supabaseClient: SupabaseClient,
+    private val authRepository: com.semtinazizi.kitapduy.domain.repository.AuthRepository
 ) : FeedRepository {
-
-    private fun fixUrl(url: String?): String {
-        if (url.isNullOrBlank()) return ""
-        if (url.startsWith("http")) return url
-        return "${AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
-    }
-    
-    private fun mapSupabasePostToFeedItem(post: SupabasePost): FeedItem {
-        val isBookPost = !post.bookId.isNullOrEmpty()
-        val isAutoStatus = post.comment?.contains("dinlemeye başladı \uD83C\uDFA7") == true
-        val isQuotePost = post.startPos != null
-        val hasImage = !post.imageUrl.isNullOrEmpty()
-
-        val feedType = when {
-            post.pollOptions != null || post.bookName == "Anket" -> FeedType.POLL
-            isQuotePost -> FeedType.QUOTE
-            hasImage && !isBookPost -> FeedType.IMAGE
-            isBookPost && isAutoStatus -> FeedType.LISTEN
-            post.audioUrl != null -> FeedType.VOICE
-            isBookPost -> FeedType.COMMENT
-            else -> FeedType.QUOTE
-        }
-
-        return FeedItem(
-            id = post.id?.toString() ?: "",
-            userId = post.userId ?: "",
-            userName = post.userName ?: "Bilinmeyen Kullanıcı",
-            userPhotoUrl = fixUrl(post.userPhoto),
-            bookId = post.bookId ?: "",
-            bookTitle = post.bookName ?: "",
-            bookCoverUrl = if (isBookPost) fixUrl(post.imageUrl) else "",
-            content = post.comment ?: "",
-            likes = post.likes ?: 0,
-            timestamp = 0L,
-            type = feedType,
-            isPremium = post.isPremium ?: false,
-            postImageUrl = if (!isBookPost) fixUrl(post.imageUrl) else null,
-            audioUrl = fixUrl(post.audioUrl),
-            commentCount = post.commentCount ?: 0,
-            pollOptions = post.pollOptions ?: emptyList(),
-            pollVotes = post.pollVotes ?: emptyMap(),
-            pollVoters = post.pollVoters ?: emptyList(),
-            startPos = post.startPos
-        )
-    }
 
     override suspend fun getFeedItems(excludeListen: Boolean): List<FeedItem> {
         return try {
@@ -73,7 +29,8 @@ class SupabaseFeedRepository(
                 }
                 .decodeList<SupabasePost>()
 
-            posts.map { mapSupabasePostToFeedItem(it) }
+            val blocked = authRepository.currentUserUid?.let { authRepository.getBlockedUsers(it).toSet() }.orEmpty()
+            posts.filter { it.userId !in blocked }.map { mapSupabasePostToFeedItem(it) }
         } catch (e: Throwable) {
             println("FeedRepository Error: ${e.message}")
             listOf(
@@ -127,7 +84,7 @@ class SupabaseFeedRepository(
                 imageUrl = imageUrl,
                 audioUrl = audioUrl,
                 pollOptions = pollOptions,
-                pollVotes = if (pollOptions != null) pollOptions.associateWith { 0 } else null,
+                pollVotes = if (pollOptions != null) pollOptions.indices.associate { it.toString() to 0 } else null,
                 pollVoters = if (pollOptions != null) emptyList() else null
             )
             

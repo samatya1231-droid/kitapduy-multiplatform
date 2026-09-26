@@ -22,7 +22,7 @@ object LegalContent {
     const val supportEmail = "samatyayazilim@gmail.com"
     val privacy = """
         KitapDuy — iOS Gizlilik Politikası
-        Güncelleme: 6 Eylül 2026
+        Güncelleme: 25 Eylül 2026
 
         İletişim: samatyayazilim@gmail.com
 
@@ -35,7 +35,9 @@ object LegalContent {
         Hizmet sağlayıcılar
         Hesap ve veritabanı işlemlerinde Supabase, içerik ve dosya altyapısında Cloudflare kullanılır. Google/Apple ile giriş tercih edildiğinde ilgili sağlayıcının hizmeti açılır. Abonelik işlemlerini Apple yürütür; ödeme kartı bilgilerinizi KitapDuy almaz. Uygulama, Apple'ın doğruladığı abonelik durumunu Premium erişimi sağlamak için kullanır. Dış içerik bağlantıları açıldığında ilgili sitenin kendi gizlilik koşulları geçerlidir.
 
-        Cihaz izinleri
+        Bildirimler
+        Bildirim hizmetinde OneSignal kullanılır. Uygulama, oturumdaki hesap kimliğini kullanıcıya özel bildirimler için OneSignal'a iletir; bildirim aboneliği için cihaz/uygulama bilgileri ve bildirim belirteci de işlenir. Hesaptan çıkınca bu cihazın OneSignal hesap bağlantısı kaldırılır. Bildirimleri uygulamanın Ayarlar > Bildirimler bölümünden veya iOS Ayarlar uygulamasından yönetebilirsiniz.
+
         iOS reklamları
         Reklam sunumu için Google AdMob ve izin tercihleri için Google User Messaging Platform kullanılır. Reklam hizmeti ağ bilgileri (örneğin IP adresi), cihaz/uygulama bilgileri, reklam etkileşimleri ve tanılama verilerini işleyebilir. Bu sürüm kişiselleştirilmemiş reklam ister ve IDFA erişim izni istemez. Gereken bölgelerde izin formu gösterilir; kullanılabilir olduğunda Ayarlar > Reklam gizliliği tercihleri bölümünden seçiminizi değiştirebilirsiniz.
 

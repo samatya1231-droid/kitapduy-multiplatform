@@ -66,7 +66,7 @@ class SearchScreen : Screen {
                                 .padding(horizontal = 16.dp, vertical = 16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            IconButton(onClick = { navigator.pop() }) {
+                            if (navigator.canPop) IconButton(onClick = { navigator.pop() }) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, "Geri", tint = MaterialTheme.colorScheme.onSurface)
                             }
                             Text(
@@ -165,7 +165,7 @@ class SearchScreen : Screen {
                             books = initialBooks.shuffled().take(20),
                             podcasts = initialPodcasts.shuffled().take(10),
                             onBookClick = { book -> navigator.push(BookDetailScreen(book)) },
-                            onPodcastClick = { podcast -> /* TODO navigator.push(PodcastDetailScreen) */ }
+                            onPodcastClick = { podcast -> navigator.push(PodcastEpisodesScreen(podcast.id, podcast.name, podcast.rssUrl)) }
                         )
                     } else {
                         when (selectedCategory) {
@@ -193,7 +193,7 @@ class SearchScreen : Screen {
                                                 SectionLabel(icon = "🎙️", text = "Podcastler (${podcastResults.size})")
                                             }
                                             items(podcastResults, key = { "pod_${it.id}" }) { podcast ->
-                                                HorizontalPodcastSearchItem(podcast) { /* TODO Podcast screen */ }
+                                                HorizontalPodcastSearchItem(podcast) { navigator.push(PodcastEpisodesScreen(podcast.id, podcast.name, podcast.rssUrl)) }
                                             }
                                         }
                                     }

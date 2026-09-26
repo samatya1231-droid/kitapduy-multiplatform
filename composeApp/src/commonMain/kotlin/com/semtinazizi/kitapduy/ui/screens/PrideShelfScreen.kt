@@ -1,6 +1,7 @@
 package com.semtinazizi.kitapduy.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -30,29 +31,30 @@ import com.semtinazizi.kitapduy.model.SupabaseBookshelf
 import com.semtinazizi.kitapduy.ui.viewmodel.LibraryScreenModel
 import cafe.adriel.voyager.koin.koinScreenModel
 
-class PrideShelfScreen : Screen {
+data class PrideShelfScreen(val shelfType: String = "FINISHED", val title: String = "Gurur Rafım") : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val libraryViewModel = koinScreenModel<LibraryScreenModel>()
-        
+
         val finishedBooks by libraryViewModel.bookshelfItems.collectAsState()
+        val error by libraryViewModel.errorMessage.collectAsState()
         val isLoading by libraryViewModel.isLoading.collectAsState()
 
-        LaunchedEffect(Unit) {
-            libraryViewModel.loadBookshelf("FINISHED")
+        LaunchedEffect(shelfType) {
+            libraryViewModel.loadBookshelf(shelfType)
         }
 
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { 
+                    title = {
                         Text(
-                            "Gurur Rafım", 
-                            style = MaterialTheme.typography.headlineSmall, 
+                            title,
+                            style = MaterialTheme.typography.headlineSmall,
                             color = MaterialTheme.colorScheme.onSurface
-                        ) 
+                        )
                     },
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
@@ -66,9 +68,11 @@ class PrideShelfScreen : Screen {
             Box(modifier = Modifier.fillMaxSize().padding(padding)) {
                 if (isLoading) {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                } else if (error != null) {
+                    Text(error.orEmpty(), modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.error)
                 } else if (finishedBooks.isEmpty()) {
                     Text(
-                        "Henüz bitirdiğiniz kitap yok.\nOkumaya başlayın!",
+                        "Bu raf henüz boş.",
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         textAlign = TextAlign.Center,
                         modifier = Modifier.align(Alignment.Center)
@@ -81,7 +85,7 @@ class PrideShelfScreen : Screen {
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         items(finishedBooks) { book ->
-                            BookOnShelf(book)
+                            BookOnShelf(book) { libraryViewModel.bookFor(book)?.let { navigator.push(BookDetailScreen(it)) } }
                         }
                     }
                 }
@@ -91,8 +95,8 @@ class PrideShelfScreen : Screen {
 }
 
 @Composable
-fun BookOnShelf(book: SupabaseBookshelf) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+fun BookOnShelf(book: SupabaseBookshelf, onClick: () -> Unit = {}) {
+    Column(modifier = Modifier.clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
         // Kitap Kapağı ve 3D Gölgesi
         Box(
             modifier = Modifier
@@ -109,7 +113,7 @@ fun BookOnShelf(book: SupabaseBookshelf) {
                     contentScale = ContentScale.Crop
                 )
             }
-            
+
             // 3D Shadow Overlay for "Book Spine" feel
             Box(
                 modifier = Modifier
@@ -122,9 +126,9 @@ fun BookOnShelf(book: SupabaseBookshelf) {
                     )
             )
         }
-        
+
         Spacer(modifier = Modifier.height(4.dp))
-        
+
         // Ahşap Raf (Wooden Shelf) Tasarımı
         Box(
             modifier = Modifier
@@ -137,7 +141,7 @@ fun BookOnShelf(book: SupabaseBookshelf) {
                     RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp)
                 )
         )
-        
+
         Text(
             text = book.bookTitle ?: "İsimsiz",
             fontSize = 11.sp,

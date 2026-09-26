@@ -9,6 +9,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 class AndroidFileDownloader(private val context: Context) : FileDownloader {
+    override fun getDownloadedBookIds(): List<String> = downloadsDir.listFiles().orEmpty()
+        .filter { it.isFile && it.extension == "mp3" }.map { it.nameWithoutExtension }
     
     private val downloadsDir: File
         get() = File(context.filesDir, "audio_downloads").apply {

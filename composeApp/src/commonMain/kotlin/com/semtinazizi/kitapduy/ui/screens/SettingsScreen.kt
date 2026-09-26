@@ -27,6 +27,7 @@ import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import com.semtinazizi.kitapduy.platform.AdsPrivacyBridge
+import com.semtinazizi.kitapduy.platform.PushNotificationBridge
 
 data class SettingsScreen(val isPremium: Boolean = false) : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -36,6 +37,27 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
         val authRepository = koinInject<AuthRepository>()
         val coroutineScope = rememberCoroutineScope()
         val showAdsPrivacy by AdsPrivacyBridge.isRequired.collectAsState()
+        val notificationsEnabled by PushNotificationBridge.enabled.collectAsState()
+        var showNotificationOptions by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) { PushNotificationBridge.refresh() }
+        if (showNotificationOptions) {
+            AlertDialog(onDismissRequest = { showNotificationOptions = false },
+                title = { Text("Bildirimler") },
+                text = { Text(if (notificationsEnabled == true) "KitapDuy bildirimlerini kapatmak istiyor musunuz?"
+                    else "KitapDuy bildirimlerini açmak için bildirim izni verin.") },
+                confirmButton = { TextButton(onClick = {
+                    if (notificationsEnabled == true) PushNotificationBridge.disable()
+                    else PushNotificationBridge.requestPermission()
+                    showNotificationOptions = false
+                }) { Text(if (notificationsEnabled == true) "Kapat" else "İzin ver") } },
+                dismissButton = { TextButton(onClick = { showNotificationOptions = false }) { Text("Vazgeç") } })
+        }
+        var isSigningOut by remember { mutableStateOf(false) }
+        var signOutError by remember { mutableStateOf<String?>(null) }
+        signOutError?.let { message ->
+            AlertDialog(onDismissRequest = { signOutError = null }, text = { Text(message) },
+                confirmButton = { TextButton(onClick = { signOutError = null }) { Text("Tamam") } })
+        }
         var showDeleteConfirmation by remember { mutableStateOf(false) }
         var isDeletingAccount by remember { mutableStateOf(false) }
         var deleteError by remember { mutableStateOf<String?>(null) }
@@ -136,9 +158,22 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
                     }
                 }
 
+                SettingsSectionTitle("Görünüm")
+                val darkMode = com.semtinazizi.kitapduy.util.KmpThemeManager.isDarkMode(false)
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("Koyu tema", modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
+                    Switch(checked = darkMode, onCheckedChange = {
+                        com.semtinazizi.kitapduy.util.KmpThemeManager.setDarkMode(it)
+                    })
+                }
                 SettingsSectionTitle("Genel")
                 SettingsItem(icon = Icons.Filled.Language, title = "Uygulama Dili", subtitle = "Turkce") { }
-                SettingsItem(icon = Icons.Filled.Notifications, title = "Bildirimler", subtitle = "Acik") { }
+                SettingsItem(icon = Icons.Filled.Notifications, title = "Bildirimler", subtitle = when (notificationsEnabled) {
+                    true -> "Açık"
+                    false -> "Kapalı"
+                    null -> "Kullanılamıyor"
+                }) { if (notificationsEnabled != null) showNotificationOptions = true }
                 SettingsItem(icon = Icons.Filled.Info, title = "Gizlilik Politikasi") {
                     navigator.push(LegalScreen(LegalDocument.PRIVACY))
                 }
@@ -156,15 +191,20 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
                 SettingsSectionTitle("Hesap")
                 SettingsItem(
                     icon = Icons.AutoMirrored.Filled.Logout,
-                    title = "Cikis Yap",
+                    title = if (isSigningOut) "Çıkış yapılıyor…" else "Çıkış Yap",
                     iconTint = Color(0xFFFF4B4B),
                     titleColor = Color(0xFFFF4B4B)
                 ) {
-                    coroutineScope.launch {
-                        try {
-                            authRepository.signOut()
-                            navigator.replaceAll(LoginScreen())
-                        } catch (e: Exception) { }
+                    if (!isSigningOut && !isDeletingAccount) {
+                        isSigningOut = true
+                        coroutineScope.launch {
+                            try {
+                                authRepository.signOut()
+                                navigator.replaceAll(LoginScreen())
+                            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                            catch (e: Exception) { signOutError = "Çıkış yapılamadı. Bağlantınızı kontrol edip tekrar deneyin." }
+                            finally { isSigningOut = false }
+                        }
                     }
                 }
 
@@ -175,7 +215,7 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
                     iconTint = Color(0xFFFF4B4B),
                     titleColor = Color(0xFFFF4B4B)
                 ) {
-                    showDeleteConfirmation = true
+                    if (!isSigningOut) showDeleteConfirmation = true
                 }
 
                 Spacer(modifier = Modifier.height(40.dp))

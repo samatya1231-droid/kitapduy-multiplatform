@@ -14,33 +14,37 @@ fun KitapduyTheme(
 ) {
     val systemDefaultDark = isSystemInDarkTheme()
     val isDark = KmpThemeManager.isDarkMode(systemDefaultDark)
-    
-    // We build the ColorScheme dynamically inside the @Composable so it observes
-    // the mutableStateOf variables from Color.kt (SleekChampagne, SleekDarkBackground etc.)
+
     val DarkColorScheme = darkColorScheme(
         primary = SleekChampagne,
         onPrimary = Color.Black,
-        primaryContainer = SleekChampagne.copy(alpha = 0.2f),
+        primaryContainer = SleekChampagne.copy(alpha = 0.12f),
         onPrimaryContainer = SleekChampagne,
         secondary = SleekBronze,
-        onSecondary = Color.Black,
-        tertiary = SleekBronze,
+        onSecondary = Color.White,
+        tertiary = PremiumBronze,
         background = SleekDarkBackground,
         onBackground = SleekOnSurface,
         surface = SleekSurface,
         onSurface = SleekOnSurface,
-        surfaceVariant = SleekSurface.copy(alpha = 0.7f),
+        surfaceVariant = Color(0xFF2C2C2E),
         onSurfaceVariant = SleekGray
     )
 
     val LightColorScheme = lightColorScheme(
-        primary = Color(0xFF8B6B00), // Gold-ish brown for light mode
-        secondary = Color(0xFF625b71),
-        tertiary = Color(0xFF7D5260),
-        background = PremiumPaper,
-        onBackground = PremiumDarkBackground,
-        surface = Color.White,
-        onSurface = PremiumDarkBackground
+        primary = Color(0xFF7D5233), // Deep Bronze for literary feel
+        onPrimary = Color.White,
+        primaryContainer = Color(0xFF7D5233).copy(alpha = 0.1f),
+        onPrimaryContainer = Color(0xFF7D5233),
+        secondary = Color(0xFFB08D6A),
+        onSecondary = Color.White,
+        tertiary = PremiumBronze,
+        background = Color(0xFFF5F0EB), // Sıcak, krem/kağıt tonu – göz yormuyor
+        onBackground = PremiumNavy,
+        surface = Color(0xFFFAF7F4),   // Neredeyse beyaz ama hafif sıcak krem
+        onSurface = PremiumNavy,
+        surfaceVariant = Color(0xFFEDE8E1),
+        onSurfaceVariant = Color(0xFF5A5A5C)
     )
 
     val colorScheme = if (isDark) DarkColorScheme else LightColorScheme

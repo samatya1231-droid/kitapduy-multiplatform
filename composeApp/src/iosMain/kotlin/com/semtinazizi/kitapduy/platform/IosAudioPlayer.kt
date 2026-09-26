@@ -1,30 +1,33 @@
 @file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
 package com.semtinazizi.kitapduy.platform
 
-/**
- * iOS AudioPlayer - Stub implementasyon
- * 
- * Şu an için derleme başarısının sağlanması amacıyla basit bir stub.
- * Gerçek AVFoundation implementasyonu Apple Developer hesabı alındıktan
- * ve Xcode ortamında test edilebildikten sonra eklenecek.
- * 
- * Android tarafında ExoPlayer ile tam ses oynatma desteklenmektedir.
- */
+/** iOS playback, queue transitions and lock-screen commands. */
 import platform.AVFoundation.*
 import platform.AVFAudio.*
 import platform.Foundation.NSURL
+import kotlinx.coroutines.*
 import platform.MediaPlayer.*
 import kotlinx.cinterop.ExperimentalForeignApi
 
 class IosAudioPlayer : AudioPlayer {
     private var avPlayer: AVPlayer? = null
     private var atmospherePlayer: AVPlayer? = null
-    private var currentUrl: String = ""
+    private var queue: List<AudioMediaItem> = emptyList()
+    private var queueIndex = -1
+    private var playbackSpeed = 1f
+    private var initialized = false
+    private var shouldPlay = false
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var readyJob: Job? = null
+    private var endObserver: platform.darwin.NSObjectProtocol? = null
+    private val remoteTargets = mutableListOf<Pair<MPRemoteCommand, Any>>()
     private var currentTitle: String = ""
     private var currentArtist: String = ""
     private var atmosphereLoopObserver: platform.darwin.NSObjectProtocol? = null
 
     override fun initialize() {
+        if (initialized) return
+        initialized = true
         // AVAudioSession ayarları (Arka planda çalma için gerekli)
         val session = AVAudioSession.sharedInstance()
         session.setCategory(AVAudioSessionCategoryPlayback, null)
@@ -34,20 +37,15 @@ class IosAudioPlayer : AudioPlayer {
     }
 
     private fun setupRemoteCommandCenter() {
-        platform.darwin.dispatch_async(platform.darwin.dispatch_get_main_queue()) {
-            val commandCenter = MPRemoteCommandCenter.sharedCommandCenter()
-            commandCenter.playCommand.addTargetWithHandler { _ ->
-                resume()
-                MPRemoteCommandHandlerStatusSuccess
-            }
-            commandCenter.pauseCommand.addTargetWithHandler { _ ->
-                pause()
-                MPRemoteCommandHandlerStatusSuccess
-            }
-            commandCenter.stopCommand.addTargetWithHandler { _ ->
-                stop()
-                MPRemoteCommandHandlerStatusSuccess
-            }
+        val center = MPRemoteCommandCenter.sharedCommandCenter()
+        remoteTargets += center.playCommand to center.playCommand.addTargetWithHandler {
+            resume(); MPRemoteCommandHandlerStatusSuccess
+        }
+        remoteTargets += center.pauseCommand to center.pauseCommand.addTargetWithHandler {
+            pause(); MPRemoteCommandHandlerStatusSuccess
+        }
+        remoteTargets += center.stopCommand to center.stopCommand.addTargetWithHandler {
+            stop(); MPRemoteCommandHandlerStatusSuccess
         }
     }
 
@@ -59,54 +57,97 @@ class IosAudioPlayer : AudioPlayer {
             info[MPMediaItemPropertyArtist] = currentArtist
             info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = getCurrentPosition() / 1000.0
             info[MPMediaItemPropertyPlaybackDuration] = getDuration() / 1000.0
-            info[MPNowPlayingInfoPropertyPlaybackRate] = if (isPlaying()) 1.0f else 0.0f
+            info[MPNowPlayingInfoPropertyPlaybackRate] = if (isPlaying()) playbackSpeed else 0.0f
             center.nowPlayingInfo = info
         }
     }
 
     override fun play(url: String) {
-        currentUrl = url
-        val nsUrl = NSURL.URLWithString(url) ?: return
-        val playerItem = AVPlayerItem(uRL = nsUrl)
-        if (avPlayer == null) {
-            avPlayer = AVPlayer(playerItem = playerItem)
-        } else {
-            avPlayer?.replaceCurrentItemWithPlayerItem(playerItem)
-        }
-        avPlayer?.play()
-        updateNowPlayingInfo()
+        playQueue(listOf(AudioMediaItem(url, url)))
     }
 
     override fun playQueue(items: List<AudioMediaItem>, startIndex: Int, startPositionMs: Long) {
-        if (items.isEmpty()) return
-        val item = items.getOrNull(startIndex) ?: items.first()
-        currentTitle = item.title
-        currentArtist = item.artist
-        play(item.url)
-        if (startPositionMs > 0) {
-            seekTo(startPositionMs)
-        }
-        updateNowPlayingInfo()
+        if (items.isEmpty()) { stop(); return }
+        initialize()
+        shouldPlay = true
+        queue = items
+        queueIndex = startIndex.coerceIn(items.indices)
+        playCurrentItem(if (startPositionMs > 0) startPositionMs else items[queueIndex].startPositionMs)
     }
 
+    private fun playCurrentItem(startPositionMs: Long) {
+        readyJob?.cancel()
+        avPlayer?.pause()
+        endObserver?.let { platform.Foundation.NSNotificationCenter.defaultCenter.removeObserver(it) }
+        endObserver = null
+        val item = queue.getOrNull(queueIndex) ?: return
+        val url = NSURL.URLWithString(item.url) ?: return
+        currentTitle = item.title
+        currentArtist = item.artist
+        val playerItem = AVPlayerItem(uRL = url)
+        if (avPlayer == null) avPlayer = AVPlayer(playerItem = playerItem)
+        else avPlayer?.replaceCurrentItemWithPlayerItem(playerItem)
+        endObserver = platform.Foundation.NSNotificationCenter.defaultCenter.addObserverForName(
+            AVPlayerItemDidPlayToEndTimeNotification, playerItem, platform.Foundation.NSOperationQueue.mainQueue
+        ) {
+            if (queueIndex + 1 < queue.size) {
+                queueIndex++
+                playCurrentItem(queue[queueIndex].startPositionMs)
+            } else {
+                shouldPlay = false
+                avPlayer?.pause()
+                updateNowPlayingInfo()
+            }
+        }
+        readyJob = scope.launch {
+            val ready = withTimeoutOrNull(30_000) {
+                while (playerItem.status == AVPlayerItemStatusUnknown) delay(50)
+                playerItem.status == AVPlayerItemStatusReadyToPlay
+            } == true
+            if (!ready) {
+                if (item.id == "kitapduy_preroll_ad" && queueIndex + 1 < queue.size) {
+                    queueIndex++
+                    playCurrentItem(queue[queueIndex].startPositionMs)
+                } else {
+                    shouldPlay = false
+                    updateNowPlayingInfo()
+                }
+                return@launch
+            }
+            if (startPositionMs > 0) seekTo(startPositionMs)
+            if (shouldPlay) avPlayer?.rate = playbackSpeed
+            updateNowPlayingInfo()
+        }
+    }
+
+    override fun currentMediaId(): String? = if (avPlayer?.currentItem?.status == AVPlayerItemStatusReadyToPlay) queue.getOrNull(queueIndex)?.id else null
+
     override fun pause() {
+        shouldPlay = false
         avPlayer?.pause()
         updateNowPlayingInfo()
     }
 
     override fun resume() {
-        avPlayer?.play()
+        shouldPlay = true
+        if (avPlayer?.currentItem?.status == AVPlayerItemStatusReadyToPlay) avPlayer?.rate = playbackSpeed
         updateNowPlayingInfo()
     }
 
     override fun stop() {
+        shouldPlay = false
+        readyJob?.cancel()
+        readyJob = null
         avPlayer?.pause()
+        endObserver?.let { platform.Foundation.NSNotificationCenter.defaultCenter.removeObserver(it) }
+        endObserver = null
+        queue = emptyList()
+        queueIndex = -1
         avPlayer?.replaceCurrentItemWithPlayerItem(null)
         updateNowPlayingInfo()
     }
 
     override fun seekTo(positionMs: Long) {
-        val timescale = avPlayer?.currentItem?.asset?.duration?.let { platform.CoreMedia.CMTimeGetSeconds(it) } ?: 1.0
         val time = platform.CoreMedia.CMTimeMake(value = positionMs, timescale = 1000)
         avPlayer?.seekToTime(time)
         updateNowPlayingInfo()
@@ -125,11 +166,14 @@ class IosAudioPlayer : AudioPlayer {
     }
 
     override fun isPlaying(): Boolean {
-        return avPlayer?.rate != 0.0f
+        return shouldPlay
     }
 
     override fun setPlaybackSpeed(speed: Float) {
-        avPlayer?.rate = speed
+        val playing = isPlaying()
+        playbackSpeed = speed
+        if (playing && avPlayer?.currentItem?.status == AVPlayerItemStatusReadyToPlay) avPlayer?.rate = speed
+        updateNowPlayingInfo()
     }
 
     override fun playAtmosphere(url: String, volume: Float) {
@@ -175,6 +219,9 @@ class IosAudioPlayer : AudioPlayer {
         stop()
         stopAtmosphere()
         avPlayer = null
+        remoteTargets.forEach { (command, target) -> command.removeTarget(target) }
+        remoteTargets.clear()
+        initialized = false
     }
 }
 

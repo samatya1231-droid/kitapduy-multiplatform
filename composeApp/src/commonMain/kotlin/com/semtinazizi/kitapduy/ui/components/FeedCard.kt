@@ -111,10 +111,8 @@ fun FeedCard(
     val safeName = if (item.userName.isNotBlank()) item.userName else "Anonim"
     val haptic = LocalHapticFeedback.current
 
-    var isLikedLocally by remember(item.id, item.likedBy) {
-        mutableStateOf(item.likedBy.any { it.startsWith(currentUserId ?: "") })
-    }
-    var likeCountLocally by remember(item.id, item.likedBy) { mutableIntStateOf(item.likedBy.size) }
+    val isLikedLocally = currentUserId != null && item.likedBy.any { it.substringBefore(':') == currentUserId }
+    val likeCountLocally = item.likes
 
     // Şikayet Et Dialog
     if (showReportDialog) {
@@ -276,8 +274,8 @@ fun FeedCard(
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
                     val totalVotes = item.pollVotes.values.sum().coerceAtLeast(1)
-                    item.pollOptions.forEach { option ->
-                        val votes = item.pollVotes[option] ?: 0
+                    item.pollOptions.forEachIndexed { optionIndex, option ->
+                        val votes = item.pollVotes[optionIndex.toString()] ?: item.pollVotes[option] ?: 0
                         val percentage = votes.toFloat() / totalVotes
                         val hasVoted = item.pollVoters.contains(currentUserId)
                         
@@ -374,8 +372,6 @@ fun FeedCard(
                     modifier = Modifier.clip(RoundedCornerShape(50)).background(if (isLikedLocally) Color.Red.copy(0.15f) else MaterialTheme.colorScheme.onSurface.copy(0.05f))
                         .clickable {
                             if (currentUserId != null) {
-                                isLikedLocally = !isLikedLocally
-                                likeCountLocally = if (isLikedLocally) likeCountLocally + 1 else (likeCountLocally - 1).coerceAtLeast(0)
                                 onToggleLike(item.id, currentUserId, 0)
                             }
                         }.padding(horizontal = 16.dp, vertical = 8.dp),

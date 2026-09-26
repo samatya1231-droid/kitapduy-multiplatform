@@ -41,12 +41,13 @@ class HomeScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        val tabs = cafe.adriel.voyager.navigator.tab.LocalTabNavigator.current
         val homeViewModel = koinViewModel<HomeViewModel>()
         val authViewModel = koinViewModel<AuthViewModel>()
 
         val userProfile by authViewModel.userProfile.collectAsState()
         val photoUrl = userProfile?.photoUrl
-        val isPremium = userProfile?.isPremium == true
+        val isPremium = userProfile?.hasPremium() == true
         
         val books by homeViewModel.books.collectAsState()
         val recommendedBooks by homeViewModel.recommendedBooks.collectAsState()
@@ -60,7 +61,17 @@ class HomeScreen : Screen {
         var showQuoteDialog by remember { mutableStateOf(false) }
         var selectedQuote by remember { mutableStateOf<Triple<String, String, String>?>(null) }
         
-        val continueListeningBook = books.firstOrNull() // Placeholder for last played
+        val progressManager = org.koin.compose.koinInject<com.semtinazizi.kitapduy.util.KmpBookProgressManager>()
+        val audioController = org.koin.compose.koinInject<com.semtinazizi.kitapduy.ui.viewmodel.GlobalAudioController>()
+        val playingBook by audioController.currentBook.collectAsState()
+        val positionFraction by audioController.currentPosition.collectAsState()
+        val durationMs by audioController.duration.collectAsState()
+        val lastId = playingBook?.id ?: progressManager.getLastPlayedBook()
+        val continueListeningBook = books.firstOrNull { it.id == lastId && progressManager.getProgress(it.id) > 0 }
+        val displayBook = continueListeningBook ?: books.firstOrNull()
+        val savedPosition = continueListeningBook?.let {
+            if (playingBook?.id == it.id && durationMs > 0) (positionFraction * durationMs).toLong() else progressManager.getProgress(it.id)
+        } ?: 0L
 
         val lazyListState = rememberLazyListState()
         
@@ -76,7 +87,7 @@ class HomeScreen : Screen {
 
         val moods = remember { getMoodList().take(6) }
 
-        Surface(modifier = Modifier.fillMaxSize(), color = SleekDarkBackground) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Box(modifier = Modifier.fillMaxSize()) {
                 // Blur background
                 if (books.isNotEmpty() && !isLoading) {
@@ -100,7 +111,7 @@ class HomeScreen : Screen {
                                 .height(500.dp)
                                 .background(
                                     Brush.verticalGradient(
-                                        colors = listOf(Color.Transparent, SleekDarkBackground)
+                                        colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background)
                                     )
                                 )
                         )
@@ -117,150 +128,68 @@ class HomeScreen : Screen {
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 120.dp)
                     ) {
-                        // 1. Greeting & Profile
                         item {
-                            GreetingAndProfileBar(
-                                photoUrl = photoUrl,
-                                isPremium = isPremium,
+                            GreetingAndProfileBar(photoUrl, isPremium,
                                 onProfileClick = { navigator.push(UserProfileScreen()) },
-                                onPremiumClick = { navigator.push(SubscriptionPaywallScreen()) }
-                            )
+                                onPremiumClick = { navigator.push(SubscriptionPaywallScreen()) })
+                            SearchBarSection(Modifier.padding(horizontal = 16.dp)) { navigator.push(SearchScreen()) }
                         }
-
-                        // 2. Search Bar
                         item {
-                            SearchBarSection(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                onClick = { navigator.push(SearchScreen()) }
-                            )
-                        }
-
-                        // 3. Moods Quick Access (Reverted from BentoGrid)
-                        item {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "Moduna Göre Keşfet",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    ),
-                                    modifier = Modifier.padding(bottom = 12.dp)
-                                )
-                                moods.chunked(2).forEach { pair ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        pair.forEach { mood ->
-                                            MoodQuickAccessCard(
-                                                mood = mood,
-                                                modifier = Modifier.weight(1f),
-                                                onClick = { navigator.push(MoodDetailScreen(mood.id)) }
-                                            )
-                                        }
-                                        if (pair.size == 1) {
-                                            Spacer(modifier = Modifier.weight(1f))
-                                        }
-                                    }
+                            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                item { FilterChip(selected = true, onClick = {}, label = { Text("Tümü") }) }
+                                item { FilterChip(selected = false, onClick = { tabs.current = com.semtinazizi.kitapduy.ui.screens.tabs.EntertainmentTab }, label = { Text("Eğlence") }) }
+                                item { FilterChip(selected = false, onClick = { tabs.current = com.semtinazizi.kitapduy.ui.screens.tabs.AskidaTab }, label = { Text("Askıda") }) }
+                                items(groupedBooks.keys.toList()) { category ->
+                                    FilterChip(selected = false, onClick = { navigator.push(CategoryDetailScreen(category)) },
+                                        label = { Text(category) })
                                 }
                             }
                         }
-
-                        // 4. Continue Listening
-                        if (continueListeningBook != null) {
+                        displayBook?.let { book ->
                             item {
-                                ContinueListeningCard(
-                                    book = continueListeningBook,
-                                    onClick = { navigator.push(BookDetailScreen(continueListeningBook)) }
-                                )
+                                ContinueListeningCard(book, hasHistory = continueListeningBook != null,
+                                    positionMs = savedPosition, onClick = { navigator.push(BookDetailScreen(book)) })
                             }
                         }
-
-                        // 5. Recommended
-                        if (recommendedBooks.isNotEmpty()) {
-                            item {
-                                SpotifySectionHeader("Senin İçin Seçildi")
-                                TrendingTop10List(
-                                    topBooks = recommendedBooks,
-                                    onBookClick = { navigator.push(BookDetailScreen(it)) }
-                                )
+                        if (recommendedBooks.isNotEmpty()) item {
+                            SpotifySectionHeader("Yeni hikâyeler keşfet")
+                            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                items(recommendedBooks, key = { it.id }) { book ->
+                                    SpotifySquareCard(book, book.author) { navigator.push(BookDetailScreen(book)) }
+                                }
                             }
                         }
-
-                        // 6. Daily Quote (Reverted to kitapduy3 style)
                         item {
-                            DailyQuoteCard(
-                                quote = dailyQuote,
-                                onClick = { 
-                                    selectedQuote = dailyQuote
-                                    showQuoteDialog = true 
-                                }
-                            )
-                        }
-                        
-                        // 7. Weekly Stars (Podium)
-                        if (weeklyStars.isNotEmpty()) {
-                            item {
-                                SpotifySectionHeader("Haftanın Yıldızları")
-                                WeeklyStarsSection(
-                                    books = weeklyStars,
-                                    onBookClick = { navigator.push(BookDetailScreen(it)) }
-                                )
-                            }
-                        }
-
-                        // 8. Dynamic Categories (Grouped)
-                        if (groupedBooks.isNotEmpty()) {
-                            groupedBooks.forEach { (category, categoryBooks) ->
-                                if (categoryBooks.isNotEmpty()) {
-                                    item {
-                                        DynamicCategoryRow(
-                                            title = category,
-                                            books = categoryBooks,
-                                            onSeeAllClick = { navigator.push(CategoryDetailScreen(category)) },
-                                            onBookClick = { navigator.push(BookDetailScreen(it)) }
-                                        )
-                                    }
+                            SpotifySectionHeader("Bugün nasıl bir hikâye?")
+                            LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                items(moods, key = { it.id }) { mood ->
+                                    MoodQuickAccessCard(mood, Modifier.width(156.dp)) { navigator.push(MoodDetailScreen(mood.id)) }
                                 }
                             }
                         }
-
-                        // 9. Featured Hero Card
-                        if (books.size > 5) {
-                            item {
-                                val featured = books.random()
-                                HeroBookCard(
-                                    book = featured,
-                                    onClick = { navigator.push(BookDetailScreen(featured)) },
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp)
-                                )
+                        if (podcasts.isNotEmpty()) item {
+                            SpotifySectionHeader("Podcast dünyası")
+                            PodcastRow(podcasts.take(6)) { navigator.push(PodcastEpisodesScreen(it.id, it.name, it.rssUrl)) }
+                        }
+                        if (!isPremium) item {
+                            PremiumUpgradeCard(modifier = Modifier.padding(horizontal = 16.dp, vertical = 32.dp),
+                                isPremium = false, onClick = { navigator.push(SubscriptionPaywallScreen()) })
+                        }
+                        groupedBooks.forEach { (category, categoryBooks) ->
+                            if (categoryBooks.isNotEmpty()) item(key = "category_" + category) {
+                                DynamicCategoryRow(category, categoryBooks,
+                                    onSeeAllClick = { navigator.push(CategoryDetailScreen(category)) },
+                                    onBookClick = { navigator.push(BookDetailScreen(it)) })
                             }
                         }
-
-                        // 10. Podcasts
-                        if (podcasts.isNotEmpty()) {
-                            item {
-                                SpotifySectionHeader("Popüler Podcastler")
-                                PodcastRow(
-                                    podcasts = podcasts,
-                                    onPodcastClick = { navigator.push(PodcastEpisodesScreen(it.id, it.name, it.rssUrl)) }
-                                )
-                            }
-                        }
-
-                        // 11. Science Articles
-                        if (articles.isNotEmpty()) {
-                            item {
-                                SpotifySectionHeader("Bilim & Düşünce")
-                                ArticlesRow(
-                                    articles = articles,
-                                    onArticleClick = { navigator.push(ArticleDetailScreen(it.link, it.title)) }
-                                )
-                            }
+                        if (articles.isNotEmpty()) item {
+                            SpotifySectionHeader("Bilim & Düşünce")
+                            ArticlesRow(articles) { navigator.push(ArticleDetailScreen(it.link, it.title)) }
                         }
                     }
                 }
-                
+
                 // Sticky Compact Search Bar
                 AnimatedVisibility(
                     visible = searchBarAlpha > 0.95f,
@@ -270,7 +199,7 @@ class HomeScreen : Screen {
                 ) {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        color = SleekDarkBackground.copy(alpha = 0.98f),
+                        color = MaterialTheme.colorScheme.background.copy(alpha = 0.98f),
                         shadowElevation = 8.dp
                     ) {
                         Box(modifier = Modifier.statusBarsPadding().padding(vertical = 10.dp)) {
@@ -314,12 +243,12 @@ class HomeScreen : Screen {
                 Text(
                     text = greeting,
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "Bugün ruh halin nasıl?",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
             }
             
@@ -378,24 +307,24 @@ class HomeScreen : Screen {
                 .fillMaxWidth()
                 .clickable { onClick() },
             shape = RoundedCornerShape(28.dp),
-            color = Color.White.copy(alpha = 0.08f),
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(Icons.Filled.Search, contentDescription = "Ara", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(22.dp))
-                Text("Kitap, yazar veya kategori ara...", color = Color.White.copy(alpha = 0.6f), fontSize = 15.sp)
+                Icon(Icons.Filled.Search, contentDescription = "Ara", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), modifier = Modifier.size(22.dp))
+                Text("Kitap, yazar veya kategori ara...", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 15.sp)
             }
         }
     }
 
     @Composable
-    private fun ContinueListeningCard(book: Book, onClick: () -> Unit) {
+    private fun ContinueListeningCard(book: Book, hasHistory: Boolean, positionMs: Long, onClick: () -> Unit) {
         Column(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
-            SpotifySectionHeader("Dinlemeye Devam Et")
+            SpotifySectionHeader(if (hasHistory) "Dinlemeye devam et" else "İlk hikâyeni keşfet")
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -404,7 +333,7 @@ class HomeScreen : Screen {
                     .clickable { onClick() },
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                 shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
             ) {
                 Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                     AsyncImage(
@@ -416,15 +345,11 @@ class HomeScreen : Screen {
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f).padding(vertical = 14.dp)) {
                         Text("SESLİ KİTAP", color = SleekChampagne, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                        Text(book.title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(book.author, color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp, maxLines = 1)
+                        Text(book.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(book.author, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), fontSize = 13.sp, maxLines = 1)
                         Spacer(modifier = Modifier.weight(1f))
-                        LinearProgressIndicator(
-                            progress = { 0.45f },
-                            modifier = Modifier.fillMaxWidth().padding(end = 20.dp).height(5.dp).clip(CircleShape),
-                            color = SleekChampagne,
-                            trackColor = Color.White.copy(alpha = 0.1f)
-                        )
+                        if (hasHistory) Text("${positionMs / 60_000} dakika dinlendi", style = MaterialTheme.typography.labelSmall)
+
                     }
                     Box(
                         modifier = Modifier.padding(end = 16.dp).size(40.dp).background(SleekChampagne, CircleShape),
@@ -444,7 +369,7 @@ class HomeScreen : Screen {
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
                 .clickable { onClick() },
-            color = Color.White.copy(alpha = 0.05f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
             shape = RoundedCornerShape(20.dp),
             border = BorderStroke(1.dp, SleekChampagne.copy(alpha = 0.1f))
         ) {
@@ -458,7 +383,7 @@ class HomeScreen : Screen {
                 Text(
                     text = quote?.first ?: "Kitaplar, sessizce konuşan dostlardır.",
                     style = MaterialTheme.typography.bodyLarge.copy(fontStyle = FontStyle.Italic, lineHeight = 24.sp),
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -481,7 +406,7 @@ class HomeScreen : Screen {
         ) {
             itemsIndexed(books) { index, book ->
                 Box {
-                    VerticalBookCard(book = book, onClick = { onBookClick(book) })
+                    SpotifySquareCard(book = book, subtitle = book.author, onClick = { onBookClick(book) })
                     Surface(
                         modifier = Modifier.align(Alignment.TopStart).offset(x = 8.dp, y = 8.dp),
                         shape = CircleShape,
@@ -517,7 +442,7 @@ class HomeScreen : Screen {
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.ExtraBold, 
                         letterSpacing = (-0.5).sp,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 )
                 Text(
@@ -533,7 +458,7 @@ class HomeScreen : Screen {
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(books) { book ->
-                    VerticalBookCard(book = book, onClick = { onBookClick(book) })
+                    SpotifySquareCard(book = book, subtitle = book.author, onClick = { onBookClick(book) })
                 }
             }
         }
@@ -558,7 +483,7 @@ class HomeScreen : Screen {
                         text = podcast.name,
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -566,7 +491,7 @@ class HomeScreen : Screen {
                     Text(
                         text = podcast.author,
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.6f),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         maxLines = 1
                     )
                 }
@@ -585,7 +510,7 @@ class HomeScreen : Screen {
                     modifier = Modifier.width(260.dp).height(130.dp).clickable { onArticleClick(article) },
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
                     shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                 ) {
                     Row(modifier = Modifier.fillMaxSize()) {
                         AsyncImage(
@@ -602,7 +527,7 @@ class HomeScreen : Screen {
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.Bold, 
                                     lineHeight = 16.sp,
-                                    color = Color.White
+                                    color = MaterialTheme.colorScheme.onSurface
                                 ),
                                 maxLines = 3,
                                 overflow = TextOverflow.Ellipsis
@@ -643,8 +568,8 @@ class HomeScreen : Screen {
         ) {
             Icon(Icons.AutoMirrored.Filled.MenuBook, null, tint = SleekChampagne, modifier = Modifier.size(64.dp))
             Spacer(Modifier.height(16.dp))
-            Text("Henüz içerik bulunamadı", color = Color.White, fontWeight = FontWeight.Bold)
-            Text("Lütfen internet bağlantınızı kontrol edin", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp)
+            Text("Henüz içerik bulunamadı", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+            Text("Lütfen internet bağlantınızı kontrol edin", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 14.sp)
         }
     }
 

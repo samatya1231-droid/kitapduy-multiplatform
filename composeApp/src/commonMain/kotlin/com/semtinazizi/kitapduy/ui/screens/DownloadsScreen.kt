@@ -43,7 +43,10 @@ class DownloadsScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val homeViewModel: HomeViewModel = koinViewModel()
-        val bookDownloader = remember { createBookDownloader() }
+        val bookDownloader = org.koin.compose.koinInject<com.semtinazizi.kitapduy.platform.FileDownloader>()
+        val audioController = org.koin.compose.koinInject<com.semtinazizi.kitapduy.ui.viewmodel.GlobalAudioController>()
+        val progressManager = org.koin.compose.koinInject<com.semtinazizi.kitapduy.util.KmpBookProgressManager>()
+        val isDownloading by audioController.isDownloading.collectAsState()
         
         val BrandGold = Color(0xFFFFD700)
         val surfaceColor = MaterialTheme.colorScheme.surface
@@ -54,7 +57,7 @@ class DownloadsScreen : Screen {
         // Yeniden yüklemeyi tetiklemek için bir state
         var refreshTrigger by remember { mutableStateOf(0) }
 
-        val downloadedBooks by remember(allBooks, allPodcasts, refreshTrigger) {
+        val downloadedBooks by remember(allBooks, allPodcasts, refreshTrigger, isDownloading) {
             val downloadedIds = bookDownloader.getDownloadedBookIds().toSet()
             
             val list = mutableListOf<Book>()
@@ -74,12 +77,18 @@ class DownloadsScreen : Screen {
                             author = podcast.author,
                             category = "Podcast",
                             coverUrl = podcast.imageUrl,
-                            audioUrl = bookDownloader.getLocalFileUri(podcast.id),
+                            audioUrl = bookDownloader.getDownloadedFilePath(podcast.id + ".mp3").orEmpty(),
                             description = "İndirilmiş Podcast",
                             duration = 0L
                         )
                     )
                 }
+            }
+            downloadedIds.filter { id -> list.none { it.id == id } }.forEach { id ->
+                val metadata = progressManager.getContentMetadata(id)
+                list.add(Book(id = id, title = metadata?.first ?: id,
+                    author = metadata?.second.orEmpty(), coverUrl = metadata?.third.orEmpty(),
+                    audioUrl = bookDownloader.getDownloadedFilePath(id + ".mp3").orEmpty()))
             }
             mutableStateOf(list.distinctBy { it.id })
         }
@@ -145,10 +154,11 @@ class DownloadsScreen : Screen {
                             DownloadedBookCard(
                                 book = book,
                                 onPlay = { 
-                                    // navigator.push(PlayerScreen(book))
+                                    audioController.playTrack(book)
+                                    navigator.push(BookDetailScreen(book))
                                 },
                                 onDelete = {
-                                    bookDownloader.deleteBook(book.id)
+                                    bookDownloader.deleteFile(book.id + ".mp3")
                                     refreshTrigger++ // Listeyi yenile
                                 },
                                 BrandGold = BrandGold,

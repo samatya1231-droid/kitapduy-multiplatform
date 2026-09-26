@@ -52,10 +52,16 @@ class SocialFeedScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = koinScreenModel<FeedScreenModel>()
+        LaunchedEffect(Unit) { viewModel.loadFeed(true) }
 
         val generalItems by viewModel.generalFeedItems.collectAsState()
         val listeningItems by viewModel.listeningFeedItems.collectAsState()
         val isLoading by viewModel.isLoading.collectAsState()
+        val actionError by viewModel.actionError.collectAsState()
+        actionError?.let { message ->
+            AlertDialog(onDismissRequest = { viewModel.actionError.value = null }, text = { Text(message) },
+                confirmButton = { TextButton(onClick = { viewModel.actionError.value = null }) { Text("Tamam") } })
+        }
 
         var selectedTabIndex by remember { mutableStateOf(0) }
         val displayItems = if (selectedTabIndex == 0) generalItems else listeningItems
@@ -443,22 +449,8 @@ class SocialFeedScreen : Screen {
                         } else {
                             items(displayItems.size, key = { "${displayItems[it].id}_$it" }) { index ->
                                 val item = displayItems[index]
-                                FeedCard(
-                                    item = item,
-                                    currentUserId = "dummy_user_id", // TODO: Auth state
-                                    isAdmin = isAdmin,
-                                    onClick = { },
-                                    onUserClick = { },
-                                    onImageClick = { },
-                                    onDeletePost = { },
-                                    onToggleLike = { _, _, _ -> },
-                                    onVotePoll = { _, _ -> },
-                                    onPlayAudio = { _, _ -> },
-                                    onPauseAudio = { },
-                                    isAudioPlaying = false,
-                                    isAudioLoading = false,
-                                    audioProgress = 0f
-                                )
+                                com.semtinazizi.kitapduy.ui.components.InteractiveFeedCard(
+                                    item = item, onChanged = { viewModel.loadFeed(true) })
                             }
                         }
                     }

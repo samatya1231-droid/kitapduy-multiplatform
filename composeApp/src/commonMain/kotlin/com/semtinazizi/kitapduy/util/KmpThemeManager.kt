@@ -30,18 +30,15 @@ object KmpThemeManager {
         return settings.getString(KEY_THEME, "Sleek")
     }
 
+    private val darkMode by lazy { androidx.compose.runtime.mutableStateOf(settings.getBoolean(KEY_DARK_MODE, false)) }
+
     fun setDarkMode(isDark: Boolean) {
+        darkMode.value = isDark
         settings.putBoolean(KEY_DARK_MODE, isDark)
     }
 
-    // null means system default (now defaulting to true for Sleek look)
-    fun isDarkMode(systemDefault: Boolean): Boolean {
-        return if (settings.hasKey(KEY_DARK_MODE)) {
-            settings.getBoolean(KEY_DARK_MODE, true)
-        } else {
-            true // Force dark mode by default for Sleek look
-        }
-    }
+    // Match Android's default light appearance; saved user choices take priority.
+    fun isDarkMode(systemDefault: Boolean): Boolean = darkMode.value
 
     // Used for initial states in Settings
     fun hasCustomDarkModeSetting(): Boolean {
@@ -50,11 +47,12 @@ object KmpThemeManager {
 
     fun clearDarkModeSetting() {
         settings.remove(KEY_DARK_MODE)
+        darkMode.value = false
     }
 
     private fun applySleekDefault() {
-        val bg = Color(0xFF0F0F11)
-        val surface = Color(0xFF1C1C1E)
+        val bg = Color(0xFF1A1A1C)
+        val surface = Color(0xFF242427)
         val primary = Color(0xFFE2B639)
         updateColors(bg, surface, primary)
     }
