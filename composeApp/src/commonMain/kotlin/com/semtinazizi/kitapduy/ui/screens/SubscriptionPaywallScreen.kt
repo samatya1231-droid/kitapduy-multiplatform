@@ -1,6 +1,15 @@
 package com.semtinazizi.kitapduy.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.semantics.Role
+import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -36,6 +45,9 @@ class SubscriptionPaywallScreen : Screen {
         var loading by remember { mutableStateOf(true) }
         var busy by remember { mutableStateOf(false) }
         var message by remember { mutableStateOf<String?>(null) }
+        var selectedId by remember { mutableStateOf("premium_1_month") }
+        val selected = products.find { it.id == selectedId } ?: products.firstOrNull()
+        val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
         var reload by remember { mutableIntStateOf(0) }
 
         LaunchedEffect(reload) {
@@ -52,7 +64,7 @@ class SubscriptionPaywallScreen : Screen {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("KitapDuy Premium") },
+                    title = { Text("KitapDuy · PREMIUM") },
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
                             Icon(Icons.Default.Close, contentDescription = "Kapat")
@@ -67,13 +79,21 @@ class SubscriptionPaywallScreen : Screen {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Icon(Icons.Default.WorkspacePremium, null, Modifier.size(56.dp), tint = MaterialTheme.colorScheme.primary)
-                Text("Dinleme deneyimini genişlet", style = MaterialTheme.typography.headlineMedium,
-                    textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
-                Text("Reklamsız kullanım • Çevrimdışı dinleme • Premium ayrıcalıkları",
-                    textAlign = TextAlign.Center)
+                Surface(shape = RoundedCornerShape(28.dp)) {
+                    Column(Modifier.fillMaxWidth().background(Brush.linearGradient(if (dark)
+                        listOf(Color(0xFF433724), Color(0xFF242321)) else listOf(Color(0xFFF4DFB8), Color(0xFFFFF7E8))))
+                        .padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Icon(Icons.Default.WorkspacePremium, null, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
+                        Text("Hikâyene kesintisiz devam et", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                        Text("Sevdiğin kitapları reklamsız dinle; indirip çevrimdışı da yanında taşı.")
+                    }
+                }
+                PaywallBenefit(Icons.Default.Headphones, "Reklamsız dinle", "Sadece sen ve hikâyen.")
+                PaywallBenefit(Icons.Default.Download, "Çevrimdışı dinle", "İndir, yolda da dinle.")
+                Text("Dinleme alışkanlığına uygun plan", style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.fillMaxWidth())
                 if (premium) {
-                    Text("Bu Apple/Google hesabında aktif Premium aboneliğiniz var.",
+                    Text("Bu mağaza hesabında aktif Premium aboneliğiniz var.",
                         color = MaterialTheme.colorScheme.primary)
                 }
                 if (loading || busy) CircularProgressIndicator()
@@ -82,18 +102,27 @@ class SubscriptionPaywallScreen : Screen {
                     OutlinedButton(onClick = { reload++ }, enabled = !busy) { Text("Tekrar Dene") }
                 }
                 products.forEach { product ->
-                    OutlinedCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                    ) {
-                        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(product.title, style = MaterialTheme.typography.titleLarge)
-                            Text("${product.price} / ${product.period}", style = MaterialTheme.typography.headlineSmall)
-                            Text("Her abonelik döneminde otomatik yenilenir.")
-                            Button(
-                                modifier = Modifier.fillMaxWidth(),
-                                enabled = !busy && !loading,
-                                onClick = {
+                    OutlinedCard(modifier = Modifier.fillMaxWidth().selectable(
+                        selected = selected?.id == product.id, enabled = !busy,
+                        role = Role.RadioButton, onClick = { selectedId = product.id }),
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(if (selected?.id == product.id) 2.dp else 1.dp,
+                            if (selected?.id == product.id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = selected?.id == product.id, onClick = null)
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(product.title, style = MaterialTheme.typography.titleMedium)
+                                Text("${product.price} / ${product.period}", style = MaterialTheme.typography.titleLarge)
+                            }
+                        }
+                    }
+                }
+                Text("Üyeliğinle bağımsız KitapDuy’un gelişimine de destek olursun.", style = MaterialTheme.typography.bodyMedium)
+                selected?.let { product ->
+                    Text("${product.price} / ${product.period}. İptal edilmediği sürece otomatik yenilenir.", style = MaterialTheme.typography.bodyMedium)
+                    Button(modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
+                        shape = RoundedCornerShape(16.dp), enabled = !busy && !loading && !premium,
+                        onClick = {
                                     busy = true
                                     message = null
                                     scope.launch {
@@ -108,11 +137,9 @@ class SubscriptionPaywallScreen : Screen {
                                             message = error.message ?: "Satın alma tamamlanamadı."
                                         } finally { busy = false }
                                     }
-                                }
-                            ) { Text("Abone Ol") }
-                        }
-                    }
+                        }) { Text(if (busy) "Mağaza işlemi sürüyor…" else if (premium) "Premium aktif" else "Premium aboneliğini başlat") }
                 }
+                TextButton(onClick = { navigator.pop() }, enabled = !busy) { Text("Ücretsiz kullanmaya devam et") }
                 TextButton(
                     enabled = !busy,
                     onClick = {
@@ -139,6 +166,19 @@ class SubscriptionPaywallScreen : Screen {
                 TextButton(onClick = { navigator.push(LegalScreen(LegalDocument.TERMS)) }) {
                     Text("Kullanım Koşulları")
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PaywallBenefit(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, description: String) {
+    OutlinedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+        Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

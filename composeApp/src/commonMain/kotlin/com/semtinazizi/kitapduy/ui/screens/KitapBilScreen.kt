@@ -195,7 +195,7 @@ class KitapBilScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         PremiumUpgradeCard(
-                            onClick = { /* navigator.push(SubscriptionPaywallScreen()) */ }
+                            onClick = { navigator.push(SubscriptionPaywallScreen()) }
                         )
 
                         Card(

@@ -6,7 +6,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,8 +23,10 @@ fun QuoteDialog(
     onDismiss: () -> Unit,
     bookTitle: String,
     bookAuthor: String,
-    onShare: () -> Unit
+    onShare: () -> Unit = {}
 ) {
+    val clipboard = LocalClipboardManager.current
+    var quote by remember { mutableStateOf("") }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
@@ -35,7 +39,7 @@ fun QuoteDialog(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Sesli Alıntı", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("Alıntı", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 IconButton(onClick = onDismiss) {
                     Icon(Icons.Default.Close, contentDescription = "Kapat")
                 }
@@ -53,7 +57,7 @@ fun QuoteDialog(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "“Dinlediğin bu muhteşem anı\narkadaşlarınla paylaş!”",
+                        text = "Dinlediğin bölümden hatırlamak istediğin cümleyi yaz.",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -71,8 +75,13 @@ fun QuoteDialog(
             
             Spacer(modifier = Modifier.height(32.dp))
             
+            OutlinedTextField(value = quote, onValueChange = { quote = it },
+                label = { Text("Alıntın") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+            Spacer(Modifier.height(16.dp))
             Button(
+                enabled = quote.isNotBlank(),
                 onClick = {
+                    clipboard.setText(AnnotatedString("\"$quote\"\n— $bookAuthor, $bookTitle"))
                     onShare()
                     onDismiss()
                 },
@@ -82,7 +91,7 @@ fun QuoteDialog(
                 colors = ButtonDefaults.buttonColors(containerColor = com.semtinazizi.kitapduy.ui.theme.BrandGold),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Text("Hikayende Paylaş", color = Color.Black, fontWeight = FontWeight.Bold)
+                Text("Alıntıyı kopyala", color = Color.Black, fontWeight = FontWeight.Bold)
             }
             
             Spacer(modifier = Modifier.height(32.dp))

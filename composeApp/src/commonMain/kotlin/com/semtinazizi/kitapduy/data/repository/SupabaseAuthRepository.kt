@@ -159,6 +159,17 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
         }
     }
 
+    override suspend fun updateCoverPhoto(uid: String, photoUrl: String?): Boolean {
+        if (uid != currentUserUid) return false
+        return try {
+            supabaseClient.postgrest["users"].update(mapOf("cover_photo_url" to photoUrl)) {
+                filter { eq("uid", uid) }
+            }
+            true
+        } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+        catch (failure: Exception) { false }
+    }
+
     override suspend fun updateProfilePhoto(uid: String, photoUrl: String?): Boolean {
         return try {
             val updateMap = mapOf("photo_url" to photoUrl)

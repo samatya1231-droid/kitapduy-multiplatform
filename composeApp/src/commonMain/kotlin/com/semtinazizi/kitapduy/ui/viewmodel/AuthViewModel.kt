@@ -97,6 +97,19 @@ class AuthViewModel(
         }
     }
 
+    fun updateCoverPicture(bytes: ByteArray, extension: String, onResult: (Boolean) -> Unit) {
+        val uid = authRepository.currentUserUid ?: run { onResult(false); return }
+        viewModelScope.launch {
+            try {
+                val url = storageRepository.uploadImage("cover_photos", uid, bytes, extension).getOrThrow()
+                val success = authRepository.updateCoverPhoto(uid, url)
+                if (success) observeUserProfile(uid)
+                onResult(success)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (failure: Exception) { onResult(false) }
+        }
+    }
+
     fun removeProfilePicture(onResult: (Boolean) -> Unit) {
         val uid = authRepository.currentUserUid
         if (uid == null) {

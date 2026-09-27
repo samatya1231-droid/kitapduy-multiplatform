@@ -34,12 +34,12 @@ fun MoodQuickAccessCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    val cardBg = Color.White.copy(alpha = 0.08f)
+    val cardBg = MaterialTheme.colorScheme.surfaceVariant
     
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = cardBg,
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
         modifier = modifier
             .height(64.dp)
             .clickable { onClick() }
@@ -77,7 +77,7 @@ fun MoodQuickAccessCard(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.5.sp
                 ),
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier

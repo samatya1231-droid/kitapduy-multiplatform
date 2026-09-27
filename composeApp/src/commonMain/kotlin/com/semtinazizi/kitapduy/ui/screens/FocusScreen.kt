@@ -132,7 +132,7 @@ class FocusScreen : Screen {
                         FloatingActionButton(
                             onClick = { focusViewModel.startPauseTimer() },
                             containerColor = if (isRunning) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                            contentColor = Color.White,
+                            contentColor = if (isRunning) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(72.dp),
                             shape = CircleShape
                         ) {

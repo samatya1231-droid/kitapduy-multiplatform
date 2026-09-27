@@ -104,14 +104,14 @@ data class MoodDetailScreen(val moodId: String) : Screen {
             } else matches
         }
 
-        Box(modifier = Modifier.fillMaxSize().background(SleekDarkBackground)) {
+        Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 80.dp)
             ) {
                 // Immersive Header
                 item {
-                    Box(modifier = Modifier.fillMaxWidth().height(480.dp)) {
+                    Box(modifier = Modifier.fillMaxWidth().height(350.dp)) {
                         AsyncImage(
                             model = mood.imageUrl,
                             contentDescription = mood.name,
@@ -125,8 +125,8 @@ data class MoodDetailScreen(val moodId: String) : Screen {
                                     Brush.verticalGradient(
                                         colors = listOf(
                                             Color.Transparent,
-                                            SleekDarkBackground.copy(alpha = 0.4f),
-                                            SleekDarkBackground
+                                            Color.Black.copy(alpha = 0.4f),
+                                            MaterialTheme.colorScheme.background
                                         )
                                     )
                                 )
@@ -174,7 +174,7 @@ data class MoodDetailScreen(val moodId: String) : Screen {
 
                 // Books Section
                 item {
-                    SectionHeader("Ruh Haline Uygun Kitaplar")
+                    SectionHeader("Sana Özel Kitaplar")
                     if (isLoading && allBooks.isEmpty()) {
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = 20.dp),
@@ -198,7 +198,7 @@ data class MoodDetailScreen(val moodId: String) : Screen {
 
                 // Podcasts Section
                 item {
-                    SectionHeader("Size Özel Podcastler")
+                    SectionHeader("Podcast Önerileri")
                     if (isLoading && allPodcasts.isEmpty()) {
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = 20.dp),
@@ -224,7 +224,7 @@ data class MoodDetailScreen(val moodId: String) : Screen {
 
                 // Articles Section
                 item {
-                    SectionHeader("Keşfetmen İçin Makaleler")
+                    SectionHeader("İlgini Çekebilecek Makaleler")
                     if (isLoading && allArticles.isEmpty()) {
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = 20.dp),
@@ -292,7 +292,7 @@ fun EmptyStateMessage(message: String) {
     Text(
         text = message,
         style = MaterialTheme.typography.bodyMedium,
-        color = Color.White.copy(alpha = 0.5f),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
     )
 }
@@ -406,8 +406,8 @@ fun PremiumArticleCard(article: ScienceArticle, onClick: () -> Unit) {
             .height(150.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = SleekSurface.copy(alpha = 0.6f)),
-        border = androidx.compose.foundation.BorderStroke(0.5.dp, Color.White.copy(alpha = 0.1f))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(modifier = Modifier.fillMaxSize().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             AsyncImage(
@@ -434,7 +434,7 @@ fun PremiumArticleCard(article: ScienceArticle, onClick: () -> Unit) {
                     overflow = TextOverflow.Ellipsis,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 20.sp
                 )
             }

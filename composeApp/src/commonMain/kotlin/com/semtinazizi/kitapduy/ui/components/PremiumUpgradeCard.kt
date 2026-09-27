@@ -173,7 +173,7 @@ fun PremiumUpgradeCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "7 GÜN ÜCRETSİZ DENE",
+                            text = "PREMIUM PLANLARINI GÖR",
                             color = Color.Black,
                             fontWeight = FontWeight.Black,
                             fontSize = 13.sp,

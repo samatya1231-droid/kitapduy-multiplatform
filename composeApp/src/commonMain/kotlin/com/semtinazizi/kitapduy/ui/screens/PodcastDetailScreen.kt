@@ -71,7 +71,10 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
             "${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
         }
 
-        val currentTimeMs = (currentPosition * durationMs).toLong()
+        val selectedEpisode = currentEpisode?.id == episode.id
+        val displayPosition = if (selectedEpisode) currentPosition.coerceIn(0f, 1f) else 0f
+        val displayDuration = if (selectedEpisode) durationMs else 0f
+        val currentTimeMs = (displayPosition * displayDuration).toLong()
         
         var showAtmosphereDialog by remember { mutableStateOf(false) }
         var showSpeedDialog by remember { mutableStateOf(false) }
@@ -113,7 +116,7 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
             }
         }
 
-        Box(modifier = Modifier.fillMaxSize().background(SleekDarkBackground)) {
+        Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             // Ambient Glow (Arkaplan Aurası)
             AsyncImage(
                 model = displayImageUrl,
@@ -149,8 +152,8 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                                 colors = listOf(
                                     Color.Black.copy(alpha = 0.2f),
                                     Color.Transparent,
-                                    SleekDarkBackground.copy(alpha = 0.9f),
-                                    SleekDarkBackground
+                                    MaterialTheme.colorScheme.background.copy(alpha = 0.9f),
+                                    MaterialTheme.colorScheme.background
                                 )
                             )
                         )
@@ -162,7 +165,7 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
 
                 Surface(
                     shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-                    color = SleekDarkBackground,
+                    color = MaterialTheme.colorScheme.background,
                     modifier = Modifier.fillMaxWidth().padding(top = 36.dp)
                 ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(bottom = 120.dp)) {
@@ -173,7 +176,7 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                             text = episode.title,
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Black,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)
                         )
@@ -187,40 +190,40 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                             // Podcast Adı
                             Surface(
                                 modifier = Modifier.weight(1f).height(72.dp),
-                                color = Color.White.copy(alpha = 0.05f),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
                                 shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.1f))
+                                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                             ) {
                                 Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                                     Icon(Icons.Default.Mic, null, tint = SleekChampagne, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.height(4.dp))
-                                    Text(text = podcastTitle.ifBlank { "Podcast" }, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(text = podcastTitle.ifBlank { "Podcast" }, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                             // Yayın Tarihi
                             Surface(
                                 modifier = Modifier.weight(1f).height(72.dp),
-                                color = Color.White.copy(alpha = 0.05f),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
                                 shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.1f))
+                                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                             ) {
                                 Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                                     Icon(Icons.Default.DateRange, null, tint = Color(0xFFFF2D55), modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.height(4.dp))
-                                    Text(text = formattedDate, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(text = formattedDate, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                             // Süre (RSS'den gelen metin)
                             Surface(
                                 modifier = Modifier.weight(1f).height(72.dp),
-                                color = Color.White.copy(alpha = 0.05f),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
                                 shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.1f))
+                                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                             ) {
                                 Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                                     Icon(Icons.Default.Timer, null, tint = SleekChampagne, modifier = Modifier.size(16.dp))
                                     Spacer(Modifier.height(4.dp))
-                                    Text(text = formattedDuration, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text(text = formattedDuration, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -231,13 +234,14 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
                             // Slider
                             Slider(
-                                value = currentPosition,
-                                onValueChange = { audioController.seekTo(it) },
+                                value = displayPosition,
+                                enabled = selectedEpisode && displayDuration > 0f,
+                                onValueChange = { audioController.seekTo(it, expectedEpisodeId = episode.id) },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = SliderDefaults.colors(
                                     thumbColor = SleekChampagne,
                                     activeTrackColor = SleekChampagne,
-                                    inactiveTrackColor = Color.White.copy(alpha = 0.1f)
+                                    inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
                                 )
                             )
                             
@@ -252,7 +256,7 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                                     color = SleekGray
                                 )
                                 Text(
-                                    text = formatTime(durationMs.toLong()),
+                                    text = formatTime(displayDuration.toLong()),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = SleekGray
                                 )
@@ -266,7 +270,7 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                IconButton(onClick = { audioController.seekTo((currentPosition - 0.05f).coerceAtLeast(0f)) }) {
+                                IconButton(enabled = selectedEpisode && displayDuration > 0f, onClick = { audioController.skipBy(-15_000, expectedEpisodeId = episode.id) }) {
                                     Icon(Icons.Default.FastRewind, contentDescription = "Geri", tint = Color.White)
                                 }
                                 Spacer(modifier = Modifier.width(16.dp))
@@ -290,8 +294,8 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(16.dp))
-                                IconButton(onClick = { audioController.seekTo((currentPosition + 0.05f).coerceAtMost(1f)) }) {
-                                    Icon(Icons.Default.FastForward, contentDescription = "İleri", tint = Color.White)
+                                IconButton(enabled = selectedEpisode && displayDuration > 0f, onClick = { audioController.skipBy(15_000, expectedEpisodeId = episode.id) }) {
+                                    Icon(Icons.Default.FastForward, contentDescription = "İleri", tint = MaterialTheme.colorScheme.onSurface)
                                 }
                             }
                         }
@@ -304,24 +308,24 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                             horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { showSpeedDialog = true }) {
-                                Icon(Icons.Default.Speed, null, tint = Color.White)
-                                Text("${currentSpeed}x", fontSize = 12.sp, color = Color.White)
+                                Icon(Icons.Default.Speed, null, tint = MaterialTheme.colorScheme.onSurface)
+                                Text("${currentSpeed}x", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { showAtmosphereDialog = true }) {
-                                Icon(Icons.Default.Air, null, tint = Color.White)
-                                Text("Atmosfer", fontSize = 12.sp, color = Color.White)
+                                Icon(Icons.Default.Air, null, tint = MaterialTheme.colorScheme.onSurface)
+                                Text("Atmosfer", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { showTimerDialog = true }) {
-                                Icon(Icons.Default.Timer, null, tint = Color.White)
-                                Text("Uyku", fontSize = 12.sp, color = Color.White)
+                                Icon(Icons.Default.Timer, null, tint = MaterialTheme.colorScheme.onSurface)
+                                Text("Uyku", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { 
                                 if (!isPremium) {
                                     navigator.push(SubscriptionPaywallScreen())
                                 }
                             }) {
-                                Icon(Icons.Default.Download, null, tint = Color.White)
-                                Text("İndir", fontSize = 12.sp, color = Color.White)
+                                Icon(Icons.Default.Download, null, tint = MaterialTheme.colorScheme.onSurface)
+                                Text("İndir", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                         
@@ -337,12 +341,12 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
 
                         // Açıklama Bölümü
                         Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-                            Text("Bölüm Hakkında", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text("Bölüm Hakkında", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                             Spacer(Modifier.height(8.dp))
                             Text(
                                 text = episode.description.ifEmpty { "Bu bölüm hakkında henüz bir açıklama eklenmemiş." },
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = Color.White.copy(alpha = 0.8f),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                                 lineHeight = 24.sp,
                                 maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 6,
                                 overflow = TextOverflow.Ellipsis,
@@ -367,7 +371,7 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                     onClick = { navigator.pop() },
                     modifier = Modifier.background(Color.Black.copy(0.4f), CircleShape)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri", tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri", tint = MaterialTheme.colorScheme.onSurface)
                 }
             }
 

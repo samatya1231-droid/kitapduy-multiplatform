@@ -40,7 +40,7 @@ fun PremiumTrialBanner(
     ) {
         Column {
             Text(
-                text = "Premium'u Ücretsiz Dene",
+                text = "Premium’a Geç",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
                     color = Color.White

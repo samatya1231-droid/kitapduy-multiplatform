@@ -30,13 +30,10 @@ data class ArticleDetailScreen(val articleId: String, val title: String, val art
         val userProfile by authViewModel.userProfile.collectAsState()
         val isPremium = userProfile?.hasPremium() ?: false
 
-        // Makale URL'si varsa hemen dis tarayicide ac, icerik placeholder gosterme
-        LaunchedEffect(articleUrl) {
-            if (articleUrl.isNotBlank()) {
-                uriHandler.openUri(articleUrl)
-                navigator.pop()
-            }
-        }
+        val home = koinViewModel<com.semtinazizi.kitapduy.ui.viewmodel.HomeViewModel>()
+        val articles by home.articles.collectAsState()
+        val article = articles.find { it.id == articleId }
+        var openError by remember { mutableStateOf(false) }
 
         Scaffold(
             topBar = {
@@ -53,21 +50,28 @@ data class ArticleDetailScreen(val articleId: String, val title: String, val art
         ) { paddingValues ->
             // URL yoksa basit bir acilma ekrani goster (asil icerik dista acilir)
             Column(
-                modifier = Modifier.fillMaxSize().padding(paddingValues).padding(24.dp),
+                modifier = Modifier.fillMaxSize().padding(paddingValues).verticalScroll(rememberScrollState()).padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.Top
             ) {
-                if (articleUrl.isNotBlank()) {
-                    CircularProgressIndicator()
+                Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(16.dp))
+                article?.let {
+                    com.semtinazizi.kitapduy.ui.components.SmartImage(imageUrl = it.imageUrl,
+                        modifier = Modifier.fillMaxWidth().height(200.dp))
                     Spacer(Modifier.height(16.dp))
-                    Text("Makale aciliyor...", style = MaterialTheme.typography.bodyMedium)
-                } else {
-                    Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(16.dp))
-                    Text("Bu makale icin icerk mevcut degil.", style = MaterialTheme.typography.bodyMedium)
-                    Spacer(Modifier.height(24.dp))
-                    Button(onClick = { navigator.pop() }) { Text("Geri Don") }
+                    Text(it.source, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(12.dp))
+                    Text(it.description)
                 }
+                Spacer(Modifier.height(24.dp))
+                val source = articleUrl.ifBlank { article?.link.orEmpty() }
+                if (source.startsWith("https://") || source.startsWith("http://")) {
+                    Button(onClick = {
+                        try { uriHandler.openUri(source) } catch (failure: Exception) { openError = true }
+                    }) { Text("Yazının tamamını kaynakta oku") }
+                } else Text("Bu makalenin kaynak bağlantısı bulunamadı.")
+                if (openError) Text("Kaynak açılamadı. Tekrar deneyin.", color = MaterialTheme.colorScheme.error)
 
                 if (!isPremium) {
                     Spacer(modifier = Modifier.height(24.dp))

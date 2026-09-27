@@ -9,6 +9,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -66,6 +67,16 @@ data class BookDetailScreen(val book: Book) : Screen {
         val userName = userProfile?.name ?: "Kullanıcı"
 
         val viewModel = koinScreenModel<BookDetailScreenModel>()
+        val catalog = koinInject<com.semtinazizi.kitapduy.domain.repository.BookRepository>()
+        var similarBooks by remember(book.id) { mutableStateOf<List<Book>>(emptyList()) }
+        LaunchedEffect(book.id) {
+            try {
+                similarBooks = catalog.getBooks().filter {
+                    it.id != book.id && book.category.isNotBlank() && it.category == book.category
+                }.take(10)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (failure: Exception) { /* Recommendations do not block offline playback. */ }
+        }
 
         val viewCount by viewModel.viewCount.collectAsState()
         val likeCount by viewModel.likeCount.collectAsState()
@@ -137,12 +148,16 @@ data class BookDetailScreen(val book: Book) : Screen {
             BookParallaxHeader(book = book, scrollState = scrollState)
 
             Column(modifier = Modifier.fillMaxSize().verticalScroll(scrollState)) {
-                Spacer(Modifier.height(380.dp))
+                Spacer(Modifier.statusBarsPadding().height(80.dp))
+                AsyncImage(model = book.coverUrl, contentDescription = book.title,
+                    modifier = Modifier.align(Alignment.CenterHorizontally).width(220.dp).height(320.dp)
+                        .clip(RoundedCornerShape(16.dp)), contentScale = ContentScale.Fit)
+                Spacer(Modifier.height(24.dp))
 
                 Surface(
                     shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-                    color = MaterialTheme.colorScheme.background,
-                    modifier = Modifier.fillMaxWidth().padding(top = 36.dp)
+                    color = Color.Transparent,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(bottom = 120.dp)) {
                         Spacer(Modifier.height(24.dp))
@@ -158,14 +173,13 @@ data class BookDetailScreen(val book: Book) : Screen {
                         )
                         Spacer(Modifier.height(16.dp))
 
-                        BookInfoSection(book = book, activeListeners = activeListeners)
+                        Text(book.author, Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                            style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center)
+                        Text("${viewCount} dinleme · ${book.category}", Modifier.fillMaxWidth().padding(12.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
 
                         Spacer(Modifier.height(24.dp))
-
-                        PremiumAndAdsSection(
-                            isPremium = isPremium,
-                            onPremiumClick = { navigator.push(SubscriptionPaywallScreen()) }
-                        )
 
                         AudioPlayerControls(
                             audioController = audioController,
@@ -217,6 +231,24 @@ data class BookDetailScreen(val book: Book) : Screen {
                         )
 
                         Spacer(Modifier.height(40.dp))
+
+                        if (similarBooks.isNotEmpty()) {
+                            Text("Bunları da Sevebilirsin", Modifier.padding(horizontal = 24.dp),
+                                style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+                            Spacer(Modifier.height(20.dp))
+                            LazyRow(contentPadding = PaddingValues(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                items(similarBooks, key = { it.id }) { suggestion ->
+                                    com.semtinazizi.kitapduy.ui.components.SpotifySquareCard(suggestion, suggestion.author) {
+                                        navigator.push(BookDetailScreen(suggestion))
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(40.dp))
+                        }
+                        PremiumAndAdsSection(
+                            isPremium = isPremium,
+                            onPremiumClick = { navigator.push(SubscriptionPaywallScreen()) }
+                        )
 
                         BookCommentsSection(
                             comments = comments,
@@ -286,7 +318,7 @@ private fun BookDetailTopBar(onBackClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 48.dp, start = 16.dp, end = 16.dp),
+            .statusBarsPadding().padding(top = 8.dp, start = 16.dp, end = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -353,44 +385,13 @@ private fun BookDetailDialogs(
         QuoteDialog(
             onDismiss = onDismissQuote,
             bookTitle = bookTitle,
-            bookAuthor = bookAuthor,
-            onShare = { /* Paylaşım logic */ }
+            bookAuthor = bookAuthor
         )
     }
 }
 
 @Composable
 private fun BookParallaxHeader(book: Book, scrollState: ScrollState) {
-    val parallaxOffset = -(scrollState.value.toFloat() * 0.4f)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(480.dp)
-            .graphicsLayer { translationY = parallaxOffset }
-    ) {
-        AsyncImage(
-            model = book.coverUrl,
-            contentDescription = book.title,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
-        // Vignette Karartma
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.2f),
-                            Color.Transparent,
-                            MaterialTheme.colorScheme.background.copy(alpha = 0.9f),
-                            MaterialTheme.colorScheme.background
-                        )
-                    )
-                )
-        )
-    }
-
     // Ambient Glow (Arkaplan Aurası)
     AsyncImage(
         model = book.coverUrl,
@@ -483,11 +484,16 @@ private fun AudioPlayerControls(
     book: Book,
     isPremium: Boolean
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+    val duration by audioController.duration.collectAsState()
+    val selected = currentBook?.id == book.id
+    val position = if (selected) currentPosition.coerceIn(0f, 1f) else 0f
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(36.dp)).padding(24.dp)) {
         // Slider
         Slider(
-            value = currentPosition,
-            onValueChange = { audioController.seekTo(it) },
+            value = position,
+            enabled = selected && duration > 0f,
+            onValueChange = { audioController.seekTo(it, expectedBookId = book.id) },
             modifier = Modifier.fillMaxWidth(),
             colors = SliderDefaults.colors(
                 thumbColor = BrandGold,
@@ -501,8 +507,8 @@ private fun AudioPlayerControls(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { audioController.seekTo((currentPosition - 0.05f).coerceAtLeast(0f)) }) {
-                Icon(Icons.Default.FastRewind, contentDescription = "Geri")
+            IconButton(enabled = selected && duration > 0f, onClick = { audioController.skipBy(-15_000, expectedBookId = book.id) }) {
+                Icon(Icons.Default.FastRewind, contentDescription = "15 saniye geri")
             }
             Spacer(modifier = Modifier.width(16.dp))
             FloatingActionButton(
@@ -525,8 +531,8 @@ private fun AudioPlayerControls(
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
-            IconButton(onClick = { audioController.seekTo((currentPosition + 0.05f).coerceAtMost(1f)) }) {
-                Icon(Icons.Default.FastForward, contentDescription = "İleri")
+            IconButton(enabled = selected && duration > 0f, onClick = { audioController.skipBy(15_000, expectedBookId = book.id) }) {
+                Icon(Icons.Default.FastForward, contentDescription = "15 saniye ileri")
             }
         }
     }

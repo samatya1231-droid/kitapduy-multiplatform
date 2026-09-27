@@ -30,7 +30,10 @@ class ScienceArticlesScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val homeViewModel = koinViewModel<HomeViewModel>()
-        val articles by homeViewModel.articles.collectAsState()
+        val allArticles by homeViewModel.articles.collectAsState()
+        val articles = allArticles.filter { it.source in listOf("Düşünbil", "Arkeofili", "Sarkaç", "Khosann") }
+        val loading by homeViewModel.articlesLoading.collectAsState()
+        val error by homeViewModel.articlesError.collectAsState()
         val uriHandler = LocalUriHandler.current
 
         Scaffold(
@@ -48,7 +51,11 @@ class ScienceArticlesScreen : Screen {
         ) { paddingValues ->
             if (articles.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    if (loading) CircularProgressIndicator()
+                    else Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(error ?: "Henüz makale bulunamadı.")
+                        TextButton(onClick = { homeViewModel.reloadArticles() }) { Text("Tekrar dene") }
+                    }
                 }
             } else {
                 LazyColumn(
@@ -59,7 +66,7 @@ class ScienceArticlesScreen : Screen {
                     items(articles) { article ->
                         Card(
                             modifier = Modifier.fillMaxWidth().clickable {
-                                uriHandler.openUri(article.link)
+                                navigator.push(ArticleDetailScreen(article.id, article.title, article.link))
                             },
                             shape = RoundedCornerShape(16.dp),
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),

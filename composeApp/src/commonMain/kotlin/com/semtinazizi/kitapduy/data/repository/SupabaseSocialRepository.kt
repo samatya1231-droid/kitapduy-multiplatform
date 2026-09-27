@@ -65,9 +65,8 @@ class SupabaseSocialRepository(
 
             val blocked = authRepository.currentUserUid?.let { authRepository.getBlockedUsers(it).toSet() }.orEmpty()
             posts.filter { it.userId !in blocked }.map(::mapSupabasePostToFeedItem).sortedByDescending { it.id.toLongOrNull() ?: 0L }
-        } catch (e: Throwable) {
-            println("SupabaseSocialRepository Error: ${e.message}")
-            emptyList()
+        } catch (e: Exception) {
+            throw e
         }
     }
 
@@ -78,8 +77,8 @@ class SupabaseSocialRepository(
                     filter { eq("user_id", userId) }
                 }
                 .decodeList<SupabaseBookshelf>()
-        } catch (e: Throwable) {
-            emptyList()
+        } catch (e: Exception) {
+            throw e
         }
     }
 
@@ -88,8 +87,8 @@ class SupabaseSocialRepository(
             supabaseClient.postgrest["followers"]
                 .select { filter { eq("following_id", userId) } }
                 .decodeList<SupabaseFollowRecord>()
-        } catch (e: Throwable) {
-            emptyList()
+        } catch (e: Exception) {
+            throw e
         }
     }
 
@@ -98,8 +97,8 @@ class SupabaseSocialRepository(
             supabaseClient.postgrest["followers"]
                 .select { filter { eq("follower_id", userId) } }
                 .decodeList<SupabaseFollowRecord>()
-        } catch (e: Throwable) {
-            emptyList()
+        } catch (e: Exception) {
+            throw e
         }
     }
 
@@ -114,16 +113,16 @@ class SupabaseSocialRepository(
                 }
                 .decodeList<SupabaseFollowRecord>()
             result.isNotEmpty()
-        } catch (e: Throwable) {
-            false
+        } catch (e: Exception) {
+            throw e
         }
     }
 
     override suspend fun follow(followerId: String, followingId: String) {
         try {
             supabaseClient.postgrest["followers"].insert(SupabaseFollowRecord(followerId, followingId))
-        } catch (e: Throwable) {
-            println("Social Follow Error: ${e.message}")
+        } catch (e: Exception) {
+            throw e
         }
     }
 
@@ -135,8 +134,8 @@ class SupabaseSocialRepository(
                     eq("following_id", followingId)
                 }
             }
-        } catch (e: Throwable) {
-            println("Social Unfollow Error: ${e.message}")
+        } catch (e: Exception) {
+            throw e
         }
     }
 

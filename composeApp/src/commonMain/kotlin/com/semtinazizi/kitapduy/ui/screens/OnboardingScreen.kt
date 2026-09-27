@@ -113,21 +113,7 @@ class OnboardingScreen : Screen {
                             icon = Icons.Filled.EmojiEvents,
                             color = Color(0xFFF472B6)
                         )
-                        3 -> AuthSlide(
-                            name = name,
-                            onNameChange = { name = it },
-                            isLoading = isLoading,
-                            onGoogleClick = {
-                                // TODO: Platform spesifik URL açma veya Supabase OAuth
-                            },
-                            onAppleClick = {
-                                // TODO: Apple Auth
-                            },
-                            onGuestClick = {
-                                // TODO: Guest login
-                                navigator.replace(MainScreen())
-                            }
-                        )
+                        3 -> WelcomeScreen().Content()
                     }
                 }
 

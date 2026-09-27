@@ -46,7 +46,7 @@ import io.github.vinceglb.filekit.core.PickerType
 import io.github.vinceglb.filekit.core.PlatformFile
 import kotlinx.coroutines.delay
 
-class SocialFeedScreen : Screen {
+class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
@@ -76,7 +76,7 @@ class SocialFeedScreen : Screen {
         val BrandAccent = Color(0xFFD4AF37)
 
         // Post Dialog State
-        var showPostDialog by remember { mutableStateOf(false) }
+        var showPostDialog by remember { mutableStateOf(openComposer) }
         var selectedPostTab by remember { mutableStateOf(0) }
         var postText by remember { mutableStateOf("") }
         var pollQuestion by remember { mutableStateOf("") }
@@ -258,7 +258,7 @@ class SocialFeedScreen : Screen {
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Ruhunuza dokunan mısralar",
+                            text = "Kitapseverlerin buluşma noktası",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
@@ -283,7 +283,7 @@ class SocialFeedScreen : Screen {
                                 .size(40.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-                                .clickable { },
+                                .clickable { navigator.push(NotificationScreen()) },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(Icons.Filled.Notifications, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
@@ -380,7 +380,7 @@ class SocialFeedScreen : Screen {
                                         items(items = listeningItems, key = { "${it.id}_${listeningItems.indexOf(it)}" }) { item ->
                                             Column(
                                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                                modifier = Modifier.width(70.dp).clickable { }
+                                                modifier = Modifier.width(70.dp).clickable { navigator.push(UserProfileScreen(item.userId)) }
                                             ) {
                                                 Box(contentAlignment = Alignment.Center) {
                                                     // ListeningRipple Equivalent

@@ -12,11 +12,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import com.semtinazizi.kitapduy.model.Book
 
 class ProfileScreenModel(
     private val authRepository: AuthRepository,
     private val socialRepository: SocialRepository,
-    private val bookRepository: BookRepository
+    private val bookRepository: BookRepository,
+    private val testScope: kotlinx.coroutines.CoroutineScope? = null
 ) : ScreenModel {
 
     private val _targetUserProfile = MutableStateFlow<UserProfile?>(null)
@@ -46,90 +50,95 @@ class ProfileScreenModel(
     private val _followListUsers = MutableStateFlow<List<Map<String, String>>>(emptyList())
     val followListUsers: StateFlow<List<Map<String, String>>> = _followListUsers.asStateFlow()
 
-    fun loadProfileData(targetUserId: String?) {
-        val uid = targetUserId ?: authRepository.currentUserUid ?: return
-        
-        screenModelScope.launch {
-            _targetUserProfile.value = socialRepository.getUserProfile(uid)
-            
-            _userPosts.value = socialRepository.fetchUserPosts(uid)
-            
-            val shelves = socialRepository.fetchUserShelves(uid).distinctBy { it.bookId }
-            _userShelves.value = shelves
-            
-            val allBooks = bookRepository.getBooks()
-            calculateFavoriteAuthors(shelves, allBooks)
-            calculateReadingDna(shelves, allBooks)
-            
-            loadFollowStats(uid)
-            
-            if (targetUserId != null && targetUserId != authRepository.currentUserUid) {
-                _isFollowing.value = socialRepository.isFollowing(
-                    authRepository.currentUserUid ?: "", targetUserId
-                )
-            }
-        }
-    }
+    private var loadJob: Job? = null
+    private var followListJob: Job? = null
+    val isLoading = MutableStateFlow(false)
+    val error = MutableStateFlow<String?>(null)
+    val followListLoading = MutableStateFlow(false)
+    val followListError = MutableStateFlow<String?>(null)
+    val followBusy = MutableStateFlow(false)
+    private var books: List<Book> = emptyList()
+    fun bookFor(shelf: SupabaseBookshelf): Book? = books.find { it.id == shelf.bookId }
 
-    private fun loadFollowStats(userId: String) {
-        screenModelScope.launch {
-            _followersCount.value = socialRepository.getFollowers(userId).size
-            _followingCount.value = socialRepository.getFollowing(userId).size
+    fun loadProfileData(targetUserId: String?) {
+        loadJob?.cancel()
+        val uid = targetUserId ?: authRepository.currentUserUid
+        _targetUserProfile.value = null
+        _userPosts.value = emptyList()
+        _userShelves.value = emptyList()
+        _readingDnaCategories.value = emptyMap()
+        _favoriteAuthors.value = emptyList()
+        _isFollowing.value = false
+        error.value = null
+        if (uid == null) {
+            isLoading.value = false
+            error.value = "Okur köşeni görmek için giriş yap."
+            return
+        }
+        loadJob = (testScope ?: screenModelScope).launch {
+            isLoading.value = true
+            try {
+                val profile = socialRepository.getUserProfile(uid)
+                    ?: kotlin.error("Profil yüklenemedi")
+                val posts = socialRepository.fetchUserPosts(uid)
+                val shelves = socialRepository.fetchUserShelves(uid).distinctBy { it.bookId to it.shelfType }
+                val followers = socialRepository.getFollowers(uid).size
+                val following = socialRepository.getFollowing(uid).size
+                val currentUid = authRepository.currentUserUid
+                val follows = currentUid != null && currentUid != uid && socialRepository.isFollowing(currentUid, uid)
+                books = bookRepository.getBooks()
+                _targetUserProfile.value = profile
+                _userPosts.value = posts
+                _userShelves.value = shelves
+                _followersCount.value = followers
+                _followingCount.value = following
+                _isFollowing.value = follows
+                calculateFavoriteAuthors(shelves.distinctBy { it.bookId }, books)
+                calculateReadingDna(shelves.distinctBy { it.bookId }, books)
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (failure: Exception) { error.value = "Profil yüklenemedi. Bağlantını kontrol edip tekrar dene." }
+            finally { isLoading.value = false }
         }
     }
 
     fun toggleFollow(targetUserId: String) {
-        val currentUid = authRepository.currentUserUid ?: return
-        if (currentUid == targetUserId) return
-        
-        screenModelScope.launch {
-            val alreadyFollowing = socialRepository.isFollowing(currentUid, targetUserId)
-            if (alreadyFollowing) {
-                socialRepository.unfollow(currentUid, targetUserId)
-                _isFollowing.value = false
-            } else {
-                socialRepository.follow(currentUid, targetUserId)
-                _isFollowing.value = true
-                val myProfile = authRepository.getUserProfile(currentUid)
-                socialRepository.sendNotification(
-                    receiverId = targetUserId,
-                    message = "${myProfile?.name ?: "Birisi"} seni takip etmeye başladı! \uD83D\uDC64",
-                    type = "follow"
-                )
-            }
-            loadFollowStats(targetUserId)
+        val uid = authRepository.currentUserUid ?: return
+        if (uid == targetUserId || followBusy.value) return
+        (testScope ?: screenModelScope).launch {
+            followBusy.value = true
+            try {
+                if (_isFollowing.value) socialRepository.unfollow(uid, targetUserId)
+                else socialRepository.follow(uid, targetUserId)
+                _isFollowing.value = socialRepository.isFollowing(uid, targetUserId)
+                _followersCount.value = socialRepository.getFollowers(targetUserId).size
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (failure: Exception) { error.value = "Takip işlemi tamamlanamadı. Tekrar dene." }
+            finally { followBusy.value = false }
         }
     }
 
     fun fetchFollowList(userId: String, isFollowers: Boolean) {
-        screenModelScope.launch {
-            val records = if (isFollowers) {
-                socialRepository.getFollowers(userId)
-            } else {
-                socialRepository.getFollowing(userId)
-            }
-            
-            val userList = mutableListOf<Map<String, String>>()
-            for (record in records) {
-                val targetUid = if (isFollowers) record.followerId else record.followingId
-                val profile = socialRepository.getUserProfile(targetUid)
-                if (profile != null) {
-                    userList.add(
-                        mapOf(
-                            "uid" to targetUid,
-                            "name" to profile.name,
-                            "photo" to (profile.photoUrl ?: "")
-                        )
-                    )
+        followListJob?.cancel()
+        _followListUsers.value = emptyList()
+        followListError.value = null
+        followListJob = (testScope ?: screenModelScope).launch {
+            followListLoading.value = true
+            try {
+                val records = if (isFollowers) socialRepository.getFollowers(userId) else socialRepository.getFollowing(userId)
+                _followListUsers.value = records.map { record ->
+                    val uid = if (isFollowers) record.followerId else record.followingId
+                    val profile = socialRepository.getUserProfile(uid) ?: kotlin.error("Profil yüklenemedi")
+                    mapOf("uid" to uid, "name" to profile.name, "photo" to profile.photoUrl.orEmpty())
                 }
-            }
-            _followListUsers.value = userList
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (failure: Exception) { followListError.value = "Liste yüklenemedi. Tekrar dene." }
+            finally { followListLoading.value = false }
         }
     }
 
     fun updateUserBio(bio: String) {
         val uid = authRepository.currentUserUid ?: return
-        screenModelScope.launch {
+        (testScope ?: screenModelScope).launch {
             val success = authRepository.updateProfile(uid, name = _targetUserProfile.value?.name ?: "", bio = bio, username = _targetUserProfile.value?.username)
             if (success) {
                 _targetUserProfile.value = authRepository.getUserProfile(uid)

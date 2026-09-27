@@ -1,6 +1,8 @@
 package com.semtinazizi.kitapduy.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -38,7 +40,16 @@ class ProfileEditScreen : Screen {
         var username by remember { mutableStateOf(userProfile?.username ?: "") }
         var bio by remember { mutableStateOf(userProfile?.bio ?: "") }
         var isLoading by remember { mutableStateOf(false) }
+        var feedback by remember { mutableStateOf<String?>(null) }
         var isImageUploading by remember { mutableStateOf(false) }
+
+        LaunchedEffect(userProfile?.uid) {
+            userProfile?.let { profile ->
+                name = profile.name
+                username = profile.username.orEmpty()
+                bio = profile.bio.orEmpty()
+            }
+        }
 
         val imagePicker = rememberFilePickerLauncher(
             type = PickerType.Image,
@@ -53,6 +64,7 @@ class ProfileEditScreen : Screen {
                         val extension = platformFile.name.substringAfterLast('.', "jpg")
                         authViewModel.updateProfilePicture(bytes, extension) { success ->
                             isImageUploading = false
+                            if (!success) feedback = "Fotoğraf kaydedilemedi. Tekrar dene."
                         }
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -80,7 +92,7 @@ class ProfileEditScreen : Screen {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
+                    .padding(paddingValues).imePadding().verticalScroll(rememberScrollState())
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -164,7 +176,8 @@ class ProfileEditScreen : Screen {
                     maxLines = 5
                 )
 
-                Spacer(modifier = Modifier.weight(1f))
+                feedback?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Button(
                     onClick = {
@@ -175,12 +188,12 @@ class ProfileEditScreen : Screen {
                             if (success) {
                                 navigator.pop()
                             } else {
-                                // Hata gösterilebilir
+                                feedback = "Profil kaydedilemedi. Tekrar dene."
                             }
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading
+                    enabled = !isLoading && !isImageUploading && name.isNotBlank()
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)

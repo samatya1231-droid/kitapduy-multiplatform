@@ -199,7 +199,7 @@ class HomeScreen : Screen {
                 ) {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.background.copy(alpha = 0.98f),
+                        color = MaterialTheme.colorScheme.background,
                         shadowElevation = 8.dp
                     ) {
                         Box(modifier = Modifier.statusBarsPadding().padding(vertical = 10.dp)) {

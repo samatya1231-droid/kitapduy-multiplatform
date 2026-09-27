@@ -45,14 +45,14 @@ fun SpotifySectionHeader(
             text = title,
             style = MaterialTheme.typography.titleLarge.copy(
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onBackground
             )
         )
         if (onClick != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "Tümünü Gör",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontWeight = FontWeight.Medium
                     )
@@ -60,7 +60,7 @@ fun SpotifySectionHeader(
                 Icon(
                     imageVector = Icons.Filled.ChevronRight,
                     contentDescription = "Tümünü Gör",
-                    tint = Color.Gray,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp)
                 )
             }

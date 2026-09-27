@@ -8,6 +8,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.CancellationException
 
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
@@ -54,6 +57,10 @@ class HomeViewModel(
 
     private val _showTrailerCTA = MutableStateFlow(false)
     val showTrailerCTA: StateFlow<Boolean> = _showTrailerCTA.asStateFlow()
+
+    val articlesLoading = MutableStateFlow(false)
+    val articlesError = MutableStateFlow<String?>(null)
+    fun reloadArticles() { if (!articlesLoading.value) viewModelScope.launch { fetchArticles() } }
 
     private val _articles = MutableStateFlow<List<ScienceArticle>>(emptyList())
     val articles: StateFlow<List<ScienceArticle>> = _articles.asStateFlow()
@@ -121,18 +128,27 @@ class HomeViewModel(
         _selectedCategory.value = category
     }
 
-    private suspend fun fetchArticles() = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-        val allArticles = mutableListOf<ScienceArticle>()
+    private suspend fun fetchArticles() = kotlinx.coroutines.coroutineScope {
+        articlesLoading.value = true
+        articlesError.value = null
         try {
-            allArticles.addAll(parseRssFeed("https://dusunbil.com/feed/", "Düşünbil"))
-            allArticles.addAll(parseRssFeed("https://arkeofili.com/feed/", "Arkeofili"))
-            allArticles.addAll(parseRssFeed("https://sarkac.org/feed/", "Sarkaç"))
-            allArticles.addAll(parseRssFeed("https://khosann.com/feed/", "Khosann"))
-            
-            _articles.value = allArticles.distinctBy { it.title }.shuffled().take(20)
-        } catch (e: Throwable) {
-            println("Science Articles error: ${e.message}")
-        }
+            val sources = listOf(
+                "https://kayiprihtim.com/feed" to "Kayıp Rıhtım",
+                "https://edebiyathaber.net/feed/" to "Edebiyat Haber",
+                "https://www.kitaphaber.com.tr/feed" to "Kitap Haber",
+                "https://kalemkahveklavye.com/feed" to "Kalem Kahve",
+                "https://sanatkritik.com/feed" to "Sanat Kritik",
+                "https://dusunbil.com/feed/" to "Düşünbil",
+                "https://arkeofili.com/feed/" to "Arkeofili",
+                "https://sarkac.org/feed/" to "Sarkaç",
+                "https://khosann.com/feed/" to "Khosann")
+            val articles = sources.map { (url, source) -> async { parseRssFeed(url, source) } }
+                .awaitAll().flatten().distinctBy { it.link }
+            if (articles.isNotEmpty()) _articles.value = articles
+            else articlesError.value = "Makaleler yüklenemedi. Bağlantını kontrol edip tekrar dene."
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (failure: Exception) { articlesError.value = "Makaleler yüklenemedi. Tekrar dene." }
+        finally { articlesLoading.value = false }
     }
 
     private suspend fun parseRssFeed(urlString: String, sourceName: String): List<ScienceArticle> {
@@ -180,7 +196,8 @@ class HomeViewModel(
                     )
                 )
             }
-        } catch (e: Throwable) {
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (e: Exception) {
             println("Parser error for $sourceName: ${e.message}")
         }
         return resultList

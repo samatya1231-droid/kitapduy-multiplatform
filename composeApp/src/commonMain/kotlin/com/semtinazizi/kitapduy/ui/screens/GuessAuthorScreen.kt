@@ -79,7 +79,7 @@ class GuessAuthorScreen : Screen {
                         shape = RoundedCornerShape(50),
                         modifier = Modifier.fillMaxWidth().height(50.dp)
                     ) {
-                        Text("Baþtan Baþla", color = Color.Black, fontWeight = FontWeight.ExtraBold)
+                        Text("BaÅŸtan BaÅŸla", color = Color.Black, fontWeight = FontWeight.ExtraBold)
                     }
                 },
                 dismissButton = {
@@ -87,7 +87,7 @@ class GuessAuthorScreen : Screen {
                         onClick = { navigator.pop() },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Vazgeç ve Çýk", color = Color.Gray, fontWeight = FontWeight.Medium)
+                        Text("VazgeÃ§ ve Ã‡Ä±k", color = Color.Gray, fontWeight = FontWeight.Medium)
                     }
                 }
             )
@@ -99,7 +99,7 @@ class GuessAuthorScreen : Screen {
                     title = {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("Kimin Kaleminden?", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Black, fontSize = 20.sp)
-                            Text("Bilgi Yarýþmasý", color = BrandGold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            Text("Bilgi YarÄ±ÅŸmasÄ±", color = BrandGold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                         }
                     },
                     navigationIcon = {
@@ -175,7 +175,7 @@ class GuessAuthorScreen : Screen {
                                 .background(MaterialTheme.colorScheme.surface)
                                 .border(BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)), RoundedCornerShape(32.dp))
                         ) {
-                            // Dekoratif arka plan ýþýðý
+                            // Dekoratif arka plan
                             Box(
                                 modifier = Modifier
                                     .size(150.dp)
@@ -189,7 +189,7 @@ class GuessAuthorScreen : Screen {
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = "“",
+                                    text = "âœ¦",
                                     fontSize = 80.sp,
                                     fontFamily = FontFamily.Serif,
                                     color = BrandGold.copy(alpha = 0.2f),
@@ -206,7 +206,7 @@ class GuessAuthorScreen : Screen {
                                     fontWeight = FontWeight.Medium
                                 )
                                 Text(
-                                    text = "”",
+                                    text = "âœ¦",
                                     fontSize = 80.sp,
                                     fontFamily = FontFamily.Serif,
                                     color = BrandGold.copy(alpha = 0.2f),

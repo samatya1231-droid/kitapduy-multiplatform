@@ -46,7 +46,7 @@ class PodcastListScreen : Screen {
         val isPremium = userProfile?.hasPremium() ?: false
         
         Scaffold(
-            containerColor = SleekDarkBackground,
+            containerColor = MaterialTheme.colorScheme.background,
             topBar = {
                 TopAppBar(
                     title = { 
@@ -54,7 +54,7 @@ class PodcastListScreen : Screen {
                             "Podcastler", 
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onBackground
                         ) 
                     },
                     navigationIcon = {
@@ -62,12 +62,12 @@ class PodcastListScreen : Screen {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack, 
                                 contentDescription = "Geri",
-                                tint = Color.White
+                                tint = MaterialTheme.colorScheme.onBackground
                             )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = SleekDarkBackground
+                        containerColor = MaterialTheme.colorScheme.background
                     )
                 )
             }
@@ -149,7 +149,7 @@ fun PodcastGridItem(podcast: Podcast, onClick: () -> Unit) {
                 .fillMaxWidth()
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(24.dp))
-                .background(SleekSurface)
+                .background(MaterialTheme.colorScheme.surface)
         ) {
             AsyncImage(
                 model = podcast.imageUrl,

@@ -67,7 +67,7 @@ class IndependentPensScreen : Screen {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Kalemler (Þiirler)", fontWeight = FontWeight.Bold) },
+                    title = { Text("Kalemler (Åžiirler)", fontWeight = FontWeight.Bold) },
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri")
@@ -78,7 +78,7 @@ class IndependentPensScreen : Screen {
             },
             floatingActionButton = {
                 FloatingActionButton(onClick = { showAddDialog = true }) {
-                    Icon(Icons.Filled.Add, contentDescription = "Þiir Ekle")
+                    Icon(Icons.Filled.Add, contentDescription = "Åžiir Ekle")
                 }
             }
         ) { paddingValues ->
@@ -88,7 +88,7 @@ class IndependentPensScreen : Screen {
                 }
             } else if (poems.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                    Text("Henüz hiç þiir paylaþýlmamýþ. Ýlk sen ol!", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("HenÃ¼z hiÃ§ ÅŸiir paylaÅŸÄ±lmamÄ±ÅŸ. Ä°lk sen ol!", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
                 LazyColumn(
@@ -146,20 +146,20 @@ class IndependentPensScreen : Screen {
 
                 AlertDialog(
                     onDismissRequest = { if (!isSubmitting) showAddDialog = false },
-                    title = { Text("Yeni Þiir Ekle") },
+                    title = { Text("Yeni Åžiir Ekle") },
                     text = {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
                                 value = newTitle,
                                 onValueChange = { newTitle = it },
-                                label = { Text("Baþlýk") },
+                                label = { Text("BaÅŸlÄ±k") },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
                             OutlinedTextField(
                                 value = newContent,
                                 onValueChange = { newContent = it },
-                                label = { Text("Þiiriniz") },
+                                label = { Text("Åžiiriniz") },
                                 modifier = Modifier.fillMaxWidth().height(150.dp),
                                 maxLines = 10
                             )
@@ -193,12 +193,12 @@ class IndependentPensScreen : Screen {
                             enabled = !isSubmitting && newTitle.isNotBlank() && newContent.isNotBlank()
                         ) {
                             if (isSubmitting) CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                            else Text("Paylaþ")
+                            else Text("PaylaÅŸ")
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { showAddDialog = false }, enabled = !isSubmitting) {
-                            Text("Ýptal")
+                            Text("Ä°ptal")
                         }
                     }
                 )

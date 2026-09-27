@@ -32,9 +32,18 @@ import androidx.compose.ui.unit.sp
 import com.semtinazizi.kitapduy.model.Comment
 
 // Utility for relative time in KMP
-fun getRelativeTime(timestamp: Long): String {
-    // Basic implementation for now
-    return "Bir süre önce"
+fun getRelativeTime(timestamp: Long, now: Long = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()): String {
+    if (timestamp <= 0L) return ""
+    val seconds = ((now - timestamp).coerceAtLeast(0L)) / 1000
+    return when {
+        seconds < 60 -> "Az önce"
+        seconds < 3600 -> "${seconds / 60} dakika önce"
+        seconds < 86400 -> "${seconds / 3600} saat önce"
+        seconds < 604800 -> "${seconds / 86400} gün önce"
+        seconds < 2592000 -> "${seconds / 604800} hafta önce"
+        seconds < 31536000 -> "${seconds / 2592000} ay önce"
+        else -> "${seconds / 31536000} yıl önce"
+    }
 }
 
 @Composable

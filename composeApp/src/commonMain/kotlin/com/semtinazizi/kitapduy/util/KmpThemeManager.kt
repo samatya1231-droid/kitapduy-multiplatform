@@ -51,8 +51,8 @@ object KmpThemeManager {
     }
 
     private fun applySleekDefault() {
-        val bg = Color(0xFF1A1A1C)
-        val surface = Color(0xFF242427)
+        val bg = Color(0xFF0F0F11)
+        val surface = Color(0xFF1C1C1E)
         val primary = Color(0xFFE2B639)
         updateColors(bg, surface, primary)
     }

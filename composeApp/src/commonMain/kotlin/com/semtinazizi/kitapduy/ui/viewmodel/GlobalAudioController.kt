@@ -150,14 +150,32 @@ class GlobalAudioController(
         }
     }
 
-    fun seekTo(fraction: Float) {
-        if (audioPlayer.currentMediaId() != (_currentBook.value?.id ?: _currentEpisode.value?.id)) return
-        val dur = audioPlayer.getDuration()
-        if (dur > 0) {
-            val targetMs = (dur * fraction.coerceIn(0f, 1f)).toLong()
-            audioPlayer.seekTo(targetMs)
-            _currentPosition.value = fraction
-        }
+    private fun matchesPlayingContent(expectedBookId: String?, expectedEpisodeId: String?): Boolean {
+        if (expectedBookId != null && _currentBook.value?.id != expectedBookId) return false
+        if (expectedEpisodeId != null && _currentEpisode.value?.id != expectedEpisodeId) return false
+        val contentId = _currentBook.value?.id ?: _currentEpisode.value?.id ?: return false
+        return audioPlayer.currentMediaId() == contentId
+    }
+
+    fun seekTo(fraction: Float, expectedBookId: String? = null, expectedEpisodeId: String? = null) {
+        if (!fraction.isFinite() || !matchesPlayingContent(expectedBookId, expectedEpisodeId)) return
+        val duration = audioPlayer.getDuration()
+        if (duration <= 0) return
+        val clamped = fraction.coerceIn(0f, 1f)
+        audioPlayer.seekTo((duration * clamped.toDouble()).toLong())
+        _currentPosition.value = clamped
+    }
+
+    fun skipBy(offsetMs: Long, expectedBookId: String? = null, expectedEpisodeId: String? = null) {
+        if (!matchesPlayingContent(expectedBookId, expectedEpisodeId)) return
+        val duration = audioPlayer.getDuration()
+        if (duration <= 0) return
+        val position = audioPlayer.getCurrentPosition().coerceIn(0, duration)
+        // Clamp the delta before adding it to avoid overflow and use the native position,
+        // so repeated taps do not depend on the UI's 500 ms progress refresh.
+        val target = position + offsetMs.coerceIn(-position, duration - position)
+        audioPlayer.seekTo(target)
+        _currentPosition.value = target.toFloat() / duration
     }
 
     fun setPlaybackSpeed(speed: Float) {

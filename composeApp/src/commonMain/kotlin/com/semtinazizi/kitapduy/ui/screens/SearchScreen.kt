@@ -70,7 +70,7 @@ class SearchScreen : Screen {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, "Geri", tint = MaterialTheme.colorScheme.onSurface)
                             }
                             Text(
-                                text = "Ara",
+                                text = "Keşfet",
                                 style = MaterialTheme.typography.headlineMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onBackground
@@ -86,7 +86,7 @@ class SearchScreen : Screen {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         if (query.isNotEmpty()) {
-                            IconButton(onClick = { navigator.pop() }) {
+                            IconButton(onClick = { viewModel.updateSearchQuery("") }) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, "Geri", tint = MaterialTheme.colorScheme.onSurface)
                             }
                         }
@@ -97,7 +97,7 @@ class SearchScreen : Screen {
                             modifier = Modifier
                                 .weight(1f)
                                 .then(if (query.isNotEmpty()) Modifier.padding(start = 8.dp) else Modifier),
-                            placeholder = { Text("Ne okumak istiyorsun?", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontWeight = FontWeight.Bold) },
+                            placeholder = { Text("Hangi eseri arıyorsunuz?", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontWeight = FontWeight.Bold) },
                             leadingIcon = { Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)) },
                             trailingIcon = {
                                 if (query.isNotEmpty()) {
@@ -161,12 +161,10 @@ class SearchScreen : Screen {
                 } else {
                     if (query.isEmpty()) {
                         // Boş durum — karışık öneriler göster
-                        MixedDiscoverySection(
-                            books = initialBooks.shuffled().take(20),
-                            podcasts = initialPodcasts.shuffled().take(10),
-                            onBookClick = { book -> navigator.push(BookDetailScreen(book)) },
-                            onPodcastClick = { podcast -> navigator.push(PodcastEpisodesScreen(podcast.id, podcast.name, podcast.rssUrl)) }
-                        )
+                        DiscoverCategories(initialBooks,
+                            onCategoryClick = { navigator.push(CategoryDetailScreen(it)) },
+                            onAskida = { navigator.push(AskidaKitapScreen()) },
+                            onActivities = { navigator.push(KitapBilScreen()) })
                     } else {
                         when (selectedCategory) {
                             SearchCategory.BOOKS -> {

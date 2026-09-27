@@ -36,6 +36,23 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
         val navigator = LocalNavigator.currentOrThrow
         val authRepository = koinInject<AuthRepository>()
         val coroutineScope = rememberCoroutineScope()
+        val billing = koinInject<com.semtinazizi.kitapduy.platform.BillingManager>()
+        val storePremium by billing.isPremium.collectAsState()
+        val premium = isPremium || storePremium
+        var themeDialog by remember { mutableStateOf(false) }
+        var selectedTheme by remember { mutableStateOf(com.semtinazizi.kitapduy.util.KmpThemeManager.getActiveTheme()) }
+        if (themeDialog) AlertDialog(onDismissRequest = { themeDialog = false }, title = { Text("Tema Seçimi") },
+            text = { Column {
+                listOf("Sleek", "Gece Mavisi", "Kahve Rengi", "Orman Yeşili", "Aura", "Aurora").forEach { theme ->
+                    Row(Modifier.fillMaxWidth().clickable {
+                        selectedTheme = theme
+                        com.semtinazizi.kitapduy.util.KmpThemeManager.setTheme(theme)
+                    }, verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = selectedTheme == theme, onClick = null)
+                        Text(theme)
+                    }
+                }
+            } }, confirmButton = { TextButton(onClick = { themeDialog = false }) { Text("Kapat") } })
         val showAdsPrivacy by AdsPrivacyBridge.isRequired.collectAsState()
         val notificationsEnabled by PushNotificationBridge.enabled.collectAsState()
         var showNotificationOptions by remember { mutableStateOf(false) }
@@ -65,7 +82,7 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
         if (showDeleteConfirmation) {
             AlertDialog(
                 onDismissRequest = { if (!isDeletingAccount) showDeleteConfirmation = false },
-                title = { Text("Hesabi Sil", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Black) },
+                title = { Text("Hesabı Sil", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Black) },
                 text = {
                     Column {
                         Text(
@@ -109,7 +126,7 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
                 },
                 dismissButton = {
                     TextButton(onClick = { if (!isDeletingAccount) showDeleteConfirmation = false }) {
-                        Text("Vazgec", color = Color.Gray)
+                        Text("Vazgeç", color = Color.Gray)
                     }
                 },
                 containerColor = MaterialTheme.colorScheme.surface,
@@ -141,24 +158,27 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
             ) {
                 Spacer(modifier = Modifier.height(16.dp))
 
-                if (isPremium) {
+                if (premium) {
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
                         shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFD700).copy(alpha = 0.2f))
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
                     ) {
                         Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.WorkspacePremium, null, tint = Color(0xFFFFD700), modifier = Modifier.size(40.dp))
+                            Icon(Icons.Filled.WorkspacePremium, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
                             Spacer(Modifier.width(16.dp))
                             Column {
-                                Text("Premium Uyesiniz", fontWeight = FontWeight.Black, color = Color(0xFFFFD700), fontSize = 18.sp)
-                                Text("Tum ozelliklerin tadini cikarin!", color = Color.LightGray, fontSize = 13.sp)
+                                Text("Premium üyesiniz", fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary, fontSize = 18.sp)
+                                Text("Tüm özelliklerin tadını çıkarın!", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                             }
                         }
                     }
                 }
 
                 SettingsSectionTitle("Görünüm")
+                SettingsItem(icon = Icons.Filled.Palette, title = "Tema Seçimi", subtitle = "6 özel renk teması (Premium)") {
+                    if (premium) themeDialog = true else navigator.push(SubscriptionPaywallScreen())
+                }
                 val darkMode = com.semtinazizi.kitapduy.util.KmpThemeManager.isDarkMode(false)
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
@@ -167,17 +187,19 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
                         com.semtinazizi.kitapduy.util.KmpThemeManager.setDarkMode(it)
                     })
                 }
-                SettingsSectionTitle("Genel")
-                SettingsItem(icon = Icons.Filled.Language, title = "Uygulama Dili", subtitle = "Turkce") { }
+                SettingsSectionTitle("Uygulama")
+                SettingsItem(icon = Icons.Filled.WorkspacePremium, title = "Premium", subtitle = "Planlar ve satın alımları geri yükleme") { navigator.push(SubscriptionPaywallScreen()) }
+                SettingsItem(icon = Icons.Filled.BarChart, title = "İstatistikler") { navigator.push(StatisticsScreen()) }
+                SettingsItem(icon = Icons.Filled.Language, title = "Uygulama Dili", subtitle = "Türkçe") { }
                 SettingsItem(icon = Icons.Filled.Notifications, title = "Bildirimler", subtitle = when (notificationsEnabled) {
                     true -> "Açık"
                     false -> "Kapalı"
                     null -> "Kullanılamıyor"
                 }) { if (notificationsEnabled != null) showNotificationOptions = true }
-                SettingsItem(icon = Icons.Filled.Info, title = "Gizlilik Politikasi") {
+                SettingsItem(icon = Icons.Filled.Info, title = "Gizlilik Politikası") {
                     navigator.push(LegalScreen(LegalDocument.PRIVACY))
                 }
-                SettingsItem(icon = Icons.Filled.Description, title = "Kullanim Kosullari") {
+                SettingsItem(icon = Icons.Filled.Description, title = "Kullanım Koşulları") {
                     navigator.push(LegalScreen(LegalDocument.TERMS))
                 }
                 if (showAdsPrivacy) {
@@ -210,8 +232,8 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
 
                 SettingsItem(
                     icon = Icons.Filled.DeleteForever,
-                    title = "Hesabi Sil",
-                    subtitle = "Tum verileriniz kalici olarak silinir",
+                    title = "Hesabı Sil",
+                    subtitle = "Hesabınız ve ilişkili veriler silinir",
                     iconTint = Color(0xFFFF4B4B),
                     titleColor = Color(0xFFFF4B4B)
                 ) {

@@ -87,6 +87,54 @@ class GlobalAudioControllerTest {
         assertFalse(controller.isPlaying.value)
     }
 
+    @Test fun staleBookScreenCannotSeekNewlyPlayingBook() = runTest {
+        val player = FakePlayer()
+        val controller = GlobalAudioController(player, FakeDownloader(), progress(), backgroundScope)
+        controller.playTrack(book.copy(id = "b"), true)
+        player.position = 20_000
+        controller.seekTo(0.8f, expectedBookId = "a")
+        controller.skipBy(15_000, expectedBookId = "a")
+        assertEquals(20_000, player.position)
+    }
+
+    @Test fun bookAndPodcastWithSameIdAreNotInterchangeable() = runTest {
+        val player = FakePlayer()
+        val controller = GlobalAudioController(player, FakeDownloader(), progress(), backgroundScope)
+        controller.playPodcastEpisode(com.semtinazizi.kitapduy.model.PodcastEpisode(id = "a", audioUrl = "https://example.com/episode.mp3"))
+        player.position = 20_000
+        controller.seekTo(0.8f, expectedBookId = "a")
+        assertEquals(20_000, player.position)
+        controller.skipBy(15_000, expectedEpisodeId = "a")
+        assertEquals(35_000, player.position)
+    }
+
+    @Test fun repeatedSkipUsesNativePositionAndClampsAtBothEnds() = runTest {
+        val player = FakePlayer()
+        val controller = GlobalAudioController(player, FakeDownloader(), progress(), backgroundScope)
+        controller.playTrack(book, true)
+        player.position = 70_000
+        repeat(3) { controller.skipBy(15_000, expectedBookId = "a") }
+        assertEquals(100_000, player.position)
+        repeat(8) { controller.skipBy(-15_000, expectedBookId = "a") }
+        assertEquals(0, player.position)
+    }
+
+    @Test fun seekRejectsInvalidValuesAndPreroll() = runTest {
+        val player = FakePlayer()
+        val controller = GlobalAudioController(player, FakeDownloader(), progress(), backgroundScope)
+        controller.playTrack(book)
+        player.position = 3_000
+        controller.skipBy(15_000, expectedBookId = "a")
+        controller.seekTo(0.5f, expectedBookId = "a")
+        assertEquals(3_000, player.position)
+        player.index = 1
+        controller.seekTo(Float.NaN, expectedBookId = "a")
+        assertEquals(3_000, player.position)
+        controller.seekTo(2f, expectedBookId = "a")
+        assertEquals(100_000, player.position)
+        assertEquals(1f, controller.currentPosition.value)
+    }
+
     @Test fun sleepTimerStopsPlaybackAndCanBeCancelled() = runTest {
         val player = FakePlayer()
         val controller = GlobalAudioController(player, FakeDownloader(), progress(), backgroundScope)
