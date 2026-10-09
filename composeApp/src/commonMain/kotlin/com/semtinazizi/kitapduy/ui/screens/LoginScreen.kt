@@ -17,8 +17,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
@@ -165,6 +168,11 @@ class LoginScreen : Screen {
                     onValueChange = { email = it },
                     hint = "E-posta",
                     icon = Icons.Filled.Email,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Email,
+                        capitalization = KeyboardCapitalization.None,
+                        autoCorrectEnabled = false
+                    ),
                     BrandGold = BrandGold
                 )
 
@@ -176,6 +184,10 @@ class LoginScreen : Screen {
                     hint = "Şifre",
                     icon = Icons.Filled.Lock,
                     isPassword = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        autoCorrectEnabled = false
+                    ),
                     BrandGold = BrandGold
                 )
 
@@ -194,7 +206,9 @@ class LoginScreen : Screen {
 
                 Button(
                     onClick = {
-                        if (email.isBlank() || password.isBlank()) {
+                        val cleanEmail = email.trim()
+                        val cleanPassword = password.trim()
+                        if (cleanEmail.isBlank() || cleanPassword.isBlank()) {
                             errorMessage = "Lütfen tüm alanları doldurun."
                             return@Button
                         }
@@ -204,14 +218,14 @@ class LoginScreen : Screen {
                         
                         coroutineScope.launch {
                             val success = if (isLoginMode) {
-                                authViewModel.signIn(email, password)
+                                authViewModel.signIn(cleanEmail, cleanPassword)
                             } else {
-                                if (name.isBlank()) {
+                                if (name.trim().isBlank()) {
                                     errorMessage = "Lütfen adınızı girin."
                                     isLoading = false
                                     return@launch
                                 }
-                                authViewModel.signUp(email, password, name)
+                                authViewModel.signUp(cleanEmail, cleanPassword, name.trim())
                             }
                             
                             isLoading = false
@@ -285,6 +299,7 @@ class LoginScreen : Screen {
         hint: String,
         icon: androidx.compose.ui.graphics.vector.ImageVector,
         isPassword: Boolean = false,
+        keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
         BrandGold: Color
     ) {
         OutlinedTextField(
@@ -299,6 +314,7 @@ class LoginScreen : Screen {
                 ),
             shape = RoundedCornerShape(16.dp),
             singleLine = true,
+            keyboardOptions = keyboardOptions,
             visualTransformation = if (isPassword) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = MaterialTheme.colorScheme.onSurface,

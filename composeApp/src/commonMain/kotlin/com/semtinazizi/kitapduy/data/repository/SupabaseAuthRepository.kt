@@ -84,10 +84,12 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
     }
 
     override suspend fun signInWithEmail(email: String, password: String): Boolean {
+        val cleanEmail = email.trim()
+        val cleanPassword = password.trim()
         return try {
             supabaseClient.auth.signInWith(io.github.jan.supabase.auth.providers.builtin.Email) {
-                this.email = email
-                this.password = password
+                this.email = cleanEmail
+                this.password = cleanPassword
             }
             true
         } catch (e: Throwable) {
@@ -97,10 +99,12 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
     }
 
     override suspend fun signUpWithEmail(email: String, password: String, name: String): Boolean {
+        val cleanEmail = email.trim()
+        val cleanPassword = password.trim()
         return try {
             supabaseClient.auth.signUpWith(io.github.jan.supabase.auth.providers.builtin.Email) {
-                this.email = email
-                this.password = password
+                this.email = cleanEmail
+                this.password = cleanPassword
             }
             val uid = supabaseClient.auth.currentUserOrNull()?.id
             if (uid != null) {

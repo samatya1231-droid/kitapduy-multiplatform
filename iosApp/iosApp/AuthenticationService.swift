@@ -84,10 +84,14 @@ final class AuthenticationService: NSObject,
     }
 
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .flatMap({ $0.windows })
-            .first(where: { $0.isKeyWindow }) ?? ASPresentationAnchor()
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let activeScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
+        let window = activeScene?.windows.first(where: { $0.isKeyWindow })
+            ?? activeScene?.windows.first
+            ?? scenes.flatMap({ $0.windows }).first(where: { $0.isKeyWindow })
+            ?? scenes.flatMap({ $0.windows }).first
+            ?? UIWindow()
+        return window
     }
 
     // MARK: - ASAuthorizationControllerDelegate
