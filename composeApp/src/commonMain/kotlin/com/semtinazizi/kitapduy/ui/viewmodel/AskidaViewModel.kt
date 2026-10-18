@@ -16,6 +16,7 @@ import io.github.jan.supabase.realtime.decodeRecord
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
+import com.semtinazizi.kitapduy.util.UrlSanitizer
 
 class AskidaViewModel(
     private val authRepository: AuthRepository,
@@ -68,8 +69,8 @@ class AskidaViewModel(
 
     private fun fixUrl(url: String?): String {
         if (url.isNullOrBlank()) return ""
-        if (url.startsWith("http")) return url
-        return "${com.semtinazizi.kitapduy.platform.AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
+        val resolved = if (url.startsWith("http")) url else "${com.semtinazizi.kitapduy.platform.AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
+        return UrlSanitizer.sanitizeUrl(resolved)
     }
 
     fun loadAskidaBooks() {

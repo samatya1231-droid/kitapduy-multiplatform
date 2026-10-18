@@ -56,15 +56,7 @@ object UrlSanitizer {
                 }
                 // Türkçe karakterler, genişletilmiş Latin, Unicode / UTF-8 karakterler
                 else -> {
-                    val codePoint: Int
-                    val charCount: Int
-                    if (c.isHighSurrogate() && i + 1 < len && trimmed[i + 1].isLowSurrogate()) {
-                        codePoint = (c.code - 0xD800 shl 10) + (trimmed[i + 1].code - 0xDC00) + 0x10000
-                        charCount = 2
-                    } else {
-                        codePoint = c.code
-                        charCount = 1
-                    }
+                    val charCount = if (c.isHighSurrogate() && i + 1 < len && trimmed[i + 1].isLowSurrogate()) 2 else 1
                     val str = trimmed.substring(i, i + charCount)
                     val bytes = str.encodeToByteArray()
                     for (b in bytes) {

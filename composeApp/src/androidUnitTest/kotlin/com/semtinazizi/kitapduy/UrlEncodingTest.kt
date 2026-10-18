@@ -59,4 +59,38 @@ class UrlEncodingTest {
         assertEquals("", UrlSanitizer.sanitizeUrl(""))
         assertEquals("", UrlSanitizer.sanitizeUrl("   "))
     }
+
+    @Test
+    fun testDatabaseMojibakeUrls() {
+        // Real corrupt/Mojibake strings found in Supabase audio_url fields
+        val raw = "https://ancient-shape-df97.samatya231.workers.dev/kesik_b\u2500\u2592y\u2500\u2592k.mp3"
+        val sanitized = UrlSanitizer.sanitizeUrl(raw)
+        val expected = "https://ancient-shape-df97.samatya231.workers.dev/kesik_b%E2%94%80%E2%96%92y%E2%94%80%E2%96%92k.mp3"
+        assertEquals(expected, sanitized)
+    }
+
+    @Test
+    fun testSurrogatePairEmoji() {
+        val raw = "https://example.com/audio/\uD83C\uDFA7_kitap.mp3"
+        val sanitized = UrlSanitizer.sanitizeUrl(raw)
+        // \uD83C\uDFA7 is headphone emoji (F0 9F 8E A7 in UTF-8)
+        val expected = "https://example.com/audio/%F0%9F%8E%A7_kitap.mp3"
+        assertEquals(expected, sanitized)
+    }
+
+    @Test
+    fun testRoguePercentHandling() {
+        val raw = "https://example.com/audio/100%_tamamlandi.mp3"
+        val sanitized = UrlSanitizer.sanitizeUrl(raw)
+        val expected = "https://example.com/audio/100%25_tamamlandi.mp3"
+        assertEquals(expected, sanitized)
+    }
+
+    @Test
+    fun testMixedRawAndEncodedUrl() {
+        val raw = "https://pub-7327d7da4dcf4c1bbf6d53bacbbe276c.r2.dev/audiobooks/S%C4%B1r%C3%A7a Köşk/01.mp3"
+        val sanitized = UrlSanitizer.sanitizeUrl(raw)
+        val expected = "https://pub-7327d7da4dcf4c1bbf6d53bacbbe276c.r2.dev/audiobooks/S%C4%B1r%C3%A7a%20K%C3%B6%C5%9Fk/01.mp3"
+        assertEquals(expected, sanitized)
+    }
 }

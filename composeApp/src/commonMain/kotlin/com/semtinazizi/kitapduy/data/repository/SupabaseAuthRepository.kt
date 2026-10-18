@@ -20,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import com.semtinazizi.kitapduy.platform.PushNotificationBridge
+import com.semtinazizi.kitapduy.util.UrlSanitizer
 
 class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthRepository {
     // This repository is an application singleton. Observe UID changes, not just logged-in booleans.
@@ -46,8 +47,10 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
 
     private fun fixUrl(url: String?): String {
         if (url.isNullOrBlank()) return ""
-        if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:image")) return url
-        return "${AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
+        if (url.startsWith("data:image")) return url
+        val resolved = if (url.startsWith("http://") || url.startsWith("https://")) url
+        else "${AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
+        return UrlSanitizer.sanitizeUrl(resolved)
     }
 
     override val currentUserUid: String?
