@@ -5,6 +5,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.net.URL
+import com.semtinazizi.kitapduy.util.UrlSanitizer
 
 import org.koin.core.context.GlobalContext
 
@@ -22,7 +23,8 @@ actual class BookDownloader {
     actual suspend fun downloadBook(url: String, bookId: String, onProgress: (Float) -> Unit): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                val connection = URL(url).openConnection()
+                val safeUrl = UrlSanitizer.sanitizeUrl(url)
+                val connection = URL(safeUrl).openConnection()
                 val totalLength = connection.contentLengthLong
                 val inputStream = connection.getInputStream()
                 val file = File(context.filesDir, "$bookId.mp3")

@@ -5,6 +5,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.*
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import com.semtinazizi.kitapduy.util.UrlSanitizer
 
 actual class BookDownloader {
     
@@ -27,7 +28,8 @@ actual class BookDownloader {
     @OptIn(ExperimentalForeignApi::class)
     actual suspend fun downloadBook(url: String, bookId: String, onProgress: (Float) -> Unit): Boolean {
         return suspendCoroutine { continuation ->
-            val nsUrl = NSURL.URLWithString(url)
+            val safeUrl = UrlSanitizer.sanitizeUrl(url)
+            val nsUrl = NSURL.URLWithString(safeUrl) ?: NSURL.URLWithString(url)
             if (nsUrl == null) {
                 continuation.resume(false)
                 return@suspendCoroutine

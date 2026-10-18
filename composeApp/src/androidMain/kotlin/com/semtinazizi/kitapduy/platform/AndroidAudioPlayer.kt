@@ -7,6 +7,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.semtinazizi.kitapduy.platform.AudioMediaItem
+import com.semtinazizi.kitapduy.util.UrlSanitizer
 
 /**
  * Android AudioPlayer implementasyonu - Media3/ExoPlayer kullanır
@@ -34,7 +35,7 @@ class AndroidAudioPlayer : AudioPlayer {
 
     override fun play(url: String) {
         val player = exoPlayer ?: return
-        val mediaItem = MediaItem.fromUri(url)
+        val mediaItem = MediaItem.fromUri(UrlSanitizer.sanitizeUrl(url))
         player.setMediaItem(mediaItem)
         player.prepare()
         player.play()
@@ -48,7 +49,7 @@ class AndroidAudioPlayer : AudioPlayer {
         val mediaItems = items.map { item ->
             MediaItem.Builder()
                 .setMediaId(item.id)
-                .setUri(item.url)
+                .setUri(UrlSanitizer.sanitizeUrl(item.url))
                 .setMediaMetadata(
                     MediaMetadata.Builder()
                         .setTitle(item.title)
@@ -109,7 +110,7 @@ class AndroidAudioPlayer : AudioPlayer {
                 repeatMode = Player.REPEAT_MODE_ALL
             }
         }
-        val mediaItem = MediaItem.fromUri(url)
+        val mediaItem = MediaItem.fromUri(UrlSanitizer.sanitizeUrl(url))
         atmospherePlayer?.setMediaItem(mediaItem)
         atmospherePlayer?.volume = volume
         atmospherePlayer?.prepare()

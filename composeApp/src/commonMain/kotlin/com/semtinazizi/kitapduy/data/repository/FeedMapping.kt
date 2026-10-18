@@ -2,11 +2,12 @@ package com.semtinazizi.kitapduy.data.repository
 
 import com.semtinazizi.kitapduy.model.*
 import com.semtinazizi.kitapduy.platform.AppConfig
+import com.semtinazizi.kitapduy.util.UrlSanitizer
 
 internal fun resolveFeedUrl(url: String?): String {
     if (url.isNullOrBlank()) return ""
-    if (url.startsWith("http")) return url
-    return "${AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
+    val resolved = if (url.startsWith("http")) url else "${AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
+    return UrlSanitizer.sanitizeUrl(resolved)
 }
 
 internal fun mapSupabasePostToFeedItem(post: SupabasePost): FeedItem {

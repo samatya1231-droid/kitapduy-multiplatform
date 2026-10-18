@@ -7,6 +7,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import com.semtinazizi.kitapduy.util.UrlSanitizer
 
 class AndroidFileDownloader(private val context: Context) : FileDownloader {
     override fun getDownloadedBookIds(): List<String> = downloadsDir.listFiles().orEmpty()
@@ -24,7 +25,8 @@ class AndroidFileDownloader(private val context: Context) : FileDownloader {
         }
 
         try {
-            val connection = URL(url).openConnection() as HttpURLConnection
+            val safeUrl = UrlSanitizer.sanitizeUrl(url)
+            val connection = URL(safeUrl).openConnection() as HttpURLConnection
             connection.connect()
             
             val fileLength = connection.contentLength

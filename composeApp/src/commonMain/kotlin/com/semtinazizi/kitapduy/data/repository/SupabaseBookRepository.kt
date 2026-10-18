@@ -7,6 +7,7 @@ import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
 import com.semtinazizi.kitapduy.platform.AppConfig
+import com.semtinazizi.kitapduy.util.UrlSanitizer
 
 @Serializable
 private data class BookDto(
@@ -41,20 +42,21 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
 
     private fun fixUrl(url: String?): String {
         if (url.isNullOrBlank()) return ""
-        if (url.startsWith("http")) return url
-        return "${AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
+        val resolved = if (url.startsWith("http")) url else "${AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
+        return UrlSanitizer.sanitizeUrl(resolved)
     }
 
     private fun fixImageUrl(url: String?): String {
         if (url.isNullOrBlank()) return ""
 
-        if (url.contains("r2.cloudflarestorage.com")) {
-            return AppConfig.generatePresignedUrl(url)
+        val resolved = if (url.contains("r2.cloudflarestorage.com")) {
+            AppConfig.generatePresignedUrl(url)
+        } else if (url.startsWith("http")) {
+            url
+        } else {
+            "${AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
         }
-
-        if (url.startsWith("http")) return url
-
-        return "${AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
+        return UrlSanitizer.sanitizeUrl(resolved)
     }
 
     override suspend fun getBooks(): List<Book> {

@@ -8,6 +8,7 @@ import platform.Foundation.NSURL
 import kotlinx.coroutines.*
 import platform.MediaPlayer.*
 import kotlinx.cinterop.ExperimentalForeignApi
+import com.semtinazizi.kitapduy.util.UrlSanitizer
 
 class IosAudioPlayer : AudioPlayer {
     private var avPlayer: AVPlayer? = null
@@ -81,7 +82,8 @@ class IosAudioPlayer : AudioPlayer {
         endObserver?.let { platform.Foundation.NSNotificationCenter.defaultCenter.removeObserver(it) }
         endObserver = null
         val item = queue.getOrNull(queueIndex) ?: return
-        val url = NSURL.URLWithString(item.url) ?: return
+        val safeUrl = UrlSanitizer.sanitizeUrl(item.url)
+        val url = NSURL.URLWithString(safeUrl) ?: NSURL.URLWithString(item.url) ?: return
         currentTitle = item.title
         currentArtist = item.artist
         val playerItem = AVPlayerItem(uRL = url)
@@ -177,7 +179,8 @@ class IosAudioPlayer : AudioPlayer {
     }
 
     override fun playAtmosphere(url: String, volume: Float) {
-        val nsUrl = NSURL.URLWithString(url) ?: return
+        val safeUrl = UrlSanitizer.sanitizeUrl(url)
+        val nsUrl = NSURL.URLWithString(safeUrl) ?: NSURL.URLWithString(url) ?: return
         val playerItem = AVPlayerItem(uRL = nsUrl)
         if (atmospherePlayer == null) {
             atmospherePlayer = AVPlayer(playerItem = playerItem)

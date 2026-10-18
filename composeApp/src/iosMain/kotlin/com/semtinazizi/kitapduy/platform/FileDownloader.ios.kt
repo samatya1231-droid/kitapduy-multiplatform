@@ -5,6 +5,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.*
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import com.semtinazizi.kitapduy.util.UrlSanitizer
 
 @OptIn(ExperimentalForeignApi::class)
 class IosFileDownloader : FileDownloader {
@@ -33,7 +34,8 @@ class IosFileDownloader : FileDownloader {
         validate(fileName)
         getDownloadedFilePath(fileName)?.let { onProgress(1f); return it }
         val destination = NSURL.fileURLWithPath(downloads() + "/" + fileName)
-        val source = NSURL.URLWithString(url) ?: error("Geçersiz ses adresi.")
+        val safeUrl = UrlSanitizer.sanitizeUrl(url)
+        val source = NSURL.URLWithString(safeUrl) ?: NSURL.URLWithString(url) ?: error("Geçersiz ses adresi: $url")
         onProgress(0f)
         val result = suspendCancellableCoroutine<String> { continuation ->
             val task = NSURLSession.sharedSession.downloadTaskWithRequest(NSURLRequest.requestWithURL(source)) { location, response, error ->
