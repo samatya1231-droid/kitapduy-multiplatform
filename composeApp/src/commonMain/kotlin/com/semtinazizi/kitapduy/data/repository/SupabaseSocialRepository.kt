@@ -34,25 +34,58 @@ class SupabaseSocialRepository(
     }
 
     override suspend fun searchUsers(query: String): List<UserProfile> {
-        if (query.isBlank()) return emptyList()
-        return try {
-            val users = supabaseClient.postgrest["users"]
+        val cleanQuery = query.trim()
+        if (cleanQuery.isEmpty()) return emptyList()
+        val blocked = authRepository.currentUserUid?.let { authRepository.getBlockedUsers(it).toSet() }.orEmpty()
+
+        val remoteUsers = try {
+            supabaseClient.postgrest["users"]
                 .select {
                     filter {
                         or {
-                            ilike("name", "%$query%")
-                            ilike("username", "%$query%")
+                            ilike("name", "%$cleanQuery%")
+                            ilike("username", "%$cleanQuery%")
                         }
                     }
                 }
                 .decodeList<UserProfile>()
-                
-            users.map {
-                it.copy(
-                    photoUrl = fixUrl(it.photoUrl),
-                    coverPhotoUrl = fixUrl(it.coverPhotoUrl)
-                )
-            }
+                .filter { it.uid !in blocked }
+                .map {
+                    it.copy(
+                        photoUrl = fixUrl(it.photoUrl),
+                        coverPhotoUrl = fixUrl(it.coverPhotoUrl)
+                    )
+                }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (e: Throwable) {
+            e.printStackTrace()
+            emptyList()
+        }
+
+        if (remoteUsers.isNotEmpty()) return remoteUsers
+
+        return try {
+            supabaseClient.postgrest["posts"]
+                .select {
+                    filter {
+                        ilike("user_name", "%$cleanQuery%")
+                    }
+                }
+                .decodeList<SupabasePost>()
+                .filter { !it.userId.isNullOrBlank() && it.userId !in blocked }
+                .distinctBy { it.userId }
+                .map { post ->
+                    val uid = post.userId!!.trim()
+                    UserProfile(
+                        uid = uid,
+                        name = post.userName?.takeIf { it.isNotBlank() } ?: "Okur",
+                        username = "okur_${uid.take(5)}",
+                        bio = "Merhaba, ben bir KitapDuy okuruyum!",
+                        photoUrl = fixUrl(post.userPhoto),
+                        isPremium = post.isPremium ?: false
+                    )
+                }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (e: Throwable) {
@@ -70,8 +103,13 @@ class SupabaseSocialRepository(
                 }
                 .decodeList<SupabasePost>()
 
-            val blocked = authRepository.currentUserUid?.let { authRepository.getBlockedUsers(it).toSet() }.orEmpty()
-            posts.filter { it.userId !in blocked }.map(::mapSupabasePostToFeedItem).sortedByDescending { it.id.toLongOrNull() ?: 0L }
+            val currentUid = authRepository.currentUserUid
+            val blocked = currentUid?.let { authRepository.getBlockedUsers(it).toSet() }.orEmpty()
+            val reported = currentUid?.let { localStore.getReportedPosts(it) }.orEmpty()
+            posts
+                .filter { it.userId !in blocked && (it.id?.toString() ?: "") !in reported }
+                .map(::mapSupabasePostToFeedItem)
+                .sortedByDescending { it.id.toLongOrNull() ?: 0L }
         } catch (e: Exception) {
             throw e
         }

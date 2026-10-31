@@ -71,7 +71,16 @@ object SupabaseManager {
     }
 
     val client: SupabaseClient
-        get() = _client ?: error("SupabaseManager henüz başlatılmadı. initialize() çağır.")
+        get() {
+            if (_client == null) {
+                val url = com.semtinazizi.kitapduy.platform.AppConfig.supabaseUrl
+                val key = com.semtinazizi.kitapduy.platform.AppConfig.supabaseKey
+                if (url.isNotBlank() && key.isNotBlank()) {
+                    initialize(url, key)
+                }
+            }
+            return _client ?: error("SupabaseManager henüz başlatılmadı. initialize() çağır.")
+        }
 
     val auth get() = client.auth
     val postgrest get() = client.postgrest

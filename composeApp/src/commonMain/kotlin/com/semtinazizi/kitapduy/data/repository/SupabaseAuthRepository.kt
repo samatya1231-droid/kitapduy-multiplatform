@@ -62,6 +62,28 @@ internal class LocalUserStore(
         }
     }
 
+    fun remove(key: String) {
+        if (settings != null) {
+            settings.remove(key)
+        } else {
+            memoryFallback.remove(key)
+        }
+    }
+
+    fun clearUser(uid: String) {
+        val cleanUid = uid.trim()
+        if (cleanUid.isEmpty()) return
+        listOf(
+            "user_profile_name_$cleanUid",
+            "user_profile_bio_$cleanUid",
+            "user_profile_username_$cleanUid",
+            "user_profile_photo_$cleanUid",
+            "user_profile_cover_$cleanUid",
+            "blocked_users_$cleanUid",
+            "reported_posts_$cleanUid"
+        ).forEach(::remove)
+    }
+
     fun getBlockedUsers(blockerUid: String): Set<String> {
         val cleanBlocker = blockerUid.trim()
         if (cleanBlocker.isEmpty()) return emptySet()
@@ -203,7 +225,14 @@ class SupabaseAuthRepository(
         if (currentUser != null && currentUser.id == cleanUid) {
             val meta = currentUser.userMetadata
             val metaName = meta.stringOrNull("full_name", "name", "display_name")
-            val emailPrefix = currentUser.email?.substringBefore('@')?.trim()?.takeIf { it.isNotBlank() }
+            val email = currentUser.email?.trim().orEmpty()
+            val isAppleRelayEmail = email.endsWith("@privaterelay.appleid.com", ignoreCase = true) ||
+                email.endsWith("@appleid.com", ignoreCase = true)
+            val emailPrefix = if (isAppleRelayEmail) {
+                null
+            } else {
+                email.substringBefore('@').trim().takeIf { it.isNotBlank() }
+            }
             val derivedEmailName = emailPrefix?.replaceFirstChar {
                 if (it.isLowerCase()) it.titlecase() else it.toString()
             }
@@ -463,7 +492,11 @@ class SupabaseAuthRepository(
                 // and deletes only its owner, including Auth, provider tokens and stored media.
                 val token = supabaseClient.auth.currentAccessTokenOrNull() ?: return@withTimeout false
                 val confirmed = AccountDeletionClient.delete(uid, token)
-                if (confirmed) supabaseClient.auth.clearSession()
+                if (confirmed) {
+                    localStore.clearUser(uid)
+                    supabaseClient.auth.clearSession()
+                    PushNotificationBridge.updateUser(null)
+                }
                 confirmed
             }
         } catch (_: TimeoutCancellationException) {

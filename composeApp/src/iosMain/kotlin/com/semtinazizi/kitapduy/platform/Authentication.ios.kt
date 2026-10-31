@@ -53,6 +53,8 @@ object IosAuthenticationBridge {
 object IosAppleSignInBridge {
     /** Swift tarafından set edilir — ASAuthorizationController'ı başlatır */
     var startSignIn: (() -> Unit)? = null
+    /** İlk Apple girişinde ASAuthorizationAppleIDCredential.fullName bilgisini taşır */
+    var pendingFullName: String? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     fun fail(message: String) { AuthenticationMessages.error.value = message }
@@ -63,6 +65,8 @@ object IosAppleSignInBridge {
      * nonce: SHA256 hash'lenmiş rastgele string (replay attack'e karşı)
      */
     fun handleAppleSignIn(identityToken: String, rawNonce: String) {
+        val capturedFullName = pendingFullName?.trim()?.takeIf { it.isNotEmpty() }
+        pendingFullName = null
         scope.launch {
             try {
                 withTimeout(30_000) {
@@ -71,6 +75,12 @@ object IosAppleSignInBridge {
                         idToken = identityToken
                         provider = Apple
                         nonce = rawNonce
+                    }
+                }
+                val uid = SupabaseManager.auth.currentUserOrNull()?.id
+                if (uid != null && capturedFullName != null) {
+                    runCatching {
+                        com.russhwolf.settings.Settings().putString("user_profile_name_$uid", capturedFullName)
                     }
                 }
                 AuthenticationMessages.error.value = null

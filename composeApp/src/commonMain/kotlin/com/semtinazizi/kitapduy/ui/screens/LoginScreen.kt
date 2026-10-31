@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
@@ -107,6 +108,22 @@ class LoginScreen : Screen {
                     .blur(100.dp)
             )
             // --- End of Animated Blobs ---
+
+            IconButton(
+                onClick = {
+                    if (navigator.canPop) navigator.pop() else navigator.replaceAll(WelcomeScreen())
+                },
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .statusBarsPadding()
+                    .padding(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Geri",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
 
             Column(
                 modifier = Modifier

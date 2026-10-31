@@ -40,10 +40,10 @@ fun initializeIOSConfig(
     cfAccountId: String,
     cfPublicUrl: String
 ) {
-    IOSBuildConfig.SUPABASE_URL = supabaseUrl
-    IOSBuildConfig.SUPABASE_KEY = supabaseKey
-    IOSBuildConfig.CF_ACCOUNT_ID = cfAccountId
-    IOSBuildConfig.CF_PUBLIC_URL = cfPublicUrl
+    if (supabaseUrl.isNotBlank()) IOSBuildConfig.SUPABASE_URL = supabaseUrl.trim()
+    if (supabaseKey.isNotBlank()) IOSBuildConfig.SUPABASE_KEY = supabaseKey.trim()
+    if (cfAccountId.isNotBlank()) IOSBuildConfig.CF_ACCOUNT_ID = cfAccountId.trim()
+    if (cfPublicUrl.isNotBlank()) IOSBuildConfig.CF_PUBLIC_URL = cfPublicUrl.trim()
     
     // Zamanlanmis gunluk alinti bildirimleri iOS'ta crash yaptigi icin gecici olarak devre disi birakildi
     // DailyQuoteScheduler.scheduleDaily(null)

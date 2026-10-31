@@ -260,4 +260,115 @@ class SupabaseAuthSocialFallbackTest {
             client.close()
         }
     }
+
+    @Test
+    fun getUserProfileDoesNotExposeApplePrivateRelayHashWhenMetadataIsEmpty() = runTest {
+        val engine = MockEngine {
+            respond(pgrst205Body, HttpStatusCode.NotFound, jsonHeaders)
+        }
+        val settings = fakeSettings()
+        val client = createSupabaseClient("https://example.invalid", "test-key") {
+            install(Postgrest)
+            install(Auth) {
+                alwaysAutoRefresh = false
+                autoLoadFromStorage = false
+                enableLifecycleCallbacks = false
+                sessionManager = com.semtinazizi.kitapduy.data.AppSessionManager(settings)
+                codeVerifierCache = io.github.jan.supabase.auth.MemoryCodeVerifierCache()
+            }
+            httpEngine = engine
+        }
+        try {
+            client.auth.importSession(
+                UserSession(
+                    accessToken = "token",
+                    refreshToken = "refresh",
+                    expiresIn = 3600,
+                    tokenType = "bearer",
+                    user = UserInfo(
+                        id = "apple-relay-777",
+                        aud = "authenticated",
+                        email = "w8x9z2m4p@privaterelay.appleid.com"
+                    )
+                )
+            )
+            val repo = SupabaseAuthRepository(client, settings)
+            val profileWithoutName = repo.getUserProfile("apple-relay-777")
+            assertNotNull(profileWithoutName)
+            assertEquals("Okur", profileWithoutName.name)
+            assertEquals("okur_apple", profileWithoutName.username)
+
+            // Simulate native Apple Sign-In saving fullName to Settings
+            settings.putString("user_profile_name_apple-relay-777", "Zeynep Kaya")
+            val profileWithSavedAppleName = repo.getUserProfile("apple-relay-777")
+            assertNotNull(profileWithSavedAppleName)
+            assertEquals("Zeynep Kaya", profileWithSavedAppleName.name)
+        } finally {
+            client.close()
+        }
+    }
+
+    @Test
+    fun searchUsersAndFeedFilterOutReportedPostsAndBlockedUsersWhenRemoteTablesReturn404() = runTest {
+        val postsJson = """
+            [
+              {"id":101,"user_id":"author-1","user_name":"Ahmet Okur","user_photo":null,"book_id":"b1","book_name":"Kürk Mantolu Madonna","comment":"Harika bir kitap","likes":2,"is_premium":false},
+              {"id":102,"user_id":"author-1","user_name":"Ahmet Okur","user_photo":null,"book_id":"b1","book_name":"Kürk Mantolu Madonna","comment":"Spam paylaşım","likes":0,"is_premium":false},
+              {"id":103,"user_id":"blocked-author","user_name":"Ahmet Spam","user_photo":null,"book_id":"b1","book_name":"Kitap","comment":"Engellenen içerik","likes":0,"is_premium":false}
+            ]
+        """.trimIndent()
+        val engine = MockEngine { request ->
+            when {
+                request.url.encodedPath.endsWith("/rest/v1/posts") ->
+                    respond(postsJson, HttpStatusCode.OK, jsonHeaders)
+                else ->
+                    respond(pgrst205Body, HttpStatusCode.NotFound, jsonHeaders)
+            }
+        }
+        val settings = fakeSettings()
+        val client = createSupabaseClient("https://example.invalid", "test-key") {
+            install(Postgrest)
+            install(Auth) {
+                alwaysAutoRefresh = false
+                autoLoadFromStorage = false
+                enableLifecycleCallbacks = false
+                sessionManager = com.semtinazizi.kitapduy.data.AppSessionManager(settings)
+                codeVerifierCache = io.github.jan.supabase.auth.MemoryCodeVerifierCache()
+            }
+            httpEngine = engine
+        }
+        try {
+            client.auth.importSession(
+                UserSession(
+                    accessToken = "token",
+                    refreshToken = "refresh",
+                    expiresIn = 3600,
+                    tokenType = "bearer",
+                    user = UserInfo(
+                        id = "viewer-1",
+                        aud = "authenticated",
+                        email = "test@kitapduy.com"
+                    )
+                )
+            )
+            val authRepo = SupabaseAuthRepository(client, settings)
+            val socialRepo = SupabaseSocialRepository(client, authRepo, settings)
+            val feedRepo = SupabaseFeedRepository(client, authRepo, settings)
+
+            assertTrue(socialRepo.reportPost("102", "viewer-1", "Spam"))
+            assertTrue(socialRepo.blockUser("viewer-1", "blocked-author"))
+
+            val feedItems = feedRepo.getFeedItems(excludeListen = true)
+            assertEquals(listOf("101"), feedItems.map { it.id })
+
+            val authorPosts = socialRepo.fetchUserPosts("author-1")
+            assertEquals(listOf("101"), authorPosts.map { it.id })
+
+            val foundUsers = socialRepo.searchUsers("Ahmet")
+            assertEquals(listOf("author-1"), foundUsers.map { it.uid })
+            assertEquals("Ahmet Okur", foundUsers.single().name)
+        } finally {
+            client.close()
+        }
+    }
 }

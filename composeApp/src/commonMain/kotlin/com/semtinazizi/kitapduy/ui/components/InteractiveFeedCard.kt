@@ -73,6 +73,7 @@ fun InteractiveFeedCard(item: FeedItem, onChanged: () -> Unit, onDeleted: () -> 
         onReportPost = { id, reason -> perform {
             val uid = auth.currentUserUid ?: error("Lütfen giriş yapın.")
             check(social.reportPost(id, uid, reason)) { "Şikayet iletilemedi." }
+            onDeleted()
         } },
         onBlockUser = { id -> perform {
             val uid = auth.currentUserUid ?: error("Lütfen giriş yapın.")

@@ -1,4 +1,4 @@
-﻿package com.semtinazizi.kitapduy.ui.screens
+package com.semtinazizi.kitapduy.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -35,6 +35,7 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val authRepository = koinInject<AuthRepository>()
+        val authViewModel = org.koin.compose.viewmodel.koinViewModel<com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel>()
         val coroutineScope = rememberCoroutineScope()
         val billing = koinInject<com.semtinazizi.kitapduy.platform.BillingManager>()
         val storePremium by billing.isPremium.collectAsState()
@@ -103,8 +104,9 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
                             coroutineScope.launch {
                                 try {
                                     if (authRepository.deleteAccount()) {
+                                        authViewModel.checkAuthStatus()
                                         showDeleteConfirmation = false
-                                        navigator.replaceAll(LoginScreen())
+                                        navigator.replaceAll(WelcomeScreen())
                                     } else {
                                         deleteError = "Hesabın silindiği doğrulanamadı. Lütfen tekrar deneyin veya ${LegalContent.supportEmail} adresine yazın."
                                     }
@@ -222,7 +224,8 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
                         coroutineScope.launch {
                             try {
                                 authRepository.signOut()
-                                navigator.replaceAll(LoginScreen())
+                                authViewModel.checkAuthStatus()
+                                navigator.replaceAll(WelcomeScreen())
                             } catch (e: kotlinx.coroutines.CancellationException) { throw e }
                             catch (e: Exception) { signOutError = "Çıkış yapılamadı. Bağlantınızı kontrol edip tekrar deneyin." }
                             finally { isSigningOut = false }

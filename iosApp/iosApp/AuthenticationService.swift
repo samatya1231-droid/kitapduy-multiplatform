@@ -76,6 +76,7 @@ final class AuthenticationService: NSObject,
 
     // MARK: - Native Apple Sign In (ASAuthorizationController)
     private func startNativeAppleSignIn() {
+        guard appleAuthController == nil else { return }
         let nonce = randomNonceString()
         currentNonce = nonce
 
@@ -108,6 +109,11 @@ final class AuthenticationService: NSObject,
             return
         }
         currentNonce = nil
+        let fullName = [appleIDCredential.fullName?.givenName, appleIDCredential.fullName?.familyName]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        IosAppleSignInBridge.shared.pendingFullName = fullName.isEmpty ? nil : fullName
         // Kotlin tarafına ilet — Supabase IDToken akışı burada başlar
         IosAppleSignInBridge.shared.handleAppleSignIn(identityToken: identityToken, rawNonce: rawNonce)
     }

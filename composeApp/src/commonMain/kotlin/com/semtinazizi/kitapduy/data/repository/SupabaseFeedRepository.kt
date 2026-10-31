@@ -12,8 +12,10 @@ import com.semtinazizi.kitapduy.platform.AppConfig
 
 class SupabaseFeedRepository(
     private val supabaseClient: SupabaseClient,
-    private val authRepository: com.semtinazizi.kitapduy.domain.repository.AuthRepository
+    private val authRepository: com.semtinazizi.kitapduy.domain.repository.AuthRepository,
+    settings: com.russhwolf.settings.Settings? = runCatching { com.russhwolf.settings.Settings() }.getOrNull()
 ) : FeedRepository {
+    private val localStore = LocalUserStore(settings)
 
     override suspend fun getFeedItems(excludeListen: Boolean): List<FeedItem> {
         return try {
@@ -29,8 +31,14 @@ class SupabaseFeedRepository(
                 }
                 .decodeList<SupabasePost>()
 
-            val blocked = authRepository.currentUserUid?.let { authRepository.getBlockedUsers(it).toSet() }.orEmpty()
-            posts.filter { it.userId !in blocked }.map { mapSupabasePostToFeedItem(it) }
+            val currentUid = authRepository.currentUserUid
+            val blocked = currentUid?.let { authRepository.getBlockedUsers(it).toSet() }.orEmpty()
+            val reported = currentUid?.let { localStore.getReportedPosts(it) }.orEmpty()
+            posts
+                .filter { it.userId !in blocked && (it.id?.toString() ?: "") !in reported }
+                .map { mapSupabasePostToFeedItem(it) }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
         } catch (e: Throwable) {
             println("FeedRepository Error: ${e.message}")
             listOf(
