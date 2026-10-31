@@ -1,28 +1,113 @@
 package com.semtinazizi.kitapduy.data.repository
 
+import com.russhwolf.settings.Settings
+import com.semtinazizi.kitapduy.data.AccountDeletionClient
 import com.semtinazizi.kitapduy.domain.repository.AuthRepository
+import com.semtinazizi.kitapduy.model.SupabasePost
 import com.semtinazizi.kitapduy.model.UserProfile
 import com.semtinazizi.kitapduy.platform.AppConfig
+import com.semtinazizi.kitapduy.platform.PushNotificationBridge
+import com.semtinazizi.kitapduy.util.UrlSanitizer
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.postgrest.postgrest
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.distinctUntilChanged
 import io.github.jan.supabase.auth.status.SessionStatus
-import com.semtinazizi.kitapduy.data.AccountDeletionClient
+import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import com.semtinazizi.kitapduy.platform.PushNotificationBridge
-import com.semtinazizi.kitapduy.util.UrlSanitizer
+import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
-class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthRepository {
+internal class LocalUserStore(
+    private val settings: Settings? = runCatching { Settings() }.getOrNull()
+) {
+    companion object {
+        private val memoryFallback = mutableMapOf<String, String>()
+
+        internal fun clearMemoryFallbackForTests() {
+            memoryFallback.clear()
+        }
+    }
+
+    fun getString(key: String): String? {
+        return if (settings != null) {
+            settings.getStringOrNull(key)
+        } else {
+            memoryFallback[key]
+        }
+    }
+
+    fun hasKey(key: String): Boolean {
+        return if (settings != null) {
+            settings.hasKey(key)
+        } else {
+            memoryFallback.containsKey(key)
+        }
+    }
+
+    fun putString(key: String, value: String) {
+        if (settings != null) {
+            settings.putString(key, value)
+        } else {
+            memoryFallback[key] = value
+        }
+    }
+
+    fun getBlockedUsers(blockerUid: String): Set<String> {
+        val cleanBlocker = blockerUid.trim()
+        if (cleanBlocker.isEmpty()) return emptySet()
+        val raw = getString("blocked_users_$cleanBlocker").orEmpty()
+        return raw.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+    }
+
+    fun addBlockedUser(blockerUid: String, blockedUid: String) {
+        val cleanBlocker = blockerUid.trim()
+        val cleanBlocked = blockedUid.trim()
+        if (cleanBlocker.isEmpty() || cleanBlocked.isEmpty()) return
+        val updated = getBlockedUsers(cleanBlocker) + cleanBlocked
+        putString("blocked_users_$cleanBlocker", updated.joinToString(","))
+    }
+
+    fun getReportedPosts(reporterUid: String): Set<String> {
+        val cleanReporter = reporterUid.trim()
+        if (cleanReporter.isEmpty()) return emptySet()
+        val raw = getString("reported_posts_$cleanReporter").orEmpty()
+        return raw.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+    }
+
+    fun addReportedPost(reporterUid: String, postId: String) {
+        val cleanReporter = reporterUid.trim()
+        val cleanPost = postId.trim()
+        if (cleanReporter.isEmpty() || cleanPost.isEmpty()) return
+        val updated = getReportedPosts(cleanReporter) + cleanPost
+        putString("reported_posts_$cleanReporter", updated.joinToString(","))
+    }
+}
+
+private fun JsonObject?.stringOrNull(vararg keys: String): String? {
+    if (this == null) return null
+    for (key in keys) {
+        val value = (this[key] as? JsonPrimitive)?.contentOrNull?.trim()
+        if (!value.isNullOrEmpty()) return value
+    }
+    return null
+}
+
+class SupabaseAuthRepository(
+    private val supabaseClient: SupabaseClient,
+    settings: Settings? = runCatching { Settings() }.getOrNull()
+) : AuthRepository {
+    private val localStore = LocalUserStore(settings)
+
     // This repository is an application singleton. Observe UID changes, not just logged-in booleans.
     private val pushScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     init {
@@ -36,6 +121,12 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
             }
         }
     }
+
+    private fun nameKey(uid: String) = "user_profile_name_$uid"
+    private fun bioKey(uid: String) = "user_profile_bio_$uid"
+    private fun usernameKey(uid: String) = "user_profile_username_$uid"
+    private fun photoKey(uid: String) = "user_profile_photo_$uid"
+    private fun coverKey(uid: String) = "user_profile_cover_$uid"
 
     override val authenticationChanges: Flow<Boolean?> = supabaseClient.auth.sessionStatus.map { status ->
         when (status) {
@@ -62,6 +153,8 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
     override suspend fun awaitSessionInitialization() {
         try {
             supabaseClient.auth.awaitInitialization()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Throwable) {
             e.printStackTrace()
         }
@@ -72,18 +165,98 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
     }
 
     override suspend fun getUserProfile(uid: String): UserProfile? {
-        return try {
-            val profile = supabaseClient.postgrest["users"]
-                .select { filter { eq("uid", uid) } }
+        val cleanUid = uid.trim()
+        if (cleanUid.isEmpty()) return null
+
+        val remoteProfile = try {
+            supabaseClient.postgrest["users"]
+                .select { filter { eq("uid", cleanUid) } }
                 .decodeSingleOrNull<UserProfile>()
-            profile?.copy(
-                photoUrl = fixUrl(profile.photoUrl),
-                coverPhotoUrl = fixUrl(profile.coverPhotoUrl)
-            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Throwable) {
             e.printStackTrace()
             null
         }
+
+        val localName = localStore.getString(nameKey(cleanUid))?.takeIf { it.isNotBlank() }
+        val localBio = localStore.getString(bioKey(cleanUid))
+        val localUsername = localStore.getString(usernameKey(cleanUid))?.takeIf { it.isNotBlank() }
+        val hasLocalPhoto = localStore.hasKey(photoKey(cleanUid))
+        val localPhoto = localStore.getString(photoKey(cleanUid))
+        val hasLocalCover = localStore.hasKey(coverKey(cleanUid))
+        val localCover = localStore.getString(coverKey(cleanUid))
+
+        if (remoteProfile != null) {
+            val resolvedPhoto = if (hasLocalPhoto) localPhoto else remoteProfile.photoUrl
+            val resolvedCover = if (hasLocalCover) localCover else remoteProfile.coverPhotoUrl
+            return remoteProfile.copy(
+                name = localName ?: remoteProfile.name,
+                bio = localBio ?: remoteProfile.bio,
+                username = localUsername ?: remoteProfile.username,
+                photoUrl = fixUrl(resolvedPhoto),
+                coverPhotoUrl = fixUrl(resolvedCover)
+            )
+        }
+
+        val currentUser = supabaseClient.auth.currentUserOrNull()
+        if (currentUser != null && currentUser.id == cleanUid) {
+            val meta = currentUser.userMetadata
+            val metaName = meta.stringOrNull("full_name", "name", "display_name")
+            val emailPrefix = currentUser.email?.substringBefore('@')?.trim()?.takeIf { it.isNotBlank() }
+            val derivedEmailName = emailPrefix?.replaceFirstChar {
+                if (it.isLowerCase()) it.titlecase() else it.toString()
+            }
+            val resolvedName = localName ?: metaName ?: derivedEmailName ?: "Okur"
+            val resolvedUsername = localUsername
+                ?: meta.stringOrNull("user_name", "preferred_username", "username")
+                ?: emailPrefix
+                ?: "okur_${cleanUid.take(5)}"
+            val resolvedBio = localBio ?: "Merhaba, ben bir KitapDuy okuruyum!"
+            val resolvedPhoto = if (hasLocalPhoto) localPhoto else meta.stringOrNull("avatar_url", "picture")
+            val resolvedCover = if (hasLocalCover) localCover else null
+
+            return UserProfile(
+                uid = cleanUid,
+                name = resolvedName,
+                username = resolvedUsername,
+                bio = resolvedBio,
+                photoUrl = fixUrl(resolvedPhoto),
+                coverPhotoUrl = fixUrl(resolvedCover)
+            )
+        }
+
+        val latestPost = try {
+            supabaseClient.postgrest["posts"]
+                .select {
+                    filter { eq("user_id", cleanUid) }
+                    limit(1)
+                }
+                .decodeList<SupabasePost>()
+                .firstOrNull()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            null
+        }
+
+        val resolvedName = localName
+            ?: latestPost?.userName?.takeIf { it.isNotBlank() }
+            ?: "Okur"
+        val resolvedUsername = localUsername ?: "okur_${cleanUid.take(5)}"
+        val resolvedBio = localBio ?: "Merhaba, ben bir KitapDuy okuruyum!"
+        val resolvedPhoto = if (hasLocalPhoto) localPhoto else latestPost?.userPhoto
+        val resolvedCover = if (hasLocalCover) localCover else null
+
+        return UserProfile(
+            uid = cleanUid,
+            name = resolvedName,
+            username = resolvedUsername,
+            bio = resolvedBio,
+            photoUrl = fixUrl(resolvedPhoto),
+            coverPhotoUrl = fixUrl(resolvedCover),
+            isPremium = latestPost?.isPremium ?: false
+        )
     }
 
     override suspend fun signInWithEmail(email: String, password: String): Boolean {
@@ -95,6 +268,8 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
                 this.password = cleanPassword
             }
             true
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Throwable) {
             e.printStackTrace()
             false
@@ -104,6 +279,7 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
     override suspend fun signUpWithEmail(email: String, password: String, name: String): Boolean {
         val cleanEmail = email.trim()
         val cleanPassword = password.trim()
+        val cleanName = name.trim().ifBlank { cleanEmail.substringBefore('@').ifBlank { "Okur" } }
         return try {
             supabaseClient.auth.signUpWith(io.github.jan.supabase.auth.providers.builtin.Email) {
                 this.email = cleanEmail
@@ -111,10 +287,23 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
             }
             val uid = supabaseClient.auth.currentUserOrNull()?.id
             if (uid != null) {
-                val newUser = UserProfile(uid = uid, name = name, bio = "Merhaba, ben yeni bir KitapDuy kullanicisiyim!")
-                supabaseClient.postgrest["users"].insert(newUser)
+                val defaultBio = "Merhaba, ben yeni bir KitapDuy kullanicisiyim!"
+                localStore.putString(nameKey(uid), cleanName)
+                if (!localStore.hasKey(bioKey(uid))) {
+                    localStore.putString(bioKey(uid), defaultBio)
+                }
+                try {
+                    val newUser = UserProfile(uid = uid, name = cleanName, bio = defaultBio)
+                    supabaseClient.postgrest["users"].insert(newUser)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (e: Throwable) {
+                    e.printStackTrace()
+                }
             }
             true
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Throwable) {
             e.printStackTrace()
             false
@@ -125,6 +314,8 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
         return try {
             supabaseClient.auth.signInWith(io.github.jan.supabase.auth.providers.Google)
             true
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Throwable) {
             e.printStackTrace()
             false
@@ -149,6 +340,8 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
         return try {
             supabaseClient.auth.signInWith(io.github.jan.supabase.auth.providers.Apple)
             true
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Throwable) {
             e.printStackTrace()
             false
@@ -156,10 +349,25 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
     }
 
     override suspend fun updateProfile(uid: String, name: String, bio: String, username: String?): Boolean {
+        val cleanUid = uid.trim()
+        if (cleanUid.isEmpty()) return false
         return try {
-            val updateMap = mapOf("name" to name, "bio" to bio, "username" to username)
-            supabaseClient.postgrest["users"].update(updateMap) { filter { eq("uid", uid) } }
+            localStore.putString(nameKey(cleanUid), name.trim())
+            localStore.putString(bioKey(cleanUid), bio.trim())
+            if (username != null) {
+                localStore.putString(usernameKey(cleanUid), username.trim())
+            }
+            try {
+                val updateMap = mapOf("name" to name, "bio" to bio, "username" to username)
+                supabaseClient.postgrest["users"].update(updateMap) { filter { eq("uid", cleanUid) } }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (e: Throwable) {
+                e.printStackTrace()
+            }
             true
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Throwable) {
             e.printStackTrace()
             false
@@ -167,21 +375,43 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
     }
 
     override suspend fun updateCoverPhoto(uid: String, photoUrl: String?): Boolean {
-        if (uid != currentUserUid) return false
+        val cleanUid = uid.trim()
+        if (cleanUid.isEmpty() || cleanUid != currentUserUid) return false
         return try {
-            supabaseClient.postgrest["users"].update(mapOf("cover_photo_url" to photoUrl)) {
-                filter { eq("uid", uid) }
+            localStore.putString(coverKey(cleanUid), photoUrl.orEmpty())
+            try {
+                supabaseClient.postgrest["users"].update(mapOf("cover_photo_url" to photoUrl)) {
+                    filter { eq("uid", cleanUid) }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (e: Throwable) {
+                e.printStackTrace()
             }
             true
-        } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
-        catch (failure: Exception) { false }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            false
+        }
     }
 
     override suspend fun updateProfilePhoto(uid: String, photoUrl: String?): Boolean {
+        val cleanUid = uid.trim()
+        if (cleanUid.isEmpty()) return false
         return try {
-            val updateMap = mapOf("photo_url" to photoUrl)
-            supabaseClient.postgrest["users"].update(updateMap) { filter { eq("uid", uid) } }
+            localStore.putString(photoKey(cleanUid), photoUrl.orEmpty())
+            try {
+                val updateMap = mapOf("photo_url" to photoUrl)
+                supabaseClient.postgrest["users"].update(updateMap) { filter { eq("uid", cleanUid) } }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (e: Throwable) {
+                e.printStackTrace()
+            }
             true
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Throwable) {
             e.printStackTrace()
             false
@@ -194,12 +424,24 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
             val uid = supabaseClient.auth.currentUserOrNull()?.id
             if (uid != null) {
                 val safeName = if (name.isBlank()) "Misafir" else name.trim()
+                val guestUsername = "misafir_${uid.take(5)}"
+                localStore.putString(nameKey(uid), safeName)
+                localStore.putString(usernameKey(uid), guestUsername)
+                if (!localStore.hasKey(bioKey(uid))) {
+                    localStore.putString(bioKey(uid), "Merhaba!")
+                }
                 try {
-                    val profile = UserProfile(uid = uid, name = safeName, username = "misafir_${uid.take(5)}", bio = "Merhaba!")
+                    val profile = UserProfile(uid = uid, name = safeName, username = guestUsername, bio = "Merhaba!")
                     supabaseClient.postgrest["users"].upsert(profile)
-                } catch (e: Throwable) { e.printStackTrace() }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (e: Throwable) {
+                    e.printStackTrace()
+                }
                 true
             } else false
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Throwable) {
             e.printStackTrace()
             false
@@ -234,14 +476,22 @@ class SupabaseAuthRepository(private val supabaseClient: SupabaseClient) : AuthR
         }
     }
 
-    /** Engellenen kullanici UID listesi - blocked_users tablosu yoksa bos liste doner */
+    /** Engellenen kullanici UID listesi - yerel Settings ve varsa uzak tablo birlestirilir */
     override suspend fun getBlockedUsers(uid: String): List<String> {
-        return try {
+        val cleanUid = uid.trim()
+        if (cleanUid.isEmpty()) return emptyList()
+        val localBlocked = localStore.getBlockedUsers(cleanUid)
+        val remoteBlocked = try {
             supabaseClient.postgrest["blocked_users"]
-                .select { filter { eq("blocker_uid", uid) } }
+                .select { filter { eq("blocker_uid", cleanUid) } }
                 .decodeList<AuthBlockRecord>()
                 .map { it.blockedUid }
-        } catch (e: Throwable) { emptyList() }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            emptyList()
+        }
+        return (localBlocked + remoteBlocked).distinct()
     }
 }
 

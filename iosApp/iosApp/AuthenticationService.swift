@@ -17,6 +17,16 @@ final class AuthenticationService: NSObject,
 
     // MARK: - Native Apple Sign In state
     private var currentNonce: String?
+    private var appleAuthController: ASAuthorizationController?
+
+    private func resolvePresentationWindow() -> UIWindow? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let activeScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
+        return activeScene?.windows.first(where: { $0.isKeyWindow })
+            ?? activeScene?.windows.first
+            ?? scenes.flatMap({ $0.windows }).first(where: { $0.isKeyWindow })
+            ?? scenes.flatMap({ $0.windows }).first
+    }
 
     // MARK: - Setup
     func configure() {
@@ -35,10 +45,7 @@ final class AuthenticationService: NSObject,
     private func signInWithUrl(url: String) {
         guard session == nil else { return }
         guard let authURL = URL(string: url), authURL.scheme == "https",
-              let window = UIApplication.shared.connectedScenes
-                  .compactMap({ $0 as? UIWindowScene })
-                  .flatMap({ $0.windows })
-                  .first(where: { $0.isKeyWindow }) else {
+              let window = resolvePresentationWindow() else {
             IosAuthenticationBridge.shared.fail(message: "Giriş penceresi açılamadı. Lütfen tekrar deneyin.")
             return
         }
@@ -64,7 +71,7 @@ final class AuthenticationService: NSObject,
     }
 
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        window ?? ASPresentationAnchor()
+        window ?? resolvePresentationWindow() ?? ASPresentationAnchor()
     }
 
     // MARK: - Native Apple Sign In (ASAuthorizationController)
@@ -80,27 +87,23 @@ final class AuthenticationService: NSObject,
         let authorizationController = ASAuthorizationController(authorizationRequests: [request])
         authorizationController.delegate = self
         authorizationController.presentationContextProvider = self
+        self.appleAuthController = authorizationController
         authorizationController.performRequests()
     }
 
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        let activeScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
-        let window = activeScene?.windows.first(where: { $0.isKeyWindow })
-            ?? activeScene?.windows.first
-            ?? scenes.flatMap({ $0.windows }).first(where: { $0.isKeyWindow })
-            ?? scenes.flatMap({ $0.windows }).first
-            ?? UIWindow()
-        return window
+        resolvePresentationWindow() ?? window ?? UIWindow()
     }
 
     // MARK: - ASAuthorizationControllerDelegate
     func authorizationController(controller: ASAuthorizationController,
                                  didCompleteWithAuthorization authorization: ASAuthorization) {
+        appleAuthController = nil
         guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential,
               let identityTokenData = appleIDCredential.identityToken,
               let identityToken = String(data: identityTokenData, encoding: .utf8),
               let rawNonce = currentNonce else {
+            currentNonce = nil
             IosAppleSignInBridge.shared.fail(message: "Apple kimlik bilgileri alınamadı. Lütfen tekrar deneyin.")
             return
         }
@@ -111,6 +114,7 @@ final class AuthenticationService: NSObject,
 
     func authorizationController(controller: ASAuthorizationController,
                                  didCompleteWithError error: Error) {
+        appleAuthController = nil
         currentNonce = nil
         if (error as? ASAuthorizationError)?.code == .canceled { return }
         IosAppleSignInBridge.shared.fail(message: "Apple ile giriş tamamlanamadı. Lütfen tekrar deneyin.")

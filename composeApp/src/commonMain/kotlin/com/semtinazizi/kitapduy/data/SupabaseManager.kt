@@ -59,7 +59,10 @@ object SupabaseManager {
         if (com.semtinazizi.kitapduy.platform.platformName.startsWith("iOS")) {
             GlobalScope.launch(Dispatchers.Default) {
                 try {
-                    client.auth.refreshCurrentSession()
+                    client.auth.awaitInitialization()
+                    if (client.auth.currentSessionOrNull() != null) {
+                        client.auth.refreshCurrentSession()
+                    }
                 } catch (e: Exception) {
                     println("Supabase manual refresh failed: ${e.message}")
                 }

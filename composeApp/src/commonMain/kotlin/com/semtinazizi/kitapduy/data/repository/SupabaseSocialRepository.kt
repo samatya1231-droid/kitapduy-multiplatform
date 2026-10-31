@@ -1,5 +1,6 @@
 package com.semtinazizi.kitapduy.data.repository
 
+import com.russhwolf.settings.Settings
 import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import com.semtinazizi.kitapduy.domain.repository.SocialRepository
 import com.semtinazizi.kitapduy.model.FeedItem
@@ -13,11 +14,14 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
 import com.semtinazizi.kitapduy.platform.AppConfig
 import com.semtinazizi.kitapduy.util.UrlSanitizer
+import kotlinx.coroutines.CancellationException
 
 class SupabaseSocialRepository(
     private val supabaseClient: SupabaseClient,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    settings: Settings? = runCatching { Settings() }.getOrNull()
 ) : SocialRepository {
+    private val localStore = LocalUserStore(settings)
 
     private fun fixUrl(url: String?): String {
         if (url.isNullOrBlank()) return ""
@@ -49,6 +53,8 @@ class SupabaseSocialRepository(
                     coverPhotoUrl = fixUrl(it.coverPhotoUrl)
                 )
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Throwable) {
             e.printStackTrace()
             emptyList()
@@ -144,6 +150,8 @@ class SupabaseSocialRepository(
         try {
             val notification = SupabaseInsertNotification(receiverId = receiverId, message = message, type = type)
             supabaseClient.postgrest["notifications"].insert(notification)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Throwable) {
             println("Social Notification Error: ${e.message}")
         }
@@ -151,22 +159,45 @@ class SupabaseSocialRepository(
 
     /** Apple Guideline 1.2 - Icerik raporlama */
     override suspend fun reportPost(postId: String, reporterId: String, reason: String): Boolean {
+        val cleanPostId = postId.trim()
+        val cleanReporterId = reporterId.trim()
+        val cleanReason = reason.trim()
+        if (cleanPostId.isEmpty() || cleanReporterId.isEmpty() || cleanReason.isEmpty()) return false
+        localStore.addReportedPost(cleanReporterId, cleanPostId)
         return try {
-            supabaseClient.postgrest["reports"].insert(ReportRecord(postId, reporterId, reason))
+            try {
+                supabaseClient.postgrest["reports"].insert(ReportRecord(cleanPostId, cleanReporterId, cleanReason))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (e: Throwable) {
+                println("Report Error (saved locally): ${e.message}")
+            }
             true
-        } catch (e: Throwable) {
-            println("Report Error: ${e.message}")
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
             false
         }
     }
 
     /** Apple Guideline 1.2 - Kullanici engelleme */
     override suspend fun blockUser(blockerId: String, blockedUid: String): Boolean {
+        val cleanBlocker = blockerId.trim()
+        val cleanBlocked = blockedUid.trim()
+        if (cleanBlocker.isEmpty() || cleanBlocked.isEmpty() || cleanBlocker == cleanBlocked) return false
+        localStore.addBlockedUser(cleanBlocker, cleanBlocked)
         return try {
-            supabaseClient.postgrest["blocked_users"].upsert(SocialBlockRecord(blockerId, blockedUid))
+            try {
+                supabaseClient.postgrest["blocked_users"].upsert(SocialBlockRecord(cleanBlocker, cleanBlocked))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (e: Throwable) {
+                println("Block Error (saved locally): ${e.message}")
+            }
             true
-        } catch (e: Throwable) {
-            println("Block Error: ${e.message}")
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
             false
         }
     }
