@@ -18,6 +18,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -150,10 +152,16 @@ class SupabaseAuthRepository(
     private fun photoKey(uid: String) = "user_profile_photo_$uid"
     private fun coverKey(uid: String) = "user_profile_cover_$uid"
 
-    override val authenticationChanges: Flow<Boolean?> = supabaseClient.auth.sessionStatus.map { status ->
-        when (status) {
-            is SessionStatus.Authenticated -> status.session.user != null
-            is SessionStatus.NotAuthenticated -> false
+    private val guestSessionChanges = MutableStateFlow<String?>(localStore.getString("active_guest_uid"))
+
+    override val authenticationChanges: Flow<Boolean?> = combine(
+        supabaseClient.auth.sessionStatus,
+        guestSessionChanges
+    ) { status, guestUid ->
+        when {
+            guestUid != null -> true
+            status is SessionStatus.Authenticated -> status.session.user != null
+            status is SessionStatus.NotAuthenticated -> false
             else -> null
         }
     }.distinctUntilChanged()
@@ -464,6 +472,7 @@ class SupabaseAuthRepository(
             val uid = supabaseClient.auth.currentUserOrNull()?.id
             if (uid != null) {
                 localStore.remove("active_guest_uid")
+                guestSessionChanges.value = null
                 val safeName = if (name.isBlank()) "Misafir" else name.trim()
                 val guestUsername = "misafir_${uid.take(5)}"
                 localStore.putString(nameKey(uid), safeName)
@@ -501,11 +510,13 @@ class SupabaseAuthRepository(
         if (!localStore.hasKey(bioKey(guestUid))) {
             localStore.putString(bioKey(guestUid), "Merhaba!")
         }
+        guestSessionChanges.value = guestUid
         return true
     }
 
     override suspend fun signOut() {
         localStore.remove("active_guest_uid")
+        guestSessionChanges.value = null
         try {
             supabaseClient.auth.signOut()
         } catch (_: Throwable) {}
@@ -523,6 +534,8 @@ class SupabaseAuthRepository(
                 val token = supabaseClient.auth.currentAccessTokenOrNull() ?: return@withTimeout false
                 val confirmed = AccountDeletionClient.delete(uid, token)
                 if (confirmed) {
+                    localStore.remove("active_guest_uid")
+                    guestSessionChanges.value = null
                     localStore.clearUser(uid)
                     supabaseClient.auth.clearSession()
                     PushNotificationBridge.updateUser(null)

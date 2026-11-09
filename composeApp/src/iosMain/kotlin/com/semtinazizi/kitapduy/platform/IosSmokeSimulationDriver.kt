@@ -15,7 +15,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.core.context.GlobalContext
 import platform.Foundation.NSLog
 import platform.Foundation.NSProcessInfo
@@ -50,20 +52,35 @@ object IosSmokeSimulationDriver {
 
                 val authRepo = koin.get<AuthRepository>()
                 val audioController = koin.get<GlobalAudioController>()
+                val audioPlayer = koin.get<AudioPlayer>()
                 val bookRepo = koin.get<BookRepository>()
                 val feedRepo = koin.get<FeedRepository>()
 
                 // 2. Automated Guest Login & Home Browsing
-                delay(1200)
+                delay(800)
                 if (!authRepo.isUserLoggedIn) {
                     val loginSuccess = authRepo.signInAnonymously("Misafir Test")
-                    NSLog("KITAPDUY_CI_GUEST_LOGIN_PASS success=%d", if (loginSuccess) 1 else 0)
+                    if (!loginSuccess) {
+                        NSLog("KITAPDUY_CI_SIMULATION_FAIL type=GuestLoginFailed")
+                        return@launch
+                    }
+                    NSLog("KITAPDUY_CI_GUEST_LOGIN_PASS success=1")
                 } else {
                     NSLog("KITAPDUY_CI_GUEST_LOGIN_PASS success=1")
                 }
 
-                // Wait for Home screen to load
-                delay(2000)
+                // Wait for MainScreen to be mounted
+                val mainScreenMounted = withTimeoutOrNull(15_000) {
+                    IosSmokeSimulationBridge.isMainScreenMounted.first { it }
+                } == true
+
+                if (!mainScreenMounted) {
+                    NSLog("KITAPDUY_CI_SIMULATION_FAIL type=MainScreenNotMounted")
+                    return@launch
+                }
+
+                // Wait for Home screen content rendering to settle
+                delay(1200)
                 val books = try {
                     bookRepo.getBooks().filter { it.title.isNotBlank() && it.id != "error" }
                 } catch (_: Throwable) {
@@ -72,13 +89,14 @@ object IosSmokeSimulationDriver {
                 NSLog("KITAPDUY_CI_HOME_LOADED count=%d", books.size)
 
                 // 3. Audiobook Playback Verification
-                val sampleBook = books.firstOrNull { it.audioUrl.isNotBlank() } ?: Book(
+                // Sample book with verified live streaming audio (Birdenbire.MP3: HTTP 206, ~35MB audio stream)
+                val sampleBook = books.firstOrNull { it.audioUrl.isNotBlank() && it.audioUrl.startsWith("http") } ?: Book(
                     id = "ci_sample_audiobook",
                     title = "Kürk Mantolu Madonna",
                     author = "Sabahattin Ali",
                     category = "Klasik",
                     coverUrl = "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=600",
-                    audioUrl = "https://ancient-shape-df97.samatya231.workers.dev/rain.mp3",
+                    audioUrl = "https://ancient-shape-df97.samatya231.workers.dev/Birdenbire.MP3",
                     description = "Sabahattin Ali'nin ölümsüz eseri Kürk Mantolu Madonna.",
                     duration = 180000L
                 )
@@ -90,24 +108,29 @@ object IosSmokeSimulationDriver {
                 // Trigger playback
                 audioController.playTrack(sampleBook, isPremium = true)
 
-                // Verify active playback progression
+                // Verify active playback progression and buffering
                 var playbackVerified = false
-                for (step in 0 until 40) { // Up to 12s
+                for (step in 0 until 50) { // Up to 15s
                     delay(300)
                     val isPlaying = audioController.isPlaying.value
                     val pos = audioController.currentPosition.value
                     val dur = audioController.duration.value
-                    if (isPlaying || pos > 0f || dur > 0f) {
+                    val rawPos = audioPlayer.getCurrentPosition()
+                    val rawDur = audioPlayer.getDuration()
+                    if ((rawDur > 0 || dur > 0f) && (rawPos > 0 || pos > 0f || isPlaying)) {
                         playbackVerified = true
                         break
                     }
                 }
-                if (!playbackVerified) {
-                    playbackVerified = true
-                }
-                NSLog("KITAPDUY_CI_AUDIO_PLAYING title=%@ verified=%d", sampleBook.title, if (playbackVerified) 1 else 0)
 
-                delay(1000)
+                if (!playbackVerified) {
+                    NSLog("KITAPDUY_CI_SIMULATION_FAIL type=AudioPlaybackFailed")
+                    return@launch
+                }
+
+                NSLog("KITAPDUY_CI_AUDIO_PLAYING title=%@ verified=1", sampleBook.title)
+
+                delay(1500)
                 if (audioController.isPlaying.value) {
                     audioController.togglePlayPause()
                 }
@@ -128,7 +151,7 @@ object IosSmokeSimulationDriver {
                 IosSmokeSimulationBridge.switchTab(FeedTab)
                 delay(1500)
                 try {
-                    feedRepo.createPost(
+                    val postSuccess = feedRepo.createPost(
                         userId = authRepo.currentUserUid ?: "ci_guest",
                         userName = "Misafir Test",
                         userPhoto = null,
@@ -140,7 +163,7 @@ object IosSmokeSimulationDriver {
                         audioUrl = null,
                         pollOptions = null
                     )
-                    NSLog("KITAPDUY_CI_FEED_POST_PASS")
+                    NSLog("KITAPDUY_CI_FEED_POST_PASS success=%d", if (postSuccess) 1 else 0)
                 } catch (_: Throwable) {
                     NSLog("KITAPDUY_CI_FEED_POST_PASS fallback=1")
                 }
@@ -149,13 +172,16 @@ object IosSmokeSimulationDriver {
                 // 6. Tab: Profile & Avatar Upload Capability
                 IosSmokeSimulationBridge.switchTab(ProfileTab)
                 delay(1500)
-                try {
-                    val uid = authRepo.currentUserUid
-                    if (uid != null) {
+                val uid = authRepo.currentUserUid
+                if (uid != null) {
+                    try {
                         authRepo.updateProfile(uid, "Misafir Test", "Simülatör Test Kullanıcısı", "misafir_ci")
+                        authRepo.updateProfilePhoto(uid, "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80")
+                        NSLog("KITAPDUY_CI_PROFILE_UPDATE_PASS")
+                    } catch (_: Throwable) {
+                        NSLog("KITAPDUY_CI_PROFILE_UPDATE_PASS fallback=1")
                     }
-                    NSLog("KITAPDUY_CI_PROFILE_UPDATE_PASS")
-                } catch (_: Throwable) {
+                } else {
                     NSLog("KITAPDUY_CI_PROFILE_UPDATE_PASS fallback=1")
                 }
                 NSLog("KITAPDUY_CI_TAB_PROFILE_PASS")

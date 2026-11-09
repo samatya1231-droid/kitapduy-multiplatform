@@ -58,6 +58,12 @@ class MainScreen : Screen {
 
         TabNavigator(HomeTab) { tabNavigator ->
             if (com.semtinazizi.kitapduy.platform.isSimulatorCiSmokeTest) {
+                DisposableEffect(Unit) {
+                    com.semtinazizi.kitapduy.platform.IosSmokeSimulationBridge.setMainScreenMounted(true)
+                    onDispose {
+                        com.semtinazizi.kitapduy.platform.IosSmokeSimulationBridge.setMainScreenMounted(false)
+                    }
+                }
                 val targetTab by com.semtinazizi.kitapduy.platform.IosSmokeSimulationBridge.targetTab.collectAsState()
                 val targetScreen by com.semtinazizi.kitapduy.platform.IosSmokeSimulationBridge.targetScreen.collectAsState()
                 val popTrigger by com.semtinazizi.kitapduy.platform.IosSmokeSimulationBridge.popTrigger.collectAsState()

@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.asStateFlow
  * In non-CI and physical device runs, this remains completely inert.
  */
 object IosSmokeSimulationBridge {
+    private val _isMainScreenMounted = MutableStateFlow(false)
+    val isMainScreenMounted = _isMainScreenMounted.asStateFlow()
+
     private val _targetTab = MutableStateFlow<Tab?>(null)
     val targetTab = _targetTab.asStateFlow()
 
@@ -18,6 +21,10 @@ object IosSmokeSimulationBridge {
 
     private val _popTrigger = MutableStateFlow(0)
     val popTrigger = _popTrigger.asStateFlow()
+
+    fun setMainScreenMounted(mounted: Boolean) {
+        _isMainScreenMounted.value = mounted
+    }
 
     fun switchTab(tab: Tab) {
         _targetTab.value = tab
@@ -36,6 +43,7 @@ object IosSmokeSimulationBridge {
     }
 
     fun reset() {
+        _isMainScreenMounted.value = false
         _targetTab.value = null
         _targetScreen.value = null
         _popTrigger.value = 0

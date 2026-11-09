@@ -215,6 +215,40 @@ class RunnerTest(unittest.TestCase):
         self.assertEqual(monitor.call_args_list[0].args[-1], 60)
         self.assertEqual(monitor.call_args_list[1].args[-1], 0)
 
+    def test_milestone_screenshots_are_recorded_in_device_result(self):
+        runner = self.make_runner()
+        created = "11111111-2222-3333-4444-555555555555"
+
+        def command(*args, **kwargs):
+            if args[0] == "create":
+                return created
+            if args[0] == "io":
+                Path(args[-1]).write_bytes(b"\x89PNG\r\n\x1a\n")
+            return ""
+
+        runner.command = Mock(side_effect=command)
+        runner.collect_crashes = Mock()
+        process = Mock()
+        process.poll.return_value = None
+        phone = dict(device("iPhone 17"), family="iPhone", runtime="runtime.iOS-27-2")
+
+        def fake_monitor(proc, console, duration, on_marker=None):
+            if on_marker:
+                for marker in smoke.MILESTONE_SCREENSHOTS:
+                    on_marker(marker)
+
+        with patch.object(smoke.subprocess, "Popen", return_value=process), \
+                patch.object(smoke, "monitor_app", side_effect=fake_monitor):
+            result = runner.run_device(phone)
+
+        self.assertTrue(result["passed"])
+        self.assertIn("01_home.png", result["screenshots"])
+        self.assertIn("02_player.png", result["screenshots"])
+        self.assertIn("03_search.png", result["screenshots"])
+        self.assertIn("04_feed.png", result["screenshots"])
+        self.assertIn("05_profile.png", result["screenshots"])
+        self.assertIn("screen.png", result["screenshots"])
+
     def test_junit_and_json_preserve_the_failed_device(self):
         smoke.write_reports([
             {"name": "iPhone", "passed": False, "error": "native crash"},
