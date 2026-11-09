@@ -1,6 +1,6 @@
 workflows:
   ios-build-test:
-    name: iOS Build Check (Simulator)
+    name: iPhone and iPad Release Smoke Tests
     max_build_duration: 120
     instance_type: mac_mini_m2
 
@@ -31,21 +31,33 @@ workflows:
         script: |
           python3 ci/validate-ios-plist.py iosApp/iosApp/Info.plist || exit 1
           chmod +x gradlew
-          KOTLIN_BUILD_LOG=/tmp/kotlin-simulator.log bash ci/compile-ios.sh :composeApp:linkDebugFrameworkIosSimulatorArm64
+          KOTLIN_BUILD_LOG=/tmp/kotlin-simulator.log bash ci/compile-ios.sh :composeApp:linkReleaseFrameworkIosSimulatorArm64
 
       - name: Build Complete Simulator App
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
           xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp \
-            -configuration Debug -sdk iphonesimulator \
+            -configuration Release -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/ios-simulator \
             CODE_SIGNING_ALLOWED=NO build 2>&1 | tee /tmp/xcode-simulator.log
+
+      - name: Launch on iPhone and iPad and verify Ktor HTTPS
+        script: |
+          set -euo pipefail
+          python3 -m unittest discover -s ci -p 'test_run_ios_smoke.py'
+          python3 ci/run-ios-smoke.py \
+            --app build/ios-simulator/Build/Products/Release-iphonesimulator/KitapDuy.app \
+            --output build/ios-smoke \
+            --duration 60
+        test_report: build/ios-smoke/junit.xml
 
     artifacts:
       - /tmp/kotlin-simulator.log
       - /tmp/kotlin-xcode.log
       - /tmp/xcode-simulator.log
+      - build/ios-smoke/**
 
   ios-release:
     name: iOS App Store Release

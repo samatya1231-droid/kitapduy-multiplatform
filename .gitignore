@@ -26,3 +26,8 @@ local.properties
 *.apk
 *.ipa
 *.log
+
+# Python
+__pycache__/
+*.pyc
+

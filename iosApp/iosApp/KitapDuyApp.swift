@@ -43,7 +43,18 @@ struct KitapDuyApp: App {
         WindowGroup {
             ContentView()
                 .ignoresSafeArea(.keyboard)
-                .onAppear { AdMobBridge.shared.requestConsent() }
+                .onAppear {
+                    AdMobBridge.shared.requestConsent()
+                    #if targetEnvironment(simulator)
+                    let environment = ProcessInfo.processInfo.environment
+                    if environment["KITAPDUY_CI_SMOKE_TEST"] == "1" {
+                        NSLog("KITAPDUY_CI_UI_APPEARED")
+                        IosNetworkSmokeCheck.shared.start(
+                            url: environment["KITAPDUY_CI_HTTPS_URL"] ?? "https://example.com/"
+                        )
+                    }
+                    #endif
+                }
                 // kitapduy://login-callback OAuth don us URL isleyici
                 .onOpenURL { url in
                     MainViewControllerKt.handleOAuthDeepLink(url: url.absoluteString)
