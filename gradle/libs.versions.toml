@@ -10,7 +10,7 @@ kotlinx-serialization = "1.7.3"
 kotlinx-datetime = "0.6.1"
 
 # Ktor
-ktor = "3.0.3"
+ktor = "3.1.2"
 
 # Supabase
 supabase = "3.1.4"
