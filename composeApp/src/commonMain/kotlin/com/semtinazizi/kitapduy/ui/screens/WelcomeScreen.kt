@@ -68,6 +68,15 @@ class WelcomeScreen : Screen {
             }
         }
 
+        if (com.semtinazizi.kitapduy.platform.isSimulatorCiSmokeTest) {
+            LaunchedEffect(Unit) {
+                kotlinx.coroutines.delay(1000)
+                if (!isLoggedIn) {
+                    authViewModel.signInAnonymously("Misafir Test")
+                }
+            }
+        }
+
         val infiniteTransition = rememberInfiniteTransition(label = "zoom_transition")
         val scale by infiniteTransition.animateFloat(
             initialValue = 1.0f,

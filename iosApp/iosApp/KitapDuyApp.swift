@@ -52,6 +52,7 @@ struct KitapDuyApp: App {
                         IosNetworkSmokeCheck.shared.start(
                             url: environment["KITAPDUY_CI_HTTPS_URL"] ?? "https://example.com/"
                         )
+                        IosSmokeSimulationDriver.shared.start()
                     }
                     #endif
                 }

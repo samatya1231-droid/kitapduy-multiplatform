@@ -12,6 +12,8 @@ import javax.crypto.spec.SecretKeySpec
 
 actual val platformName: String = "Android ${Build.VERSION.SDK_INT}"
 
+actual val isSimulatorCiSmokeTest: Boolean = false
+
 actual fun createAudioPlayer(): AudioPlayer = AndroidAudioPlayer()
 
 actual object AppConfig {

@@ -46,9 +46,9 @@ class ProcessObservationTest(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.console = Path(self.temporary.name) / "console.log"
-        self.console.write_text(smoke.UI_READY + "\n" + smoke.NETWORK_PASS, encoding="utf-8")
+        self.console.write_text("\n".join(smoke.REQUIRED_MARKERS), encoding="utf-8")
 
-    def test_running_process_and_both_markers_are_required_for_success(self):
+    def test_running_process_and_all_markers_are_required_for_success(self):
         process = Mock()
         process.poll.return_value = None
         clock = Mock(side_effect=[0, 0, 3])
@@ -63,25 +63,58 @@ class ProcessObservationTest(unittest.TestCase):
             smoke.monitor_app(process, self.console, 60, clock=Mock(side_effect=[0, 1]), sleep=Mock())
 
     def test_alive_without_network_completion_is_failure(self):
-        self.console.write_text(smoke.UI_READY, encoding="utf-8")
+        self.console.write_text("\n".join(m for m in smoke.REQUIRED_MARKERS if m != smoke.NETWORK_PASS), encoding="utf-8")
         process = Mock()
         process.poll.return_value = None
         with self.assertRaisesRegex(RuntimeError, smoke.NETWORK_PASS):
             smoke.monitor_app(process, self.console, 0)
 
     def test_alive_without_ui_appearance_is_failure(self):
-        self.console.write_text(smoke.NETWORK_PASS, encoding="utf-8")
+        self.console.write_text("\n".join(m for m in smoke.REQUIRED_MARKERS if m != smoke.UI_READY), encoding="utf-8")
         process = Mock()
         process.poll.return_value = None
         with self.assertRaisesRegex(RuntimeError, smoke.UI_READY):
             smoke.monitor_app(process, self.console, 0)
+
+    def test_alive_without_guest_login_is_failure(self):
+        self.console.write_text("\n".join(m for m in smoke.REQUIRED_MARKERS if m != smoke.GUEST_LOGIN_PASS), encoding="utf-8")
+        process = Mock()
+        process.poll.return_value = None
+        with self.assertRaisesRegex(RuntimeError, smoke.GUEST_LOGIN_PASS):
+            smoke.monitor_app(process, self.console, 0)
+
+    def test_alive_without_audio_playing_is_failure(self):
+        self.console.write_text("\n".join(m for m in smoke.REQUIRED_MARKERS if m != smoke.AUDIO_PLAYING), encoding="utf-8")
+        process = Mock()
+        process.poll.return_value = None
+        with self.assertRaisesRegex(RuntimeError, smoke.AUDIO_PLAYING):
+            smoke.monitor_app(process, self.console, 0)
+
+    def test_alive_without_simulation_pass_is_failure(self):
+        self.console.write_text("\n".join(m for m in smoke.REQUIRED_MARKERS if m != smoke.SIMULATION_PASS), encoding="utf-8")
+        process = Mock()
+        process.poll.return_value = None
+        with self.assertRaisesRegex(RuntimeError, smoke.SIMULATION_PASS):
+            smoke.monitor_app(process, self.console, 0)
+
+    def test_milestone_screenshots_are_triggered_when_markers_appear(self):
+        process = Mock()
+        process.poll.return_value = None
+        called_markers = []
+        self.console.write_text("\n".join(smoke.REQUIRED_MARKERS), encoding="utf-8")
+        smoke.monitor_app(process, self.console, 0, on_marker=lambda m: called_markers.append(m))
+        self.assertIn(smoke.HOME_LOADED, called_markers)
+        self.assertIn(smoke.AUDIO_PLAYING, called_markers)
+        self.assertIn(smoke.TAB_SEARCH_PASS, called_markers)
+        self.assertIn(smoke.TAB_FEED_PASS, called_markers)
+        self.assertIn(smoke.TAB_PROFILE_PASS, called_markers)
 
     def test_failure_markers_override_an_earlier_success(self):
         process = Mock()
         process.poll.return_value = None
         for failure_marker in smoke.FAILURE_MARKERS:
             with self.subTest(marker=failure_marker):
-                self.console.write_text(smoke.UI_READY + smoke.NETWORK_PASS + failure_marker, encoding="utf-8")
+                self.console.write_text("\n".join(smoke.REQUIRED_MARKERS) + "\n" + failure_marker, encoding="utf-8")
                 with self.assertRaisesRegex(RuntimeError, "failure marker"):
                     smoke.monitor_app(process, self.console, 0)
 

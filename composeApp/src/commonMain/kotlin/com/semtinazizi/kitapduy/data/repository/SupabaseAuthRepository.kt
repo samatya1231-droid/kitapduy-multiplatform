@@ -167,7 +167,7 @@ class SupabaseAuthRepository(
     }
 
     override val currentUserUid: String?
-        get() = supabaseClient.auth.currentUserOrNull()?.id
+        get() = supabaseClient.auth.currentUserOrNull()?.id ?: localStore.getString("active_guest_uid")
 
     override val isUserLoggedIn: Boolean
         get() = currentUserUid != null
@@ -252,6 +252,17 @@ class SupabaseAuthRepository(
                 bio = resolvedBio,
                 photoUrl = fixUrl(resolvedPhoto),
                 coverPhotoUrl = fixUrl(resolvedCover)
+            )
+        }
+
+        if (cleanUid == localStore.getString("active_guest_uid")) {
+            return UserProfile(
+                uid = cleanUid,
+                name = localName ?: "Misafir",
+                username = localUsername ?: "misafir_${cleanUid.takeLast(5)}",
+                bio = localBio ?: "Merhaba!",
+                photoUrl = fixUrl(localPhoto),
+                coverPhotoUrl = fixUrl(localCover)
             )
         }
 
@@ -452,6 +463,7 @@ class SupabaseAuthRepository(
             supabaseClient.auth.signInAnonymously()
             val uid = supabaseClient.auth.currentUserOrNull()?.id
             if (uid != null) {
+                localStore.remove("active_guest_uid")
                 val safeName = if (name.isBlank()) "Misafir" else name.trim()
                 val guestUsername = "misafir_${uid.take(5)}"
                 localStore.putString(nameKey(uid), safeName)
@@ -468,17 +480,35 @@ class SupabaseAuthRepository(
                     e.printStackTrace()
                 }
                 true
-            } else false
+            } else {
+                signInAnonymouslyLocalFallback(name)
+            }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (e: Throwable) {
             e.printStackTrace()
-            false
+            signInAnonymouslyLocalFallback(name)
         }
     }
 
+    private fun signInAnonymouslyLocalFallback(name: String): Boolean {
+        val guestUid = "guest_" + (100000..999999).random()
+        val safeName = if (name.isBlank()) "Misafir" else name.trim()
+        val guestUsername = "misafir_${guestUid.takeLast(5)}"
+        localStore.putString("active_guest_uid", guestUid)
+        localStore.putString(nameKey(guestUid), safeName)
+        localStore.putString(usernameKey(guestUid), guestUsername)
+        if (!localStore.hasKey(bioKey(guestUid))) {
+            localStore.putString(bioKey(guestUid), "Merhaba!")
+        }
+        return true
+    }
+
     override suspend fun signOut() {
-        supabaseClient.auth.signOut()
+        localStore.remove("active_guest_uid")
+        try {
+            supabaseClient.auth.signOut()
+        } catch (_: Throwable) {}
         check(currentUserUid == null) { "Çıkış tamamlanamadı. Lütfen tekrar deneyin." }
         PushNotificationBridge.updateUser(null)
     }

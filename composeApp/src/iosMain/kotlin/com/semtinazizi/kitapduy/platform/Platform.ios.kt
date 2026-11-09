@@ -2,6 +2,9 @@ package com.semtinazizi.kitapduy.platform
 
 actual val platformName: String = "iOS"
 
+actual val isSimulatorCiSmokeTest: Boolean
+    get() = platform.Foundation.NSProcessInfo.processInfo.environment["KITAPDUY_CI_SMOKE_TEST"] == "1"
+
 actual fun createAudioPlayer(): AudioPlayer = IosAudioPlayer()
 
 actual object AppConfig {

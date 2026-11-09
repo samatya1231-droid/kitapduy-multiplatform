@@ -16,8 +16,37 @@ import xml.etree.ElementTree as ET
 
 UI_READY = "KITAPDUY_CI_UI_APPEARED"
 NETWORK_PASS = "KITAPDUY_CI_NETWORK_PASS"
+GUEST_LOGIN_PASS = "KITAPDUY_CI_GUEST_LOGIN_PASS"
+HOME_LOADED = "KITAPDUY_CI_HOME_LOADED"
+AUDIO_PLAYING = "KITAPDUY_CI_AUDIO_PLAYING"
+TAB_SEARCH_PASS = "KITAPDUY_CI_TAB_SEARCH_PASS"
+TAB_FEED_PASS = "KITAPDUY_CI_TAB_FEED_PASS"
+TAB_PROFILE_PASS = "KITAPDUY_CI_TAB_PROFILE_PASS"
+SIMULATION_PASS = "KITAPDUY_CI_USER_SIMULATION_PASS"
+
+REQUIRED_MARKERS = (
+    UI_READY,
+    NETWORK_PASS,
+    GUEST_LOGIN_PASS,
+    HOME_LOADED,
+    AUDIO_PLAYING,
+    TAB_SEARCH_PASS,
+    TAB_FEED_PASS,
+    TAB_PROFILE_PASS,
+    SIMULATION_PASS,
+)
+
+MILESTONE_SCREENSHOTS = {
+    HOME_LOADED: "01_home.png",
+    AUDIO_PLAYING: "02_player.png",
+    TAB_SEARCH_PASS: "03_search.png",
+    TAB_FEED_PASS: "04_feed.png",
+    TAB_PROFILE_PASS: "05_profile.png",
+}
+
 FAILURE_MARKERS = (
     "KITAPDUY_CI_NETWORK_FAIL",
+    "KITAPDUY_CI_SIMULATION_FAIL",
     "IrLinkageError",
     "Unhandled Kotlin exception caught by hook",
     "Uncaught Kotlin exception",
@@ -46,8 +75,9 @@ def select_devices(devices):
     raise RuntimeError("No installed iOS runtime has both an available iPhone and iPad. Inspect devices.json.")
 
 
-def monitor_app(process, console, duration, clock=time.monotonic, sleep=time.sleep):
+def monitor_app(process, console, duration, on_marker=None, clock=time.monotonic, sleep=time.sleep):
     deadline = clock() + duration
+    handled_markers = set()
     while True:
         if process.poll() is not None:
             raise RuntimeError("The attached app process exited before the observation period ended.")
@@ -55,8 +85,16 @@ def monitor_app(process, console, duration, clock=time.monotonic, sleep=time.sle
         for marker in FAILURE_MARKERS:
             if marker in text:
                 raise RuntimeError(f"App log contains a failure marker: {marker}")
+        if on_marker:
+            for marker in MILESTONE_SCREENSHOTS:
+                if marker in text and marker not in handled_markers:
+                    handled_markers.add(marker)
+                    try:
+                        on_marker(marker)
+                    except Exception:
+                        pass
         if clock() >= deadline:
-            missing = [marker for marker in (UI_READY, NETWORK_PASS) if marker not in text]
+            missing = [marker for marker in REQUIRED_MARKERS if marker not in text]
             if missing:
                 raise RuntimeError("Missing app evidence: " + ", ".join(missing))
             return
@@ -137,7 +175,15 @@ class SimulatorRunner:
                 ["xcrun", "simctl", "launch", "--terminate-running-process", "--console", udid, self.bundle],
                 stdout=console_stream, stderr=subprocess.STDOUT, env=environment,
             )
-            monitor_app(process, console, self.duration)
+            captured_screenshots = []
+            def handle_marker(marker):
+                filename = MILESTONE_SCREENSHOTS.get(marker)
+                if filename:
+                    screenshot_path = directory / filename
+                    self.command("io", udid, "screenshot", str(screenshot_path), check=False)
+                    captured_screenshots.append(filename)
+
+            monitor_app(process, console, self.duration, on_marker=handle_marker)
             screenshot = directory / "screen.png"
             self.command("io", udid, "screenshot", str(screenshot))
             with screenshot.open("rb") as image:
@@ -145,6 +191,7 @@ class SimulatorRunner:
                     raise RuntimeError("The screenshot is not a PNG image.")
             # Recheck after capturing evidence, before deliberately terminating the app.
             monitor_app(process, console, 0)
+            result["screenshots"] = captured_screenshots + ["screen.png"]
             result["passed"] = True
         except Exception as failure:
             result["error"] = f"{type(failure).__name__}: {failure}"
