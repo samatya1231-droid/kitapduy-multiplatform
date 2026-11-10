@@ -151,6 +151,7 @@ class SimulatorRunner:
 
     def start_recording(self, udid, video_path):
         """Start recording simulator video to an MP4 file in the background."""
+        self.last_video_warning = ""
         log_stream = None
         try:
             if video_path.exists():
@@ -159,12 +160,19 @@ class SimulatorRunner:
                 except Exception:
                     pass
             log_path = video_path.with_name("recordVideo.log")
+            if log_path.exists():
+                try:
+                    log_path.unlink()
+                except Exception:
+                    pass
             log_stream = log_path.open("w", encoding="utf-8")
             process = subprocess.Popen(
-                ["xcrun", "simctl", "io", udid, "recordVideo", "--codec=h264", str(video_path)],
+                ["xcrun", "simctl", "io", udid, "recordVideo", "--codec=h264", "--force", str(video_path)],
                 stdout=log_stream,
                 stderr=subprocess.STDOUT,
             )
+            with (self.output / "runner.log").open("a", encoding="utf-8") as log:
+                log.write(f"Started video recording on {udid} (pid={getattr(process, 'pid', 'unknown')}) -> {video_path}\n")
             return process, log_stream
         except Exception as error:
             if log_stream:
@@ -172,16 +180,20 @@ class SimulatorRunner:
                     log_stream.close()
                 except Exception:
                     pass
+            self.last_video_warning = f"Failed to start video recording: {error}"
             with (self.output / "runner.log").open("a", encoding="utf-8") as log:
                 log.write(f"Failed to start video recording on {udid}: {error}\n")
             return None, None
 
-    def stop_recording(self, process, video_path):
+    def stop_recording(self, process, video_path, log_stream=None):
         """Cleanly stop the video recording subprocess so the MP4 trailer is written."""
+        self.last_video_warning = ""
         if not process:
+            self.last_video_warning = "No video recording process to stop."
             return False
         try:
-            if process.poll() is None:
+            premature_exit = process.poll() is not None
+            if not premature_exit:
                 try:
                     process.send_signal(signal.SIGINT)
                 except Exception:
@@ -201,8 +213,35 @@ class SimulatorRunner:
                             process.wait(timeout=5)
                         except Exception:
                             pass
-            return video_path.exists() and video_path.stat().st_size > 0
+            else:
+                rc = getattr(process, "returncode", None)
+                if rc is not None and rc != 0:
+                    with (self.output / "runner.log").open("a", encoding="utf-8") as log:
+                        log.write(f"Video recording process exited prematurely with code {rc}\n")
+            if log_stream:
+                try:
+                    log_stream.close()
+                except Exception:
+                    pass
+            log_path = video_path.with_name("recordVideo.log")
+            log_output = ""
+            if log_path.exists():
+                try:
+                    log_output = log_path.read_text(encoding="utf-8", errors="replace").strip()
+                except Exception:
+                    pass
+            if not video_path.exists() or video_path.stat().st_size == 0:
+                self.last_video_warning = f"Video recording file was not generated or empty. {log_output}".strip()
+                return False
+            rc = getattr(process, "returncode", None)
+            if premature_exit and isinstance(rc, int) and rc != 0:
+                self.last_video_warning = f"Video recording exited prematurely with code {rc}. {log_output}".strip()
+                return False
+            with (self.output / "runner.log").open("a", encoding="utf-8") as log:
+                log.write(f"Video recording completed successfully: {video_path} ({video_path.stat().st_size} bytes)\n")
+            return True
         except Exception as error:
+            self.last_video_warning = f"Error stopping video recording: {error}"
             with (self.output / "runner.log").open("a", encoding="utf-8") as log:
                 log.write(f"Error stopping video recording: {error}\n")
             return False
@@ -239,7 +278,7 @@ class SimulatorRunner:
             )
             video_process, video_stream = self.start_recording(udid, video_path)
             if not video_process:
-                result["video_warning"] = "Could not start video recording."
+                result["video_warning"] = getattr(self, "last_video_warning", "") or "Could not start video recording."
             captured_screenshots = []
             def handle_marker(marker):
                 filename = MILESTONE_SCREENSHOTS.get(marker)
@@ -257,11 +296,13 @@ class SimulatorRunner:
             # Recheck after capturing evidence, before deliberately terminating the app.
             monitor_app(process, console, 0)
             if video_process:
-                if self.stop_recording(video_process, video_path):
+                if self.stop_recording(video_process, video_path, video_stream):
                     result["video"] = "recording.mp4"
                 else:
-                    result["video_warning"] = "Video recording file was not generated or empty."
+                    warning = getattr(self, "last_video_warning", "")
+                    result["video_warning"] = warning or "Video recording file was not generated or empty."
                 video_process = None
+                video_stream = None
             if video_stream:
                 try:
                     video_stream.close()
@@ -275,11 +316,15 @@ class SimulatorRunner:
         finally:
             if video_process:
                 try:
-                    if self.stop_recording(video_process, video_path):
+                    if self.stop_recording(video_process, video_path, video_stream):
                         result["video"] = "recording.mp4"
+                    else:
+                        warning = getattr(self, "last_video_warning", "")
+                        result.setdefault("video_warning", warning or "Video recording file was not generated or empty.")
                 except Exception as failure:
                     result.setdefault("cleanup_warnings", []).append(str(failure))
                 video_process = None
+                video_stream = None
             if video_stream:
                 try:
                     video_stream.close()

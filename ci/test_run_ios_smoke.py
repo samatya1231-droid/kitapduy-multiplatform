@@ -366,6 +366,85 @@ class RunnerTest(unittest.TestCase):
         video_process.send_signal.assert_called_once_with(smoke.signal.SIGINT)
         video_process.wait.assert_called()
 
+    def test_video_recording_fallback_to_kill_on_hung_process(self):
+        runner = self.make_runner()
+        video_path = self.output / "recording.mp4"
+        video_path.write_bytes(b"\x00\x00\x00 ftypmp42")
+
+        video_process = Mock()
+        video_process.poll.return_value = None
+        video_process.wait.side_effect = [
+            smoke.subprocess.TimeoutExpired(cmd="recordVideo", timeout=15),
+            smoke.subprocess.TimeoutExpired(cmd="recordVideo", timeout=5),
+            None,
+        ]
+
+        success = runner.stop_recording(video_process, video_path)
+        video_process.send_signal.assert_called_once_with(smoke.signal.SIGINT)
+        video_process.terminate.assert_called_once()
+        video_process.kill.assert_called_once()
+        self.assertTrue(success)
+
+    def test_video_recording_premature_exit_reports_failure_and_log(self):
+        runner = self.make_runner()
+        video_path = self.output / "recording.mp4"
+        video_path.write_bytes(b"\x00\x00\x00 ftypmp42")
+        log_path = self.output / "recordVideo.log"
+        log_path.write_text("simctl error: simulator display not ready", encoding="utf-8")
+
+        video_process = Mock()
+        video_process.poll.return_value = 1
+        video_process.returncode = 1
+
+        success = runner.stop_recording(video_process, video_path)
+        self.assertFalse(success)
+        video_process.send_signal.assert_not_called()
+        self.assertIn("exited prematurely with code 1", runner.last_video_warning)
+        self.assertIn("simulator display not ready", runner.last_video_warning)
+
+    def test_video_recording_empty_file_reports_warning_with_log_output(self):
+        runner = self.make_runner()
+        video_path = self.output / "recording.mp4"
+        video_path.write_bytes(b"")
+        log_path = self.output / "recordVideo.log"
+        log_path.write_text("simctl: codec h264 not supported", encoding="utf-8")
+
+        video_process = Mock()
+        video_process.poll.return_value = None
+
+        success = runner.stop_recording(video_process, video_path)
+        self.assertFalse(success)
+        self.assertIn("Video recording file was not generated or empty", runner.last_video_warning)
+        self.assertIn("codec h264 not supported", runner.last_video_warning)
+
+    def test_video_recording_cleanup_on_app_failure_reports_video_warning_if_empty(self):
+        runner = self.make_runner()
+        created = "11111111-2222-3333-4444-555555555555"
+        runner.command = Mock(side_effect=lambda *args, **kwargs: created if args[0] == "create" else "")
+        runner.collect_crashes = Mock()
+
+        app_process = Mock()
+        app_process.poll.return_value = None
+
+        video_process = Mock()
+        video_process.poll.return_value = None
+
+        phone = dict(device("iPhone 17"), family="iPhone", runtime="runtime.iOS-27-2")
+
+        def fake_popen(cmd, *args, **kwargs):
+            if "recordVideo" in cmd:
+                return video_process
+            return app_process
+
+        with patch.object(smoke.subprocess, "Popen", side_effect=fake_popen), \
+                patch.object(smoke, "monitor_app", side_effect=RuntimeError("App crashed")):
+            result = runner.run_device(phone)
+
+        self.assertFalse(result["passed"])
+        self.assertNotIn("video", result)
+        self.assertIn("video_warning", result)
+        video_process.send_signal.assert_called_once_with(smoke.signal.SIGINT)
+
     def test_junit_and_json_preserve_the_failed_device(self):
         smoke.write_reports([
             {"name": "iPhone", "passed": False, "error": "native crash"},
