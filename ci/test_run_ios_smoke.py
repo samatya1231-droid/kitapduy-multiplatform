@@ -210,8 +210,12 @@ class RunnerTest(unittest.TestCase):
             result = runner.run_device(phone)
         self.assertTrue(result["passed"])
         self.assertTrue((self.output / "iPhone/screen.png").exists())
-        self.assertEqual(launch.call_args.kwargs["env"]["SIMCTL_CHILD_KITAPDUY_CI_SMOKE_TEST"], "1")
-        self.assertEqual(launch.call_args.kwargs["env"]["SIMCTL_CHILD_KITAPDUY_CI_HTTPS_URL"], "https://example.com/")
+        app_launch_call = launch.call_args_list[0]
+        self.assertEqual(app_launch_call.kwargs["env"]["SIMCTL_CHILD_KITAPDUY_CI_SMOKE_TEST"], "1")
+        self.assertEqual(app_launch_call.kwargs["env"]["SIMCTL_CHILD_KITAPDUY_CI_HTTPS_URL"], "https://example.com/")
+        video_call = launch.call_args_list[1]
+        self.assertEqual(video_call.args[0][:5], ["xcrun", "simctl", "io", created, "recordVideo"])
+        self.assertIn("--codec=h264", video_call.args[0])
         self.assertEqual(monitor.call_args_list[0].args[-1], 60)
         self.assertEqual(monitor.call_args_list[1].args[-1], 0)
 
@@ -248,6 +252,119 @@ class RunnerTest(unittest.TestCase):
         self.assertIn("04_feed.png", result["screenshots"])
         self.assertIn("05_profile.png", result["screenshots"])
         self.assertIn("screen.png", result["screenshots"])
+
+    def test_video_recording_lifecycle_and_recorded_artifact(self):
+        runner = self.make_runner()
+        created = "11111111-2222-3333-4444-555555555555"
+
+        def command(*args, **kwargs):
+            if args[0] == "create":
+                return created
+            if args[0] == "io":
+                Path(args[-1]).write_bytes(b"\x89PNG\r\n\x1a\n")
+            return ""
+
+        runner.command = Mock(side_effect=command)
+        runner.collect_crashes = Mock()
+
+        app_process = Mock()
+        app_process.poll.return_value = None
+
+        video_process = Mock()
+        video_process.poll.return_value = None
+
+        phone = dict(device("iPhone 17"), family="iPhone", runtime="runtime.iOS-27-2")
+
+        def fake_popen(cmd, *args, **kwargs):
+            if "recordVideo" in cmd:
+                video_file = Path(cmd[-1])
+                video_file.write_bytes(b"\x00\x00\x00 ftypmp42")
+                return video_process
+            return app_process
+
+        with patch.object(smoke.subprocess, "Popen", side_effect=fake_popen), \
+                patch.object(smoke, "monitor_app"):
+            result = runner.run_device(phone)
+
+        self.assertTrue(result["passed"])
+        video_process.send_signal.assert_called_once_with(smoke.signal.SIGINT)
+        video_process.wait.assert_called_once_with(timeout=15)
+        self.assertEqual(result.get("video"), "recording.mp4")
+        self.assertTrue((self.output / "iPhone/recording.mp4").exists())
+
+    def test_video_recording_failure_does_not_fail_smoke_test(self):
+        runner = self.make_runner()
+        created = "11111111-2222-3333-4444-555555555555"
+
+        def command(*args, **kwargs):
+            if args[0] == "create":
+                return created
+            if args[0] == "io":
+                Path(args[-1]).write_bytes(b"\x89PNG\r\n\x1a\n")
+            return ""
+
+        runner.command = Mock(side_effect=command)
+        runner.collect_crashes = Mock()
+
+        app_process = Mock()
+        app_process.poll.return_value = None
+
+        phone = dict(device("iPhone 17"), family="iPhone", runtime="runtime.iOS-27-2")
+
+        def fake_popen(cmd, *args, **kwargs):
+            if "recordVideo" in cmd:
+                raise OSError("simctl recordVideo not supported")
+            return app_process
+
+        with patch.object(smoke.subprocess, "Popen", side_effect=fake_popen), \
+                patch.object(smoke, "monitor_app"):
+            result = runner.run_device(phone)
+
+        self.assertTrue(result["passed"])
+        self.assertIn("video_warning", result)
+        self.assertNotIn("video", result)
+
+    def test_video_recording_timeout_falls_back_to_terminate(self):
+        runner = self.make_runner()
+        video_path = self.output / "recording.mp4"
+        video_path.write_bytes(b"\x00\x00\x00 ftypmp42")
+
+        video_process = Mock()
+        video_process.poll.return_value = None
+        video_process.wait.side_effect = [smoke.subprocess.TimeoutExpired(cmd="recordVideo", timeout=15), None]
+
+        success = runner.stop_recording(video_process, video_path)
+        video_process.send_signal.assert_called_once_with(smoke.signal.SIGINT)
+        video_process.terminate.assert_called_once()
+        self.assertTrue(success)
+
+    def test_video_process_is_stopped_in_cleanup_on_app_failure(self):
+        runner = self.make_runner()
+        created = "11111111-2222-3333-4444-555555555555"
+        runner.command = Mock(side_effect=lambda *args, **kwargs: created if args[0] == "create" else "")
+        runner.collect_crashes = Mock()
+
+        app_process = Mock()
+        app_process.poll.return_value = None
+
+        video_process = Mock()
+        video_process.poll.return_value = None
+
+        phone = dict(device("iPhone 17"), family="iPhone", runtime="runtime.iOS-27-2")
+
+        def fake_popen(cmd, *args, **kwargs):
+            if "recordVideo" in cmd:
+                return video_process
+            return app_process
+
+        with patch.object(smoke.subprocess, "Popen", side_effect=fake_popen), \
+                patch.object(smoke, "monitor_app", side_effect=RuntimeError("App crashed")):
+            result = runner.run_device(phone)
+
+        self.assertFalse(result["passed"])
+        self.assertIn("App crashed", result["error"])
+        video_process.send_signal.assert_called_once_with(smoke.signal.SIGINT)
+        video_process.wait.assert_called()
 
     def test_junit_and_json_preserve_the_failed_device(self):
         smoke.write_reports([

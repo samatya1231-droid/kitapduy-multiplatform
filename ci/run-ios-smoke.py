@@ -7,6 +7,7 @@ from pathlib import Path
 import plistlib
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -148,6 +149,64 @@ class SimulatorRunner:
                 if path.is_file() and path.suffix in (".ips", ".crash") and path.stat().st_mtime >= started:
                     shutil.copy2(path, directory / path.name)
 
+    def start_recording(self, udid, video_path):
+        """Start recording simulator video to an MP4 file in the background."""
+        log_stream = None
+        try:
+            if video_path.exists():
+                try:
+                    video_path.unlink()
+                except Exception:
+                    pass
+            log_path = video_path.with_name("recordVideo.log")
+            log_stream = log_path.open("w", encoding="utf-8")
+            process = subprocess.Popen(
+                ["xcrun", "simctl", "io", udid, "recordVideo", "--codec=h264", str(video_path)],
+                stdout=log_stream,
+                stderr=subprocess.STDOUT,
+            )
+            return process, log_stream
+        except Exception as error:
+            if log_stream:
+                try:
+                    log_stream.close()
+                except Exception:
+                    pass
+            with (self.output / "runner.log").open("a", encoding="utf-8") as log:
+                log.write(f"Failed to start video recording on {udid}: {error}\n")
+            return None, None
+
+    def stop_recording(self, process, video_path):
+        """Cleanly stop the video recording subprocess so the MP4 trailer is written."""
+        if not process:
+            return False
+        try:
+            if process.poll() is None:
+                try:
+                    process.send_signal(signal.SIGINT)
+                except Exception:
+                    try:
+                        process.terminate()
+                    except Exception:
+                        pass
+                try:
+                    process.wait(timeout=15)
+                except subprocess.TimeoutExpired:
+                    try:
+                        process.terminate()
+                        process.wait(timeout=5)
+                    except Exception:
+                        try:
+                            process.kill()
+                            process.wait(timeout=5)
+                        except Exception:
+                            pass
+            return video_path.exists() and video_path.stat().st_size > 0
+        except Exception as error:
+            with (self.output / "runner.log").open("a", encoding="utf-8") as log:
+                log.write(f"Error stopping video recording: {error}\n")
+            return False
+
     def run_device(self, device):
         directory = self.output / device["family"]
         directory.mkdir(parents=True, exist_ok=True)
@@ -157,6 +216,9 @@ class SimulatorRunner:
         udid = None
         process = None
         console_stream = None
+        video_process = None
+        video_stream = None
+        video_path = directory / "recording.mp4"
         try:
             # Only these newly created devices are shut down or deleted.
             udid = self.command("create", f"KitapDuy-CI-{uuid.uuid4().hex[:12]}",
@@ -175,6 +237,9 @@ class SimulatorRunner:
                 ["xcrun", "simctl", "launch", "--terminate-running-process", "--console", udid, self.bundle],
                 stdout=console_stream, stderr=subprocess.STDOUT, env=environment,
             )
+            video_process, video_stream = self.start_recording(udid, video_path)
+            if not video_process:
+                result["video_warning"] = "Could not start video recording."
             captured_screenshots = []
             def handle_marker(marker):
                 filename = MILESTONE_SCREENSHOTS.get(marker)
@@ -191,11 +256,36 @@ class SimulatorRunner:
                     raise RuntimeError("The screenshot is not a PNG image.")
             # Recheck after capturing evidence, before deliberately terminating the app.
             monitor_app(process, console, 0)
+            if video_process:
+                if self.stop_recording(video_process, video_path):
+                    result["video"] = "recording.mp4"
+                else:
+                    result["video_warning"] = "Video recording file was not generated or empty."
+                video_process = None
+            if video_stream:
+                try:
+                    video_stream.close()
+                except Exception:
+                    pass
+                video_stream = None
             result["screenshots"] = captured_screenshots + ["screen.png"]
             result["passed"] = True
         except Exception as failure:
             result["error"] = f"{type(failure).__name__}: {failure}"
         finally:
+            if video_process:
+                try:
+                    if self.stop_recording(video_process, video_path):
+                        result["video"] = "recording.mp4"
+                except Exception as failure:
+                    result.setdefault("cleanup_warnings", []).append(str(failure))
+                video_process = None
+            if video_stream:
+                try:
+                    video_stream.close()
+                except Exception:
+                    pass
+                video_stream = None
             if udid and re.fullmatch(r"[0-9a-fA-F-]{36}", udid):
                 try:
                     if not result["passed"]:
