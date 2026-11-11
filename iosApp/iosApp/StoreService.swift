@@ -6,7 +6,7 @@ import ComposeApp
 @MainActor
 final class StoreService {
     static let shared = StoreService()
-    private let productIDs = ["premium_1_month", "premium_3_months"]
+    private let productIDs = ["premium_monthly", "premium_3months", "premium_1_month", "premium_3_months"]
     private var products: [Product] = []
     private var transactionTask: Task<Void, Never>?
     private var purchaseInProgress = false

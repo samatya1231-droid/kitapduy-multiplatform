@@ -33,7 +33,61 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
-private val FALLBACK_PRODUCTS = listOf(
+internal enum class SubscriptionPlanType {
+    MONTHLY,
+    THREE_MONTHS,
+    OTHER
+}
+
+/**
+ * Maps a subscription product ID to a plan type.
+ * Rule: If a product id contains "month" and not "3", map to 1-month plan.
+ * If it contains "3", map to 3-month plan.
+ */
+internal fun mapToSubscriptionPlan(productId: String): SubscriptionPlanType {
+    val lower = productId.lowercase()
+    return when {
+        lower.contains("month") && !lower.contains("3") -> SubscriptionPlanType.MONTHLY
+        lower.contains("3") -> SubscriptionPlanType.THREE_MONTHS
+        else -> SubscriptionPlanType.OTHER
+    }
+}
+
+internal fun isSameSubscriptionPlan(id1: String, id2: String): Boolean {
+    if (id1.equals(id2, ignoreCase = true)) return true
+    val plan1 = mapToSubscriptionPlan(id1)
+    val plan2 = mapToSubscriptionPlan(id2)
+    return plan1 != SubscriptionPlanType.OTHER && plan1 == plan2
+}
+
+internal val FALLBACK_PRODUCTS = listOf(
+    SubscriptionProduct(
+        id = "premium_monthly",
+        title = "1 Aylık Premium",
+        price = "₺49,99",
+        period = "Ay"
+    ),
+    SubscriptionProduct(
+        id = "premium_3months",
+        title = "3 Aylık Premium",
+        price = "₺119,99",
+        period = "3 Ay"
+    )
+)
+
+internal val FALLBACK_PRODUCTS_WITH_ALIASES = listOf(
+    SubscriptionProduct(
+        id = "premium_monthly",
+        title = "1 Aylık Premium",
+        price = "₺49,99",
+        period = "Ay"
+    ),
+    SubscriptionProduct(
+        id = "premium_3months",
+        title = "3 Aylık Premium",
+        price = "₺119,99",
+        period = "3 Ay"
+    ),
     SubscriptionProduct(
         id = "premium_1_month",
         title = "1 Aylık Premium",
@@ -48,6 +102,40 @@ private val FALLBACK_PRODUCTS = listOf(
     )
 )
 
+internal fun findFallbackProduct(id: String): SubscriptionProduct? {
+    return FALLBACK_PRODUCTS_WITH_ALIASES.find { it.id.equals(id, ignoreCase = true) }
+        ?: FALLBACK_PRODUCTS.find { isSameSubscriptionPlan(it.id, id) }
+}
+
+internal fun normalizeSubscriptionProducts(products: List<SubscriptionProduct>): List<SubscriptionProduct> {
+    if (products.isEmpty()) return FALLBACK_PRODUCTS
+    val seen = mutableSetOf<SubscriptionPlanType>()
+    val result = mutableListOf<SubscriptionProduct>()
+    val sorted = products.sortedBy { prod ->
+        when (prod.id) {
+            "premium_monthly", "premium_3months" -> 0
+            "premium_1_month", "premium_3_months" -> 1
+            else -> 2
+        }
+    }
+    for (p in sorted) {
+        val plan = mapToSubscriptionPlan(p.id)
+        if (plan == SubscriptionPlanType.OTHER || seen.add(plan)) {
+            result.add(p)
+        }
+    }
+    return result
+}
+
+internal fun resolveSelectedProduct(
+    products: List<SubscriptionProduct>,
+    selectedId: String
+): SubscriptionProduct? {
+    return products.find { it.id == selectedId }
+        ?: products.find { isSameSubscriptionPlan(it.id, selectedId) }
+        ?: products.firstOrNull()
+}
+
 class SubscriptionPaywallScreen : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
@@ -60,9 +148,9 @@ class SubscriptionPaywallScreen : Screen {
         var loading by remember { mutableStateOf(true) }
         var busy by remember { mutableStateOf(false) }
         var message by remember { mutableStateOf<String?>(null) }
-        var selectedId by remember { mutableStateOf("premium_1_month") }
-        val displayProducts = if (products.isNotEmpty()) products else FALLBACK_PRODUCTS
-        val selected = displayProducts.find { it.id == selectedId } ?: displayProducts.firstOrNull()
+        var selectedId by remember { mutableStateOf("premium_monthly") }
+        val displayProducts = if (products.isNotEmpty()) normalizeSubscriptionProducts(products) else FALLBACK_PRODUCTS
+        val selected = resolveSelectedProduct(displayProducts, selectedId)
         val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
         var reload by remember { mutableIntStateOf(0) }
 
