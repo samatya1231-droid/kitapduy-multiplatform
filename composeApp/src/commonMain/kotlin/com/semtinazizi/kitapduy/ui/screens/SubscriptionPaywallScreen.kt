@@ -111,13 +111,21 @@ internal fun normalizeSubscriptionProducts(products: List<SubscriptionProduct>):
     if (products.isEmpty()) return FALLBACK_PRODUCTS
     val seen = mutableSetOf<SubscriptionPlanType>()
     val result = mutableListOf<SubscriptionProduct>()
-    val sorted = products.sortedBy { prod ->
-        when (prod.id) {
-            "premium_monthly", "premium_3months" -> 0
-            "premium_1_month", "premium_3_months" -> 1
-            else -> 2
+    val sorted = products.sortedWith(
+        compareBy<SubscriptionProduct> { prod ->
+            when (mapToSubscriptionPlan(prod.id)) {
+                SubscriptionPlanType.MONTHLY -> 0
+                SubscriptionPlanType.THREE_MONTHS -> 1
+                SubscriptionPlanType.OTHER -> 2
+            }
+        }.thenBy { prod ->
+            when (prod.id.lowercase()) {
+                "premium_monthly", "premium_3months" -> 0
+                "premium_1_month", "premium_3_months" -> 1
+                else -> 2
+            }
         }
-    }
+    )
     for (p in sorted) {
         val plan = mapToSubscriptionPlan(p.id)
         if (plan == SubscriptionPlanType.OTHER || seen.add(plan)) {
@@ -131,7 +139,7 @@ internal fun resolveSelectedProduct(
     products: List<SubscriptionProduct>,
     selectedId: String
 ): SubscriptionProduct? {
-    return products.find { it.id == selectedId }
+    return products.find { it.id.equals(selectedId, ignoreCase = true) }
         ?: products.find { isSameSubscriptionPlan(it.id, selectedId) }
         ?: products.firstOrNull()
 }

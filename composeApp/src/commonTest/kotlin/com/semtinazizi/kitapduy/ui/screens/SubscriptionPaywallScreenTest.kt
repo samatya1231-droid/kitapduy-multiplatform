@@ -84,6 +84,11 @@ class SubscriptionPaywallScreenTest {
         // Alias resolution
         assertEquals("premium_monthly", resolveSelectedProduct(products, "premium_1_month")?.id)
         assertEquals("premium_3months", resolveSelectedProduct(products, "premium_3_months")?.id)
+
+        // Case-insensitive resolution
+        assertEquals("premium_monthly", resolveSelectedProduct(products, "PREMIUM_MONTHLY")?.id)
+        assertEquals("premium_monthly", resolveSelectedProduct(products, "PREMIUM_1_MONTH")?.id)
+        assertEquals("premium_3months", resolveSelectedProduct(products, "PREMIUM_3MONTHS")?.id)
     }
 
     @Test
@@ -98,6 +103,20 @@ class SubscriptionPaywallScreenTest {
         val normalized = normalizeSubscriptionProducts(mixedProducts)
         assertEquals(2, normalized.size)
         assertEquals("premium_monthly", normalized[0].id)
+        assertEquals("premium_3months", normalized[1].id)
+    }
+
+    @Test
+    fun testNormalizeSubscriptionProductsPreservesPlanOrderWhenAliasAndCanonicalMixed() {
+        // When 1-month plan is an alias and 3-month plan is canonical, 1-month plan must still come first!
+        val mixedProducts = listOf(
+            SubscriptionProduct("premium_1_month", "1 Aylık Alias", "₺49,99", "Ay"),
+            SubscriptionProduct("premium_3months", "3 Aylık Canonical", "₺119,99", "3 Ay")
+        )
+
+        val normalized = normalizeSubscriptionProducts(mixedProducts)
+        assertEquals(2, normalized.size)
+        assertEquals("premium_1_month", normalized[0].id)
         assertEquals("premium_3months", normalized[1].id)
     }
 }
