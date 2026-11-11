@@ -156,11 +156,11 @@ class HomeViewModel(
         try {
             val responseText: String = httpClient.get(urlString).bodyAsText()
             
-            val itemRegex = "<item>(.*?)</item>".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-            val titleRegex = "<title>(.*?)</title>".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-            val linkRegex = "<link>(.*?)</link>".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-            val descriptionRegex = "<description><!\\[CDATA\\[(.*?)]]></description>".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-            val altDescRegex = "<description>(.*?)</description>".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+            val itemRegex = "(?s)<item>(.*?)</item>".toRegex(RegexOption.IGNORE_CASE)
+            val titleRegex = "(?s)<title>(.*?)</title>".toRegex(RegexOption.IGNORE_CASE)
+            val linkRegex = "(?s)<link>(.*?)</link>".toRegex(RegexOption.IGNORE_CASE)
+            val descriptionRegex = "(?s)<description><!\\[CDATA\\[(.*?)]]></description>".toRegex(RegexOption.IGNORE_CASE)
+            val altDescRegex = "(?s)<description>(.*?)</description>".toRegex(RegexOption.IGNORE_CASE)
             val imgRegex = "<img[^>]+src\\s*=\\s*['\"]([^'\"]+)['\"][^>]*>".toRegex(RegexOption.IGNORE_CASE)
             
             val items = itemRegex.findAll(responseText)

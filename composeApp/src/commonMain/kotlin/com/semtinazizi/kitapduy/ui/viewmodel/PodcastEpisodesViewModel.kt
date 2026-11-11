@@ -54,10 +54,10 @@ class PodcastEpisodesViewModel(
     private fun parseEpisodes(xmlContent: String): List<PodcastEpisode> {
         val resultList = mutableListOf<PodcastEpisode>()
         
-        val itemRegex = "<item>(.*?)</item>".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-        val titleRegex = "<title>(.*?)</title>".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-        val descRegex1 = "<description><!\\[CDATA\\[(.*?)]]></description>".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-        val descRegex2 = "<description>(.*?)</description>".toRegex(setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+        val itemRegex = "(?s)<item>(.*?)</item>".toRegex(RegexOption.IGNORE_CASE)
+        val titleRegex = "(?s)<title>(.*?)</title>".toRegex(RegexOption.IGNORE_CASE)
+        val descRegex1 = "(?s)<description><!\\[CDATA\\[(.*?)]]></description>".toRegex(RegexOption.IGNORE_CASE)
+        val descRegex2 = "(?s)<description>(.*?)</description>".toRegex(RegexOption.IGNORE_CASE)
         val enclosureRegex = "<enclosure[^>]+url\\s*=\\s*['\"]([^'\"]+)['\"][^>]*>".toRegex(RegexOption.IGNORE_CASE)
         val durationRegex = "<(?:itunes:)?duration>(.*?)</(?:itunes:)?duration>".toRegex(RegexOption.IGNORE_CASE)
         val pubDateRegex = "<pubDate>(.*?)</pubDate>".toRegex(RegexOption.IGNORE_CASE)

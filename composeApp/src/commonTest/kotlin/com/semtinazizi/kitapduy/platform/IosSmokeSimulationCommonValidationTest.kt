@@ -106,4 +106,50 @@ class IosSmokeSimulationCommonValidationTest {
         // Koin may or may not be initialized in unit test runner,
         // but KoinPlatform API itself must exist and compile
     }
+
+    @Test
+    fun testBridgeStateTransitions() {
+        IosSmokeSimulationBridge.reset()
+        kotlin.test.assertFalse(IosSmokeSimulationBridge.isMainScreenMounted.value)
+        kotlin.test.assertNull(IosSmokeSimulationBridge.targetTab.value)
+        kotlin.test.assertNull(IosSmokeSimulationBridge.targetScreen.value)
+        kotlin.test.assertEquals(0, IosSmokeSimulationBridge.popTrigger.value)
+
+        IosSmokeSimulationBridge.setMainScreenMounted(true)
+        kotlin.test.assertTrue(IosSmokeSimulationBridge.isMainScreenMounted.value)
+
+        IosSmokeSimulationBridge.switchTab(SearchTab)
+        kotlin.test.assertEquals(SearchTab, IosSmokeSimulationBridge.targetTab.value)
+
+        IosSmokeSimulationBridge.switchTab(FeedTab)
+        kotlin.test.assertEquals(FeedTab, IosSmokeSimulationBridge.targetTab.value)
+
+        IosSmokeSimulationBridge.switchTab(ProfileTab)
+        kotlin.test.assertEquals(ProfileTab, IosSmokeSimulationBridge.targetTab.value)
+
+        IosSmokeSimulationBridge.switchTab(HomeTab)
+        kotlin.test.assertEquals(HomeTab, IosSmokeSimulationBridge.targetTab.value)
+
+        val dummyBook = Book(
+            id = "test_id",
+            title = "Test Title",
+            author = "Test Author",
+            category = "Test Category"
+        )
+        val detailScreen = BookDetailScreen(dummyBook)
+        IosSmokeSimulationBridge.pushScreen(detailScreen)
+        kotlin.test.assertEquals(detailScreen, IosSmokeSimulationBridge.targetScreen.value)
+
+        IosSmokeSimulationBridge.clearTargetScreen()
+        kotlin.test.assertNull(IosSmokeSimulationBridge.targetScreen.value)
+
+        IosSmokeSimulationBridge.pop()
+        kotlin.test.assertEquals(1, IosSmokeSimulationBridge.popTrigger.value)
+
+        IosSmokeSimulationBridge.reset()
+        kotlin.test.assertFalse(IosSmokeSimulationBridge.isMainScreenMounted.value)
+        kotlin.test.assertNull(IosSmokeSimulationBridge.targetTab.value)
+        kotlin.test.assertNull(IosSmokeSimulationBridge.targetScreen.value)
+        kotlin.test.assertEquals(0, IosSmokeSimulationBridge.popTrigger.value)
+    }
 }

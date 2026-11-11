@@ -18,6 +18,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import org.koin.core.Koin
 import org.koin.mp.KoinPlatform
 import platform.Foundation.NSLog
 import platform.Foundation.NSProcessInfo
@@ -32,7 +33,7 @@ object IosSmokeSimulationDriver {
 
     fun start() {
         val environment = NSProcessInfo.processInfo.environment
-        if (environment["KITAPDUY_CI_SMOKE_TEST"] != "1" ||
+        if ((environment["KITAPDUY_CI_SMOKE_TEST"] as? String) != "1" ||
             (environment["SIMULATOR_UDID"] as? String).isNullOrBlank() || started
         ) return
         started = true
@@ -45,16 +46,16 @@ object IosSmokeSimulationDriver {
                     delay(100)
                     attempts++
                 }
-                val koin = KoinPlatform.getKoinOrNull() ?: run {
+                val koin: Koin = KoinPlatform.getKoinOrNull() ?: run {
                     NSLog("KITAPDUY_CI_SIMULATION_FAIL type=KoinNotReady")
                     return@launch
                 }
 
-                val authRepo: AuthRepository = koin.get()
-                val audioController: GlobalAudioController = koin.get()
-                val audioPlayer: AudioPlayer = koin.get()
-                val bookRepo: BookRepository = koin.get()
-                val feedRepo: FeedRepository = koin.get()
+                val authRepo: AuthRepository = koin.get<AuthRepository>()
+                val audioController: GlobalAudioController = koin.get<GlobalAudioController>()
+                val audioPlayer: AudioPlayer = koin.get<AudioPlayer>()
+                val bookRepo: BookRepository = koin.get<BookRepository>()
+                val feedRepo: FeedRepository = koin.get<FeedRepository>()
 
                 // 2. Automated Guest Login & Home Browsing
                 delay(800)
