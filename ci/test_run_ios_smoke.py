@@ -119,6 +119,30 @@ class ProcessObservationTest(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "failure marker"):
                     smoke.monitor_app(process, self.console, 0)
 
+    def test_marker_logged_during_milestone_screenshot_is_observed_before_deadline(self):
+        process = Mock()
+        process.poll.return_value = None
+        self.console.write_text(smoke.HOME_LOADED + "\n", encoding="utf-8")
+
+        def on_marker_callback(marker):
+            if marker == smoke.HOME_LOADED:
+                self.console.write_text("\n".join(smoke.REQUIRED_MARKERS), encoding="utf-8")
+
+        smoke.monitor_app(process, self.console, 0, on_marker=on_marker_callback)
+
+    def test_failure_marker_logged_during_milestone_screenshot_fails_immediately(self):
+        process = Mock()
+        process.poll.return_value = None
+        self.console.write_text(smoke.HOME_LOADED + "\n", encoding="utf-8")
+
+        def on_marker_callback(marker):
+            if marker == smoke.HOME_LOADED:
+                with self.console.open("a", encoding="utf-8") as f:
+                    f.write("\nKITAPDUY_CI_SIMULATION_FAIL type=Crashed\n")
+
+        with self.assertRaisesRegex(RuntimeError, "failure marker"):
+            smoke.monitor_app(process, self.console, 60, on_marker=on_marker_callback)
+
 
 class RunnerTest(unittest.TestCase):
     def setUp(self):

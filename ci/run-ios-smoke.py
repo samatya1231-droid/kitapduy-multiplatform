@@ -97,6 +97,10 @@ def monitor_app(process, console, duration, on_marker=None, clock=time.monotonic
                         on_marker(marker)
                     except Exception:
                         pass
+                    text = console.read_text(encoding="utf-8", errors="replace")
+                    for failure in FAILURE_MARKERS:
+                        if failure in text:
+                            raise RuntimeError(f"App log contains a failure marker: {failure}")
             text = console.read_text(encoding="utf-8", errors="replace")
             for marker in FAILURE_MARKERS:
                 if marker in text:

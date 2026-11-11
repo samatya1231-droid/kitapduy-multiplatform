@@ -46,12 +46,6 @@ struct KitapDuyApp: App {
         AuthenticationService.shared.configure()
         StoreService.shared.configure()
         AdMobBridge.shared.configure()
-        #if targetEnvironment(simulator)
-        let environment = ProcessInfo.processInfo.environment
-        if environment["KITAPDUY_CI_SMOKE_TEST"] == "1" {
-            IosSmokeSimulationDriver.shared.start()
-        }
-        #endif
     }
     
     var body: some Scene {
