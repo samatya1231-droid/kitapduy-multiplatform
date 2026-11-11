@@ -21,7 +21,7 @@ class SupabaseFeedRepository(
         private val localFallbackPosts = mutableListOf<FeedItem>()
     }
 
-    override suspend fun getFeedItems(excludeListen: Boolean): List<FeedItem> {
+    override suspend fun getFeedItems(excludeListen: Boolean, limit: Long, offset: Long): List<FeedItem> {
         return try {
             val posts = supabaseClient.postgrest["posts"]
                 .select {
@@ -31,7 +31,7 @@ class SupabaseFeedRepository(
                         }
                     }
                     order("created_at", order = io.github.jan.supabase.postgrest.query.Order.DESCENDING)
-                    range(0, 50)
+                    range(offset, offset + limit - 1)
                 }
                 .decodeList<SupabasePost>()
 

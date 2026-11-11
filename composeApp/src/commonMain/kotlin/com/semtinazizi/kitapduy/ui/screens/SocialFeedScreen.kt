@@ -66,6 +66,7 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
         var selectedTabIndex by remember { mutableStateOf(0) }
         val displayItems = if (selectedTabIndex == 0) generalItems else listeningItems
         val listState = rememberLazyListState()
+        val isLoadingMore by viewModel.isLoadingMore.collectAsState()
 
         val authViewModel = koinViewModel<AuthViewModel>()
         val userProfile by authViewModel.userProfile.collectAsState()
@@ -339,6 +340,19 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                     },
                     label = "tab_transition"
                 ) { targetIndex ->
+                    val shouldLoadMore = remember(listState) {
+                        derivedStateOf {
+                            val total = listState.layoutInfo.totalItemsCount
+                            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                            total > 0 && lastVisible >= total - 3
+                        }
+                    }
+                    LaunchedEffect(shouldLoadMore.value) {
+                        if (shouldLoadMore.value) {
+                            viewModel.loadMore(isListeningTab = targetIndex == 1)
+                        }
+                    }
+
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(top = 8.dp, bottom = 120.dp, start = 16.dp, end = 16.dp),
@@ -451,6 +465,13 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                                 val item = displayItems[index]
                                 com.semtinazizi.kitapduy.ui.components.InteractiveFeedCard(
                                     item = item, onChanged = { viewModel.loadFeed(true) })
+                            }
+                            if (isLoadingMore) {
+                                item {
+                                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = BrandGold)
+                                    }
+                                }
                             }
                         }
                     }

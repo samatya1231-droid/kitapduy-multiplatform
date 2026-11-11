@@ -82,12 +82,14 @@ class LibraryScreenModelTest {
         assertEquals("server", model.bookshelfItems.value.single().bookId)
     }
 
-    @Test fun favoritesDoNotQueryInventedShelfType() = runTest {
+    @Test fun favoritesLoadFromRepositoryProperly() = runTest {
         val repo = LibraryBooks()
         val model = LibraryScreenModel(repo, auth("uid"), LibraryFiles(), progress(), backgroundScope)
         model.loadBookshelf("FAVORITE"); runCurrent()
-        assertNotNull(model.errorMessage.value)
-        assertEquals(0, repo.shelfCalls)
+        assertNull(model.errorMessage.value)
+        assertEquals(1, repo.shelfCalls)
+        assertEquals("server", model.bookshelfItems.value.single().bookId)
+        assertEquals("FAVORITE", model.bookshelfItems.value.single().shelfType)
     }
 }
 

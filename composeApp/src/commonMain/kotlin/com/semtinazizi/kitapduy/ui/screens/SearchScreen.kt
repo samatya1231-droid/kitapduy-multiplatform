@@ -207,7 +207,7 @@ class SearchScreen : Screen {
                                     ) {
                                         items(userResults, key = { it.uid }) { user ->
                                             UserSearchResultItem(user) { 
-                                                // navigator.push(OtherUserProfileScreen(user.uid)) 
+                                                navigator.push(UserProfileScreen(user.uid))
                                             }
                                         }
                                     }

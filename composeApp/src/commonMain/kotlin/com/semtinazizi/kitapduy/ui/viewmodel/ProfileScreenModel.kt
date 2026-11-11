@@ -60,6 +60,8 @@ class ProfileScreenModel(
     private var books: List<Book> = emptyList()
     fun bookFor(shelf: SupabaseBookshelf): Book? = books.find { it.id == shelf.bookId }
 
+    fun loadUserProfile(userId: String?) = loadProfileData(userId)
+
     fun loadProfileData(targetUserId: String?) {
         loadJob?.cancel()
         val uid = targetUserId ?: authRepository.currentUserUid
@@ -78,8 +80,22 @@ class ProfileScreenModel(
         loadJob = (testScope ?: screenModelScope).launch {
             isLoading.value = true
             try {
-                val profile = socialRepository.getUserProfile(uid)
-                    ?: kotlin.error("Profil yüklenemedi")
+                val profile = try {
+                    socialRepository.getUserProfile(uid)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (e: Exception) {
+                    null
+                } ?: try {
+                    authRepository.getUserProfile(uid)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (e: Exception) {
+                    null
+                } ?: UserProfile(
+                    uid = uid,
+                    name = if (uid == authRepository.currentUserUid) "KitapDuy Okuru" else "Okur"
+                )
                 val posts = socialRepository.fetchUserPosts(uid)
                 val shelves = socialRepository.fetchUserShelves(uid).distinctBy { it.bookId to it.shelfType }
                 val followers = socialRepository.getFollowers(uid).size

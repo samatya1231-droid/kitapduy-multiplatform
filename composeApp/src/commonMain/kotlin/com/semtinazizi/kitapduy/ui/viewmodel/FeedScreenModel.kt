@@ -44,6 +44,12 @@ class FeedScreenModel(
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
+    private val _canLoadMore = MutableStateFlow(true)
+    val canLoadMore: StateFlow<Boolean> = _canLoadMore.asStateFlow()
+
     init {
         feedRepository.startRealtimeListening { newFeedItem ->
             if (newFeedItem.type == FeedType.LISTEN) {
@@ -66,6 +72,7 @@ class FeedScreenModel(
     fun loadFeed(isRefresh: Boolean = false) {
         if (isRefresh) {
             _isLoading.value = true
+            _canLoadMore.value = true
         }
 
         screenModelScope.launch {
@@ -85,6 +92,51 @@ class FeedScreenModel(
                 println("Feed yüklenirken hata oluştu: ${e.message}")
             } finally {
                 _isLoading.value = false
+            }
+        }
+    }
+
+    fun loadMore(isListeningTab: Boolean = false) {
+        if (_isLoading.value || _isLoadingMore.value || !_canLoadMore.value) return
+        val currentItems = if (isListeningTab) _listeningFeedItems.value else _generalFeedItems.value
+        if (currentItems.isEmpty()) return
+
+        screenModelScope.launch {
+            _isLoadingMore.value = true
+            try {
+                val offset = currentItems.size.toLong()
+                val newItems = feedRepository.getFeedItems(excludeListen = !isListeningTab, limit = 20, offset = offset)
+                if (isListeningTab) {
+                    val filtered = newItems.filter { it.type == FeedType.LISTEN }
+                    if (filtered.isEmpty()) {
+                        _canLoadMore.value = false
+                    } else {
+                        val existingIds = _listeningFeedItems.value.map { it.id }.toSet()
+                        val uniqueNew = filtered.filterNot { it.id in existingIds }
+                        if (uniqueNew.isEmpty()) {
+                            _canLoadMore.value = false
+                        } else {
+                            _listeningFeedItems.value = _listeningFeedItems.value + uniqueNew
+                        }
+                    }
+                } else {
+                    val filtered = newItems.filter { it.type != FeedType.LISTEN }
+                    if (filtered.isEmpty()) {
+                        _canLoadMore.value = false
+                    } else {
+                        val existingIds = _generalFeedItems.value.map { it.id }.toSet()
+                        val uniqueNew = filtered.filterNot { it.id in existingIds }
+                        if (uniqueNew.isEmpty()) {
+                            _canLoadMore.value = false
+                        } else {
+                            _generalFeedItems.value = _generalFeedItems.value + uniqueNew
+                        }
+                    }
+                }
+            } catch (e: Throwable) {
+                println("Feed loadMore hatası: ${e.message}")
+            } finally {
+                _isLoadingMore.value = false
             }
         }
     }

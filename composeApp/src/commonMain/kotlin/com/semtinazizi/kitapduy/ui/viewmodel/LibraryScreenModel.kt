@@ -47,10 +47,6 @@ class LibraryScreenModel(
         _bookshelfItems.value = emptyList()
         _errorMessage.value = null
         _isLoading.value = false
-        if (shelfType == "FAVORITE") {
-            _errorMessage.value = "Android favorilerinizin bu hesapla eşleştirilmesi henüz tamamlanmadı."
-            return
-        }
         val localShelf = shelfType == "LISTENING" || shelfType == "DOWNLOADED"
         val uid = authRepository.currentUserUid
         if (!localShelf && uid == null) {
@@ -73,7 +69,24 @@ class LibraryScreenModel(
         loadJob = scope.launch {
             try {
                 if (!localShelf) {
-                    val items = bookRepository.getBookshelf(uid!!, shelfType)
+                    val items = if (shelfType == "FAVORITE") {
+                        val favIds = runCatching { bookRepository.getFavoriteBookIds(uid!!) }.getOrDefault(emptySet())
+                        val shelfItems = runCatching { bookRepository.getBookshelf(uid!!, shelfType) }.getOrDefault(emptyList())
+                        val allFavIds = (favIds + shelfItems.map { it.bookId }).distinct()
+                        if (shelfItems.isNotEmpty() && favIds.isEmpty()) {
+                            shelfItems
+                        } else {
+                            allFavIds.map { bookId ->
+                                shelfItems.find { it.bookId == bookId } ?: SupabaseBookshelf(
+                                    userId = uid!!,
+                                    bookId = bookId,
+                                    shelfType = "FAVORITE"
+                                )
+                            }
+                        }
+                    } else {
+                        bookRepository.getBookshelf(uid!!, shelfType)
+                    }
                     ensureActive()
                     _bookshelfItems.value = items.distinctBy { it.bookId }
                 }
@@ -81,6 +94,17 @@ class LibraryScreenModel(
                 val catalog = withTimeoutOrNull(8_000) { bookRepository.getBooks() }
                 ensureActive()
                 if (catalog != null) books = catalog.filter { it.id.isNotBlank() && it.id != "error" }.associateBy { it.id }
+                if (shelfType == "FAVORITE") {
+                    _bookshelfItems.value = _bookshelfItems.value.map { item ->
+                        val b = books[item.bookId]
+                        if (b != null) {
+                            item.copy(
+                                bookTitle = if (item.bookTitle.isNullOrBlank()) b.title else item.bookTitle,
+                                bookCoverUrl = if (item.bookCoverUrl.isNullOrBlank()) b.coverUrl else item.bookCoverUrl
+                            )
+                        } else item
+                    }
+                }
                 if (localShelf) _bookshelfItems.value = localItems()
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {

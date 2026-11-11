@@ -159,9 +159,7 @@ object LibraryTab : Tab {
                 } else if (errorMessage != null) {
                     Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(errorMessage.orEmpty(), color = MaterialTheme.colorScheme.error)
-                        if (shelfTypes[selectedTab] != "FAVORITE") {
-                            TextButton(onClick = { viewModel.loadBookshelf(shelfTypes[selectedTab]) }) { Text("Tekrar dene") }
-                        }
+                        TextButton(onClick = { viewModel.loadBookshelf(shelfTypes[selectedTab]) }) { Text("Tekrar dene") }
                     }
                 } else if (bookshelfItems.isEmpty()) {
                     Text(

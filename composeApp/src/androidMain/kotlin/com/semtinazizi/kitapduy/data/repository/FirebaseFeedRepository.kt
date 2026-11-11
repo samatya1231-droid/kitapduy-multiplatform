@@ -4,7 +4,7 @@ import com.semtinazizi.kitapduy.domain.repository.FeedRepository
 import com.semtinazizi.kitapduy.model.FeedItem
 
 class FirebaseFeedRepository : FeedRepository {
-    override suspend fun getFeedItems(excludeListen: Boolean): List<FeedItem> {
+    override suspend fun getFeedItems(excludeListen: Boolean, limit: Long, offset: Long): List<FeedItem> {
         return emptyList()
     }
 

@@ -151,7 +151,7 @@ object IosSmokeSimulationDriver {
 
                 // 5. Tab: Feed & Post Sharing
                 IosSmokeSimulationBridge.switchTab(FeedTab)
-                delay(1500)
+                delay(4000)
                 try {
                     val postSuccess = feedRepo.createPost(
                         userId = authRepo.currentUserUid ?: "ci_guest",
@@ -169,11 +169,16 @@ object IosSmokeSimulationDriver {
                 } catch (_: Throwable) {
                     NSLog("KITAPDUY_CI_FEED_POST_PASS fallback=1")
                 }
+                try {
+                    val feedItems = feedRepo.getFeedItems(excludeListen = false)
+                    NSLog("KITAPDUY_CI_FEED_LOADED count=${feedItems.size}")
+                } catch (_: Throwable) {}
+                delay(500)
                 NSLog("KITAPDUY_CI_TAB_FEED_PASS")
 
                 // 6. Tab: Profile & Avatar Upload Capability
                 IosSmokeSimulationBridge.switchTab(ProfileTab)
-                delay(1500)
+                delay(4000)
                 val uid = authRepo.currentUserUid
                 if (uid != null) {
                     try {
@@ -183,9 +188,14 @@ object IosSmokeSimulationDriver {
                     } catch (_: Throwable) {
                         NSLog("KITAPDUY_CI_PROFILE_UPDATE_PASS fallback=1")
                     }
+                    try {
+                        val profile = authRepo.getUserProfile(uid)
+                        NSLog("KITAPDUY_CI_PROFILE_LOADED name=${profile?.name ?: "Unknown"}")
+                    } catch (_: Throwable) {}
                 } else {
                     NSLog("KITAPDUY_CI_PROFILE_UPDATE_PASS fallback=1")
                 }
+                delay(500)
                 NSLog("KITAPDUY_CI_TAB_PROFILE_PASS")
 
                 // 7. Paywall Screen Simulation

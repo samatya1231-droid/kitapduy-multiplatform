@@ -3,7 +3,7 @@ package com.semtinazizi.kitapduy.domain.repository
 import com.semtinazizi.kitapduy.model.FeedItem
 
 interface FeedRepository {
-    suspend fun getFeedItems(excludeListen: Boolean = false): List<FeedItem>
+    suspend fun getFeedItems(excludeListen: Boolean = false, limit: Long = 50, offset: Long = 0): List<FeedItem>
     suspend fun createPost(
         userId: String,
         userName: String,

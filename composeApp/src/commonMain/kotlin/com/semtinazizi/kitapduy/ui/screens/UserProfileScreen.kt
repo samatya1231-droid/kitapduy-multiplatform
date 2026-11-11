@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,6 +23,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.semtinazizi.kitapduy.util.root
 import com.semtinazizi.kitapduy.domain.repository.AuthRepository
+import com.semtinazizi.kitapduy.model.FeedType
 import com.semtinazizi.kitapduy.platform.BillingManager
 import com.semtinazizi.kitapduy.ui.components.*
 import com.semtinazizi.kitapduy.ui.theme.PlayfairDisplayFamily
@@ -60,6 +62,9 @@ class UserProfileScreen(val targetUserId: String? = null) : Screen {
         val dna by model.readingDnaCategories.collectAsState()
         val authors by model.favoriteAuthors.collectAsState()
         val posts by model.userPosts.collectAsState()
+        val quotePosts = remember(posts) {
+            posts.filter { (it.type == FeedType.QUOTE || it.startPos != null) && it.content.isNotBlank() }
+        }
         var tab by rememberSaveable(uid) { mutableIntStateOf(0) }
         var followDialog by remember { mutableStateOf<Boolean?>(null) }
         var zoomedImage by remember { mutableStateOf<String?>(null) }
@@ -128,9 +133,16 @@ class UserProfileScreen(val targetUserId: String? = null) : Screen {
                 navigationIcon = { if (!own) IconButton(onClick = { navigator.pop() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, "Geri")
                 } },
-                actions = { if (own) IconButton(onClick = { navigator.push(SettingsScreen(isPremium = premium)) }) {
-                    Icon(Icons.Default.Settings, "Ayarlar")
-                } }, colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background))
+                actions = {
+                    if (own) {
+                        IconButton(onClick = { navigator.push(PremiumWrappedScreen()) }) {
+                            Icon(Icons.Default.AutoAwesome, "Yıllık Özet", tint = androidx.compose.ui.graphics.Color(0xFFFFD700))
+                        }
+                        IconButton(onClick = { navigator.push(SettingsScreen(isPremium = premium)) }) {
+                            Icon(Icons.Default.Settings, "Ayarlar")
+                        }
+                    }
+                }, colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background))
         }) { padding ->
             when {
                 loading -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -177,6 +189,19 @@ class UserProfileScreen(val targetUserId: String? = null) : Screen {
                         }
                         error?.let { Text(it, Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.error) }
                     }
+                    item("bento_stats") {
+                        val finishedCount = shelves.count { it.shelfType == "FINISHED" }.toString()
+                        val streak = (profile?.streak ?: 0).toString()
+                        ProfileBentoStats(
+                            followersCount = followers.toString(),
+                            followingCount = following.toString(),
+                            booksFinished = finishedCount,
+                            streakDays = streak,
+                            onFollowersClick = { followDialog = true; uid?.let { model.fetchFollowList(it, true) } },
+                            onFollowingClick = { followDialog = false; uid?.let { model.fetchFollowList(it, false) } },
+                            modifier = Modifier.padding(horizontal = 20.dp)
+                        )
+                    }
                     item("tabs") { ProfileContentTabs(own, tab) { tab = it } }
                     if (tab == 0) {
                         if (own) item("pride") {
@@ -217,6 +242,16 @@ class UserProfileScreen(val targetUserId: String? = null) : Screen {
                                     }
                                 }
                             }
+                        }
+                        if (quotePosts.isNotEmpty()) item("favorite_quotes") {
+                            FavoriteQuotesGallery(
+                                quotes = quotePosts,
+                                onQuoteClick = { quote ->
+                                    if (quote.id.isNotBlank()) {
+                                        navigator.push(PostDetailScreen(quote.id))
+                                    }
+                                }
+                            )
                         }
                         if (own && !premium) item("premium") {
                             PremiumUpgradeCard(modifier = Modifier.padding(horizontal = 20.dp), isPremium = false,
