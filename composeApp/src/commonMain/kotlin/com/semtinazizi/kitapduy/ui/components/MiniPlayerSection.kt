@@ -164,7 +164,7 @@ fun MiniPlayerSection(
                         .height(3.dp)
                         .align(Alignment.BottomCenter),
                     color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                 )
             }
         }

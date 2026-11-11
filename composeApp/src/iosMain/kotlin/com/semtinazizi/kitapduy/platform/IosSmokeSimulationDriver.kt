@@ -192,7 +192,7 @@ object IosSmokeSimulationDriver {
                 IosSmokeSimulationBridge.pushScreen(SubscriptionPaywallScreen())
                 delay(2000)
                 NSLog("KITAPDUY_CI_PAYWALL_PASS")
-                delay(600)
+                delay(2000)
                 IosSmokeSimulationBridge.pop()
                 delay(1000)
 

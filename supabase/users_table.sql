@@ -43,7 +43,8 @@ DROP POLICY IF EXISTS "Allow individual update access" ON public.users;
 CREATE POLICY "Allow individual update access"
     ON public.users
     FOR UPDATE
-    USING (auth.uid()::text = uid);
+    USING (auth.uid()::text = uid)
+    WITH CHECK (auth.uid()::text = uid);
 
 -- 4. Delete Policy: Users can delete their own profile row
 DROP POLICY IF EXISTS "Allow individual delete access" ON public.users;
@@ -74,10 +75,10 @@ BEGIN
     INSERT INTO public.users (uid, name, username, bio, photo_url)
     VALUES (
         NEW.id::text,
-        COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1), 'Okur'),
-        COALESCE(NEW.raw_user_meta_data->>'username', split_part(NEW.email, '@', 1), 'okur_' || substr(NEW.id::text, 1, 5)),
+        COALESCE(NULLIF(NEW.raw_user_meta_data->>'full_name', ''), NULLIF(NEW.raw_user_meta_data->>'name', ''), NULLIF(split_part(NEW.email, '@', 1), ''), 'Okur'),
+        COALESCE(NULLIF(NEW.raw_user_meta_data->>'username', ''), NULLIF(split_part(NEW.email, '@', 1), ''), 'okur_' || substr(replace(NEW.id::text, '-', ''), 1, 8)),
         'Merhaba, ben yeni bir KitapDuy kullanıcısıyım!',
-        COALESCE(NEW.raw_user_meta_data->>'avatar_url', NEW.raw_user_meta_data->>'picture', NULL)
+        COALESCE(NULLIF(NEW.raw_user_meta_data->>'avatar_url', ''), NULLIF(NEW.raw_user_meta_data->>'picture', ''), NULL)
     )
     ON CONFLICT (uid) DO NOTHING;
     RETURN NEW;
