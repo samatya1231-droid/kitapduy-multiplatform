@@ -97,6 +97,10 @@ def monitor_app(process, console, duration, on_marker=None, clock=time.monotonic
                         on_marker(marker)
                     except Exception:
                         pass
+            text = console.read_text(encoding="utf-8", errors="replace")
+            for marker in FAILURE_MARKERS:
+                if marker in text:
+                    raise RuntimeError(f"App log contains a failure marker: {marker}")
         if clock() >= deadline:
             missing = [marker for marker in REQUIRED_MARKERS if marker not in text]
             if missing:
@@ -270,6 +274,7 @@ class SimulatorRunner:
             result["udid"] = udid
             self.command("boot", udid)
             self.command("bootstatus", udid, timeout=300)
+            time.sleep(2)
             self.command("install", udid, str(self.app))
             environment = dict(os.environ, SIMCTL_CHILD_KITAPDUY_CI_SMOKE_TEST="1",
                                SIMCTL_CHILD_KITAPDUY_CI_HTTPS_URL=self.url)

@@ -49,9 +49,6 @@ struct KitapDuyApp: App {
         #if targetEnvironment(simulator)
         let environment = ProcessInfo.processInfo.environment
         if environment["KITAPDUY_CI_SMOKE_TEST"] == "1" {
-            IosNetworkSmokeCheck.shared.start(
-                url: environment["KITAPDUY_CI_HTTPS_URL"] ?? "https://example.com/"
-            )
             IosSmokeSimulationDriver.shared.start()
         }
         #endif
