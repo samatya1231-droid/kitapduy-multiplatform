@@ -150,8 +150,6 @@ object IosSmokeSimulationDriver {
                 }
 
                 // 5. Tab: Feed & Post Sharing
-                IosSmokeSimulationBridge.switchTab(FeedTab)
-                delay(4000)
                 try {
                     val postSuccess = feedRepo.createPost(
                         userId = authRepo.currentUserUid ?: "ci_guest",
@@ -169,6 +167,8 @@ object IosSmokeSimulationDriver {
                 } catch (_: Throwable) {
                     NSLog("KITAPDUY_CI_FEED_POST_PASS fallback=1")
                 }
+                IosSmokeSimulationBridge.switchTab(FeedTab)
+                delay(4000)
                 try {
                     val feedItems = feedRepo.getFeedItems(excludeListen = false)
                     NSLog("KITAPDUY_CI_FEED_LOADED count=${feedItems.size}")
@@ -177,8 +177,6 @@ object IosSmokeSimulationDriver {
                 NSLog("KITAPDUY_CI_TAB_FEED_PASS")
 
                 // 6. Tab: Profile & Avatar Upload Capability
-                IosSmokeSimulationBridge.switchTab(ProfileTab)
-                delay(4000)
                 val uid = authRepo.currentUserUid
                 if (uid != null) {
                     try {
@@ -195,6 +193,8 @@ object IosSmokeSimulationDriver {
                 } else {
                     NSLog("KITAPDUY_CI_PROFILE_UPDATE_PASS fallback=1")
                 }
+                IosSmokeSimulationBridge.switchTab(ProfileTab)
+                delay(4000)
                 delay(500)
                 NSLog("KITAPDUY_CI_TAB_PROFILE_PASS")
 

@@ -65,7 +65,8 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
 
         var selectedTabIndex by remember { mutableStateOf(0) }
         val displayItems = if (selectedTabIndex == 0) generalItems else listeningItems
-        val listState = rememberLazyListState()
+        val generalListState = rememberLazyListState()
+        val listeningListState = rememberLazyListState()
         val isLoadingMore by viewModel.isLoadingMore.collectAsState()
 
         val authViewModel = koinViewModel<AuthViewModel>()
@@ -340,10 +341,11 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                     },
                     label = "tab_transition"
                 ) { targetIndex ->
-                    val shouldLoadMore = remember(listState) {
+                    val currentListState = if (targetIndex == 0) generalListState else listeningListState
+                    val shouldLoadMore = remember(currentListState) {
                         derivedStateOf {
-                            val total = listState.layoutInfo.totalItemsCount
-                            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                            val total = currentListState.layoutInfo.totalItemsCount
+                            val lastVisible = currentListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
                             total > 0 && lastVisible >= total - 3
                         }
                     }
@@ -357,7 +359,7 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(top = 8.dp, bottom = 120.dp, start = 16.dp, end = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
-                        state = listState
+                        state = currentListState
                     ) {
                         // "Şu An Dinleyenler" Header
                         if (targetIndex == 0 && listeningItems.isNotEmpty()) {

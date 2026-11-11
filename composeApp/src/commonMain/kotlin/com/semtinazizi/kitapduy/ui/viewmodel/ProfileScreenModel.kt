@@ -96,6 +96,7 @@ class ProfileScreenModel(
                     uid = uid,
                     name = if (uid == authRepository.currentUserUid) "KitapDuy Okuru" else "Okur"
                 )
+                _targetUserProfile.value = profile
                 val posts = socialRepository.fetchUserPosts(uid)
                 val shelves = socialRepository.fetchUserShelves(uid).distinctBy { it.bookId to it.shelfType }
                 val followers = socialRepository.getFollowers(uid).size
@@ -103,7 +104,6 @@ class ProfileScreenModel(
                 val currentUid = authRepository.currentUserUid
                 val follows = currentUid != null && currentUid != uid && socialRepository.isFollowing(currentUid, uid)
                 books = bookRepository.getBooks()
-                _targetUserProfile.value = profile
                 _userPosts.value = posts
                 _userShelves.value = shelves
                 _followersCount.value = followers
@@ -112,7 +112,10 @@ class ProfileScreenModel(
                 calculateFavoriteAuthors(shelves.distinctBy { it.bookId }, books)
                 calculateReadingDna(shelves.distinctBy { it.bookId }, books)
             } catch (cancelled: CancellationException) { throw cancelled }
-            catch (failure: Exception) { error.value = "Profil yüklenemedi. Bağlantını kontrol edip tekrar dene." }
+            catch (failure: Exception) {
+                _targetUserProfile.value = null
+                error.value = "Profil yüklenemedi. Bağlantını kontrol edip tekrar dene."
+            }
             finally { isLoading.value = false }
         }
     }

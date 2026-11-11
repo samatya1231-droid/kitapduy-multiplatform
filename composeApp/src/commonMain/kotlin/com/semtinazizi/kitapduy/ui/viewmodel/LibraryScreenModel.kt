@@ -94,7 +94,7 @@ class LibraryScreenModel(
                 val catalog = withTimeoutOrNull(8_000) { bookRepository.getBooks() }
                 ensureActive()
                 if (catalog != null) books = catalog.filter { it.id.isNotBlank() && it.id != "error" }.associateBy { it.id }
-                if (shelfType == "FAVORITE") {
+                if (!localShelf) {
                     _bookshelfItems.value = _bookshelfItems.value.map { item ->
                         val b = books[item.bookId]
                         if (b != null) {

@@ -145,7 +145,7 @@ class UserProfileScreen(val targetUserId: String? = null) : Screen {
                 }, colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background))
         }) { padding ->
             when {
-                loading -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                loading && profile == null -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                 profile == null -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                     ProfileEmptyCard("Okur köşen", error ?: "Profil yüklenemedi.",
                         if (uid == null) "Giriş yap" else "Tekrar dene", {
@@ -154,6 +154,9 @@ class UserProfileScreen(val targetUserId: String? = null) : Screen {
                 }
                 else -> LazyColumn(Modifier.fillMaxSize().padding(padding),
                     contentPadding = PaddingValues(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    if (loading) item("loading_indicator") {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp))
+                    }
                     if (own || !profile?.coverPhotoUrl.isNullOrBlank()) item("cover") {
                         ProfileCoverCard(profile?.coverPhotoUrl, own, uploading, feedback,
                             onEdit = { coverUpload = true; picker.launch() },
