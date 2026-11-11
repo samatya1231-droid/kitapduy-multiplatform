@@ -6,6 +6,7 @@ import com.semtinazizi.kitapduy.domain.repository.BookRepository
 import com.semtinazizi.kitapduy.domain.repository.FeedRepository
 import com.semtinazizi.kitapduy.model.Book
 import com.semtinazizi.kitapduy.ui.screens.BookDetailScreen
+import com.semtinazizi.kitapduy.ui.screens.SubscriptionPaywallScreen
 import com.semtinazizi.kitapduy.ui.screens.tabs.FeedTab
 import com.semtinazizi.kitapduy.ui.screens.tabs.HomeTab
 import com.semtinazizi.kitapduy.ui.screens.tabs.ProfileTab
@@ -140,7 +141,7 @@ object IosSmokeSimulationDriver {
 
                 // 4. Tab: Search
                 IosSmokeSimulationBridge.switchTab(SearchTab)
-                delay(600)
+                delay(1500)
                 try {
                     val searchResults = bookRepo.searchBooks("Ali")
                     NSLog("KITAPDUY_CI_TAB_SEARCH_PASS count=${searchResults.size}")
@@ -150,7 +151,7 @@ object IosSmokeSimulationDriver {
 
                 // 5. Tab: Feed & Post Sharing
                 IosSmokeSimulationBridge.switchTab(FeedTab)
-                delay(600)
+                delay(1500)
                 try {
                     val postSuccess = feedRepo.createPost(
                         userId = authRepo.currentUserUid ?: "ci_guest",
@@ -172,7 +173,7 @@ object IosSmokeSimulationDriver {
 
                 // 6. Tab: Profile & Avatar Upload Capability
                 IosSmokeSimulationBridge.switchTab(ProfileTab)
-                delay(600)
+                delay(1500)
                 val uid = authRepo.currentUserUid
                 if (uid != null) {
                     try {
@@ -187,9 +188,17 @@ object IosSmokeSimulationDriver {
                 }
                 NSLog("KITAPDUY_CI_TAB_PROFILE_PASS")
 
-                // 7. Return to Home & Complete Simulation
-                IosSmokeSimulationBridge.switchTab(HomeTab)
+                // 7. Paywall Screen Simulation
+                IosSmokeSimulationBridge.pushScreen(SubscriptionPaywallScreen())
+                delay(2000)
+                NSLog("KITAPDUY_CI_PAYWALL_PASS")
                 delay(600)
+                IosSmokeSimulationBridge.pop()
+                delay(1000)
+
+                // 8. Return to Home & Complete Simulation
+                IosSmokeSimulationBridge.switchTab(HomeTab)
+                delay(1500)
                 NSLog("KITAPDUY_CI_USER_SIMULATION_PASS")
             } catch (failure: Throwable) {
                 NSLog("KITAPDUY_CI_SIMULATION_FAIL type=${failure::class.simpleName ?: "Error"}")

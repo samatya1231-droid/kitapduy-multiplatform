@@ -1,6 +1,5 @@
 package com.semtinazizi.kitapduy.ui.components
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -10,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
@@ -34,9 +34,11 @@ fun MiniPlayerSection(
     coverUrl: String,
     isPlaying: Boolean,
     isPremium: Boolean = false,
+    progress: Float? = null,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
     onPlayPauseClick: () -> Unit,
+    onCloseClick: (() -> Unit)? = null,
     onUpgradeClick: () -> Unit = {}
 ) {
     val haptics = LocalHapticFeedback.current
@@ -49,85 +51,120 @@ fun MiniPlayerSection(
             .height(72.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f)),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Kitap Kapağı
-            Box(modifier = Modifier.padding(start = 12.dp)) {
-                AsyncImage(
-                    model = coverUrl,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.onSurface.copy(0.05f)),
-                    contentScale = ContentScale.Crop
-                )
-            }
-
-            // Metin Alanı
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.Center
+        Box(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = title.ifEmpty { "Seçilen Kitap" },
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    fontSize = 14.sp,
-                    color = Color.White,
-                    modifier = Modifier.basicMarquee()
-                )
-                Text(
-                    text = artist.ifEmpty { "Yazar" },
-                    maxLines = 1,
-                    fontSize = 12.sp,
-                    color = Color.White.copy(alpha = 0.7f),
-                    modifier = Modifier.basicMarquee()
-                )
-            }
+                // Kitap Kapağı
+                Box(modifier = Modifier.padding(start = 12.dp)) {
+                    AsyncImage(
+                        model = coverUrl,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.onSurface.copy(0.05f)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
 
-            if (!isPremium) {
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = Color(0xFFFFD700).copy(alpha = buttonAlpha),
-                    border = BorderStroke(1.dp, Color(0xFFFFD700).copy(alpha = 0.8f)),
-                    modifier = Modifier.padding(end = 12.dp).clickable { 
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onUpgradeClick() 
-                    }
+                // Metin Alanı
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "💎", fontSize = 10.sp)
-                        Spacer(Modifier.width(4.dp))
-                        Text(text = "Reklamsız", color = Color.Black, fontWeight = FontWeight.ExtraBold, fontSize = 9.sp)
+                    Text(
+                        text = title.ifEmpty { "Seçilen Kitap" },
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.basicMarquee()
+                    )
+                    Text(
+                        text = artist.ifEmpty { "Yazar" },
+                        maxLines = 1,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.basicMarquee()
+                    )
+                }
+
+                if (!isPremium) {
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFFFFD700).copy(alpha = buttonAlpha),
+                        border = BorderStroke(1.dp, Color(0xFFFFD700).copy(alpha = 0.8f)),
+                        modifier = Modifier.padding(end = 12.dp).clickable { 
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onUpgradeClick() 
+                        }
+                    ) {
+                        Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = "💎", fontSize = 10.sp)
+                            Spacer(Modifier.width(4.dp))
+                            Text(text = "Reklamsız", color = Color.Black, fontWeight = FontWeight.ExtraBold, fontSize = 9.sp)
+                        }
+                    }
+                }
+
+                // Oynat/Durdur Butonu
+                IconButton(
+                    onClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onPlayPauseClick()
+                    },
+                    modifier = Modifier
+                        .padding(end = if (onCloseClick != null) 6.dp else 12.dp)
+                        .size(44.dp)
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+
+                // Kapat Butonu (Opsiyonel)
+                if (onCloseClick != null) {
+                    IconButton(
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onCloseClick()
+                        },
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Kapat",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }
 
-            // Oynat/Durdur Butonu
-            IconButton(
-                onClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onPlayPauseClick()
-                },
-                modifier = Modifier
-                    .padding(end = 12.dp)
-                    .size(44.dp)
-                    .background(Color.White.copy(alpha = 0.1f), CircleShape)
-            ) {
-                Icon(
-                    imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(28.dp)
+            // İlerleme Çubuğu (Opsiyonel)
+            if (progress != null) {
+                LinearProgressIndicator(
+                    progress = { progress.coerceIn(0f, 1f) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .align(Alignment.BottomCenter),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             }
         }

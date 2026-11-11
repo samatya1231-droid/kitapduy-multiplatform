@@ -5,6 +5,7 @@ import com.semtinazizi.kitapduy.domain.repository.BookRepository
 import com.semtinazizi.kitapduy.domain.repository.FeedRepository
 import com.semtinazizi.kitapduy.model.Book
 import com.semtinazizi.kitapduy.ui.screens.BookDetailScreen
+import com.semtinazizi.kitapduy.ui.screens.SubscriptionPaywallScreen
 import com.semtinazizi.kitapduy.ui.screens.tabs.FeedTab
 import com.semtinazizi.kitapduy.ui.screens.tabs.HomeTab
 import com.semtinazizi.kitapduy.ui.screens.tabs.ProfileTab
@@ -97,6 +98,9 @@ class IosSmokeSimulationCommonValidationTest {
             } catch (_: Throwable) {}
         }
 
+        IosSmokeSimulationBridge.pushScreen(SubscriptionPaywallScreen())
+        IosSmokeSimulationBridge.pop()
+
         IosSmokeSimulationBridge.switchTab(HomeTab)
     }
 
@@ -146,6 +150,13 @@ class IosSmokeSimulationCommonValidationTest {
 
         IosSmokeSimulationBridge.pop()
         kotlin.test.assertEquals(1, IosSmokeSimulationBridge.popTrigger.value)
+
+        val paywallScreen = SubscriptionPaywallScreen()
+        IosSmokeSimulationBridge.pushScreen(paywallScreen)
+        kotlin.test.assertEquals(paywallScreen, IosSmokeSimulationBridge.targetScreen.value)
+        IosSmokeSimulationBridge.clearTargetScreen()
+        IosSmokeSimulationBridge.pop()
+        kotlin.test.assertEquals(2, IosSmokeSimulationBridge.popTrigger.value)
 
         IosSmokeSimulationBridge.reset()
         kotlin.test.assertFalse(IosSmokeSimulationBridge.isMainScreenMounted.value)

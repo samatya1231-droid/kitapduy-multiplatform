@@ -58,24 +58,33 @@ fun TrendingTop10List(
                                 )
                             )
                     )
-                    Text(
-                        text = "#",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(8.dp).align(Alignment.TopStart)
-                    )
+                    Surface(
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .align(Alignment.TopStart),
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+                    ) {
+                        Text(
+                            text = "#${index + 1}",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = book.title,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1
                 )
                 Text(
                     text = book.author,
-                    color = Color.White.copy(alpha = 0.7f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 10.sp,
                     maxLines = 1
                 )

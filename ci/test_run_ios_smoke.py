@@ -108,6 +108,7 @@ class ProcessObservationTest(unittest.TestCase):
         self.assertIn(smoke.TAB_SEARCH_PASS, called_markers)
         self.assertIn(smoke.TAB_FEED_PASS, called_markers)
         self.assertIn(smoke.TAB_PROFILE_PASS, called_markers)
+        self.assertIn(smoke.PAYWALL_PASS, called_markers)
 
     def test_failure_markers_override_an_earlier_success(self):
         process = Mock()
@@ -255,6 +256,7 @@ class RunnerTest(unittest.TestCase):
         self.assertIn("03_search.png", result["screenshots"])
         self.assertIn("04_feed.png", result["screenshots"])
         self.assertIn("05_profile.png", result["screenshots"])
+        self.assertIn("06_paywall.png", result["screenshots"])
         self.assertIn("screen.png", result["screenshots"])
 
     def test_video_recording_lifecycle_and_recorded_artifact(self):
