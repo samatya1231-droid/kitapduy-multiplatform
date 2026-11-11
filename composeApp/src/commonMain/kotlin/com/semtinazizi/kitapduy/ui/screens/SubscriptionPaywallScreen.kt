@@ -33,6 +33,21 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
+private val FALLBACK_PRODUCTS = listOf(
+    SubscriptionProduct(
+        id = "premium_1_month",
+        title = "1 Aylık Premium",
+        price = "₺49,99",
+        period = "Ay"
+    ),
+    SubscriptionProduct(
+        id = "premium_3_months",
+        title = "3 Aylık Premium",
+        price = "₺119,99",
+        period = "3 Ay"
+    )
+)
+
 class SubscriptionPaywallScreen : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
@@ -46,7 +61,8 @@ class SubscriptionPaywallScreen : Screen {
         var busy by remember { mutableStateOf(false) }
         var message by remember { mutableStateOf<String?>(null) }
         var selectedId by remember { mutableStateOf("premium_1_month") }
-        val selected = products.find { it.id == selectedId } ?: products.firstOrNull()
+        val displayProducts = if (products.isNotEmpty()) products else FALLBACK_PRODUCTS
+        val selected = displayProducts.find { it.id == selectedId } ?: displayProducts.firstOrNull()
         val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
         var reload by remember { mutableIntStateOf(0) }
 
@@ -54,10 +70,14 @@ class SubscriptionPaywallScreen : Screen {
             loading = true
             message = null
             try {
-                products = billing.loadProducts()
-                if (products.isEmpty()) message = "Abonelikler şu anda mağazada görüntülenemiyor. Lütfen daha sonra tekrar deneyin."
+                val loaded = billing.loadProducts()
+                if (loaded.isNotEmpty()) {
+                    products = loaded
+                }
             } catch (cancelled: CancellationException) { throw cancelled }
-            catch (error: Exception) { message = "Abonelikler yüklenemedi. Bağlantınızı kontrol edip tekrar deneyin." }
+            catch (_: Exception) {
+                // If loading fails, fallback plan cards remain available
+            }
             finally { loading = false }
         }
 
@@ -98,10 +118,7 @@ class SubscriptionPaywallScreen : Screen {
                 }
                 if (loading || busy) CircularProgressIndicator()
                 message?.let { Text(it, textAlign = TextAlign.Center) }
-                if (!loading && products.isEmpty()) {
-                    OutlinedButton(onClick = { reload++ }, enabled = !busy) { Text("Tekrar Dene") }
-                }
-                products.forEach { product ->
+                displayProducts.forEach { product ->
                     OutlinedCard(modifier = Modifier.fillMaxWidth().selectable(
                         selected = selected?.id == product.id, enabled = !busy,
                         role = Role.RadioButton, onClick = { selectedId = product.id }),
@@ -123,20 +140,24 @@ class SubscriptionPaywallScreen : Screen {
                     Button(modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
                         shape = RoundedCornerShape(16.dp), enabled = !busy && !loading && !premium,
                         onClick = {
-                                    busy = true
-                                    message = null
-                                    scope.launch {
-                                        try {
-                                            when (billing.startSubscription(product.id)) {
-                                                PurchaseResult.SUCCESS -> message = "Satın alma tamamlandı. Premium erişiminiz güncellendi."
-                                                PurchaseResult.CANCELLED -> message = "Satın alma iptal edildi."
-                                                PurchaseResult.ERROR -> message = "Satın alma tamamlanamadı. Lütfen tekrar deneyin."
-                                            }
-                                        } catch (cancelled: CancellationException) { throw cancelled }
-                                        catch (error: Exception) {
-                                            message = error.message ?: "Satın alma tamamlanamadı."
-                                        } finally { busy = false }
+                            busy = true
+                            message = null
+                            scope.launch {
+                                try {
+                                    when (billing.startSubscription(product.id)) {
+                                        PurchaseResult.SUCCESS -> message = "Satın alma tamamlandı. Premium erişiminiz güncellendi."
+                                        PurchaseResult.CANCELLED -> message = "Satın alma iptal edildi."
+                                        PurchaseResult.ERROR -> {
+                                            reload++
+                                            message = "Satın alma tamamlanamadı. Lütfen tekrar deneyin."
+                                        }
                                     }
+                                } catch (cancelled: CancellationException) { throw cancelled }
+                                catch (error: Exception) {
+                                    reload++
+                                    message = error.message ?: "Satın alma tamamlanamadı."
+                                } finally { busy = false }
+                            }
                         }) { Text(if (busy) "Mağaza işlemi sürüyor…" else if (premium) "Premium aktif" else "Premium aboneliğini başlat") }
                 }
                 TextButton(onClick = { navigator.pop() }, enabled = !busy) { Text("Ücretsiz kullanmaya devam et") }
@@ -160,11 +181,16 @@ class SubscriptionPaywallScreen : Screen {
                     "Ödeme mağaza hesabınıza yansıtılır. Abonelik iptal edilmediği sürece seçtiğiniz dönem ve mağazada gösterilen ücretle otomatik yenilenir. Aboneliğinizi cihazınızdaki mağaza hesap ayarlarından yönetebilir veya iptal edebilirsiniz.",
                     style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center
                 )
-                TextButton(onClick = { navigator.push(LegalScreen(LegalDocument.PRIVACY)) }) {
-                    Text("Gizlilik Politikası")
-                }
-                TextButton(onClick = { navigator.push(LegalScreen(LegalDocument.TERMS)) }) {
-                    Text("Kullanım Koşulları")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    TextButton(onClick = { navigator.push(LegalScreen(LegalDocument.PRIVACY)) }) {
+                        Text("Gizlilik Politikası")
+                    }
+                    TextButton(onClick = { navigator.push(LegalScreen(LegalDocument.TERMS)) }) {
+                        Text("Kullanım Koşulları (EULA)")
+                    }
                 }
             }
         }

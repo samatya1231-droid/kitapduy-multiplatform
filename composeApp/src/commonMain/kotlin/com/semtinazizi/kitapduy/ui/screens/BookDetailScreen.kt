@@ -52,6 +52,7 @@ import com.semtinazizi.kitapduy.ui.viewmodel.BookDetailScreenModel
 import com.semtinazizi.kitapduy.ui.viewmodel.GlobalAudioController
 import com.semtinazizi.kitapduy.ui.components.dialogs.*
 import com.semtinazizi.kitapduy.platform.BannerAdView
+import com.semtinazizi.kitapduy.platform.BillingManager
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.compose.koinInject
 
@@ -62,8 +63,9 @@ data class BookDetailScreen(val book: Book) : Screen {
         val navigator = LocalNavigator.currentOrThrow
         val scrollState = rememberScrollState()
         val authViewModel = koinViewModel<AuthViewModel>()
+        val billingManager = koinInject<BillingManager>()
         val userProfile by authViewModel.userProfile.collectAsState()
-        val isPremium = userProfile?.hasPremium() == true
+        val isPremium = (billingManager.isPremium.collectAsState().value || userProfile?.hasPremium() == true)
         val userId = userProfile?.uid ?: ""
         val userName = userProfile?.name ?: "Kullanıcı"
 
