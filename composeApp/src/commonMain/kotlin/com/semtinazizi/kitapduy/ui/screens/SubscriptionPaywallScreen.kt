@@ -117,7 +117,13 @@ class SubscriptionPaywallScreen : Screen {
                         color = MaterialTheme.colorScheme.primary)
                 }
                 if (loading || busy) CircularProgressIndicator()
-                message?.let { Text(it, textAlign = TextAlign.Center) }
+                message?.let {
+                    Text(
+                        it,
+                        textAlign = TextAlign.Center,
+                        color = if (it.contains("tamamlandı") || it.contains("yüklendi")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    )
+                }
                 displayProducts.forEach { product ->
                     OutlinedCard(modifier = Modifier.fillMaxWidth().selectable(
                         selected = selected?.id == product.id, enabled = !busy,
@@ -148,14 +154,24 @@ class SubscriptionPaywallScreen : Screen {
                                         PurchaseResult.SUCCESS -> message = "Satın alma tamamlandı. Premium erişiminiz güncellendi."
                                         PurchaseResult.CANCELLED -> message = "Satın alma iptal edildi."
                                         PurchaseResult.ERROR -> {
-                                            reload++
                                             message = "Satın alma tamamlanamadı. Lütfen tekrar deneyin."
+                                            if (products.isEmpty()) {
+                                                try {
+                                                    val loaded = billing.loadProducts()
+                                                    if (loaded.isNotEmpty()) products = loaded
+                                                } catch (_: Exception) {}
+                                            }
                                         }
                                     }
                                 } catch (cancelled: CancellationException) { throw cancelled }
                                 catch (error: Exception) {
-                                    reload++
                                     message = error.message ?: "Satın alma tamamlanamadı."
+                                    if (products.isEmpty()) {
+                                        try {
+                                            val loaded = billing.loadProducts()
+                                            if (loaded.isNotEmpty()) products = loaded
+                                        } catch (_: Exception) {}
+                                    }
                                 } finally { busy = false }
                             }
                         }) { Text(if (busy) "Mağaza işlemi sürüyor…" else if (premium) "Premium aktif" else "Premium aboneliğini başlat") }

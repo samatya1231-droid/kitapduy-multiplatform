@@ -24,6 +24,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.semtinazizi.kitapduy.util.root
 import org.koin.compose.viewmodel.koinViewModel
+import com.semtinazizi.kitapduy.platform.BillingManager
 import com.semtinazizi.kitapduy.ui.viewmodel.HomeViewModel
 import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import com.semtinazizi.kitapduy.ui.components.*
@@ -45,10 +46,11 @@ class HomeScreen : Screen {
         val tabs = cafe.adriel.voyager.navigator.tab.LocalTabNavigator.current
         val homeViewModel = koinViewModel<HomeViewModel>()
         val authViewModel = koinViewModel<AuthViewModel>()
+        val billingManager = org.koin.compose.koinInject<BillingManager>()
 
         val userProfile by authViewModel.userProfile.collectAsState()
         val photoUrl = userProfile?.photoUrl
-        val isPremium = userProfile?.hasPremium() == true
+        val isPremium = (billingManager.isPremium.collectAsState().value || userProfile?.hasPremium() == true)
         
         val books by homeViewModel.books.collectAsState()
         val recommendedBooks by homeViewModel.recommendedBooks.collectAsState()

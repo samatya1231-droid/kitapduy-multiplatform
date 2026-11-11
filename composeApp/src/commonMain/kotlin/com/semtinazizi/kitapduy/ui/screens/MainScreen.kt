@@ -38,10 +38,13 @@ import com.semtinazizi.kitapduy.ui.screens.tabs.ProfileTab
 import com.semtinazizi.kitapduy.ui.screens.tabs.AskidaTab
 import com.semtinazizi.kitapduy.ui.screens.tabs.FeedTab
 import com.semtinazizi.kitapduy.ui.components.MiniPlayerSection
+import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import com.semtinazizi.kitapduy.ui.viewmodel.GlobalAudioController
+import com.semtinazizi.kitapduy.platform.BillingManager
 import com.semtinazizi.kitapduy.ui.theme.SleekChampagne
 import com.semtinazizi.kitapduy.ui.theme.SleekDarkBackground
 import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -52,6 +55,10 @@ class MainScreen : Screen {
     @Composable
     override fun Content() {
         val audioController = koinInject<GlobalAudioController>()
+        val billingManager = koinInject<BillingManager>()
+        val authViewModel = koinViewModel<AuthViewModel>()
+        val userProfile by authViewModel.userProfile.collectAsState()
+        val isPremium = (billingManager.isPremium.collectAsState().value || userProfile?.hasPremium() == true)
         val currentBook by audioController.currentBook.collectAsState()
         val currentEpisode by audioController.currentEpisode.collectAsState()
         val isPlaying by audioController.isPlaying.collectAsState()
@@ -85,7 +92,7 @@ class MainScreen : Screen {
                                 artist = artist,
                                 coverUrl = coverUrl,
                                 isPlaying = isPlaying,
-                                isPremium = true,
+                                isPremium = isPremium,
                                 modifier = Modifier.padding(bottom = 8.dp),
                                 onClick = {
                                     if (currentBook != null) {
