@@ -7,6 +7,7 @@ workflows:
     environment:
       vars:
         BUNDLE_ID: "com.semtinazizi.kitapduy"
+        GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx6g -XX:+UseG1GC"
       xcode: latest
       cocoapods: default
       java: 17
@@ -73,6 +74,7 @@ workflows:
         bundle_identifier: com.semtinazizi.kitapduy
       vars:
         BUNDLE_ID: "com.semtinazizi.kitapduy"
+        GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx6g -XX:+UseG1GC"
       xcode: latest
       cocoapods: default
       java: 17
