@@ -211,8 +211,12 @@ class RunnerTest(unittest.TestCase):
         self.assertTrue(result["passed"])
         self.assertTrue((self.output / "iPhone/screen.png").exists())
         app_launch_call = launch.call_args_list[0]
+        self.assertIn("--console-pty", app_launch_call.args[0])
         self.assertEqual(app_launch_call.kwargs["env"]["SIMCTL_CHILD_KITAPDUY_CI_SMOKE_TEST"], "1")
         self.assertEqual(app_launch_call.kwargs["env"]["SIMCTL_CHILD_KITAPDUY_CI_HTTPS_URL"], "https://example.com/")
+        bootstatus_calls = [call.args for call in runner.command.call_args_list if len(call.args) > 0 and call.args[0] == "bootstatus"]
+        self.assertTrue(len(bootstatus_calls) > 0)
+        self.assertNotIn("-b", bootstatus_calls[0])
         video_call = launch.call_args_list[1]
         self.assertEqual(video_call.args[0][:5], ["xcrun", "simctl", "io", created, "recordVideo"])
         self.assertIn("--codec=h264", video_call.args[0])

@@ -13,6 +13,15 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         _ = UIColor.systemBackground.resolvedColor(with: traits)
         _ = UIColor.label.resolvedColor(with: traits)
         PushService.shared.configure(launchOptions: launchOptions)
+        #if targetEnvironment(simulator)
+        let environment = ProcessInfo.processInfo.environment
+        if environment["KITAPDUY_CI_SMOKE_TEST"] == "1" {
+            IosNetworkSmokeCheck.shared.start(
+                url: environment["KITAPDUY_CI_HTTPS_URL"] ?? "https://example.com/"
+            )
+            IosSmokeSimulationDriver.shared.start()
+        }
+        #endif
         return true
     }
     
@@ -37,6 +46,15 @@ struct KitapDuyApp: App {
         AuthenticationService.shared.configure()
         StoreService.shared.configure()
         AdMobBridge.shared.configure()
+        #if targetEnvironment(simulator)
+        let environment = ProcessInfo.processInfo.environment
+        if environment["KITAPDUY_CI_SMOKE_TEST"] == "1" {
+            IosNetworkSmokeCheck.shared.start(
+                url: environment["KITAPDUY_CI_HTTPS_URL"] ?? "https://example.com/"
+            )
+            IosSmokeSimulationDriver.shared.start()
+        }
+        #endif
     }
     
     var body: some Scene {
@@ -49,10 +67,6 @@ struct KitapDuyApp: App {
                     let environment = ProcessInfo.processInfo.environment
                     if environment["KITAPDUY_CI_SMOKE_TEST"] == "1" {
                         NSLog("KITAPDUY_CI_UI_APPEARED")
-                        IosNetworkSmokeCheck.shared.start(
-                            url: environment["KITAPDUY_CI_HTTPS_URL"] ?? "https://example.com/"
-                        )
-                        IosSmokeSimulationDriver.shared.start()
                     }
                     #endif
                 }

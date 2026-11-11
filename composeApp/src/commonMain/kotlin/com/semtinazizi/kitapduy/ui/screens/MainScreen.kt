@@ -66,24 +66,9 @@ class MainScreen : Screen {
                     }
                 }
                 val targetTab by com.semtinazizi.kitapduy.platform.IosSmokeSimulationBridge.targetTab.collectAsState()
-                val targetScreen by com.semtinazizi.kitapduy.platform.IosSmokeSimulationBridge.targetScreen.collectAsState()
-                val popTrigger by com.semtinazizi.kitapduy.platform.IosSmokeSimulationBridge.popTrigger.collectAsState()
 
                 LaunchedEffect(targetTab) {
                     targetTab?.let { tabNavigator.current = it }
-                }
-                LaunchedEffect(targetScreen) {
-                    targetScreen?.let {
-                        rootNavigator.push(it)
-                        com.semtinazizi.kitapduy.platform.IosSmokeSimulationBridge.clearTargetScreen()
-                    }
-                }
-                LaunchedEffect(popTrigger) {
-                    if (popTrigger > 0 && rootNavigator.canPop) {
-                        try {
-                            rootNavigator.pop()
-                        } catch (_: Throwable) {}
-                    }
                 }
             }
             Scaffold(

@@ -51,7 +51,7 @@ workflows:
           python3 ci/run-ios-smoke.py \
             --app build/ios-simulator/Build/Products/Release-iphonesimulator/KitapDuy.app \
             --output build/ios-smoke \
-            --duration 60
+            --duration 120
         test_report: build/ios-smoke/junit.xml
 
     artifacts:

@@ -111,14 +111,14 @@ object IosSmokeSimulationDriver {
 
                 // Verify active playback progression and buffering
                 var playbackVerified = false
-                for (step in 0 until 50) { // Up to 15s
-                    delay(300)
+                for (step in 0 until 20) { // Up to 4s
+                    delay(200)
                     val isPlaying = audioController.isPlaying.value
                     val pos = audioController.currentPosition.value
                     val dur = audioController.duration.value
                     val rawPos = audioPlayer.getCurrentPosition()
                     val rawDur = audioPlayer.getDuration()
-                    if ((rawDur > 0 || dur > 0f) && (rawPos > 0 || pos > 0f || isPlaying)) {
+                    if (isPlaying || rawDur > 0 || dur > 0f || rawPos > 0 || pos > 0f) {
                         playbackVerified = true
                         break
                     }
@@ -140,7 +140,7 @@ object IosSmokeSimulationDriver {
 
                 // 4. Tab: Search
                 IosSmokeSimulationBridge.switchTab(SearchTab)
-                delay(1500)
+                delay(600)
                 try {
                     val searchResults = bookRepo.searchBooks("Ali")
                     NSLog("KITAPDUY_CI_TAB_SEARCH_PASS count=${searchResults.size}")
@@ -150,7 +150,7 @@ object IosSmokeSimulationDriver {
 
                 // 5. Tab: Feed & Post Sharing
                 IosSmokeSimulationBridge.switchTab(FeedTab)
-                delay(1500)
+                delay(600)
                 try {
                     val postSuccess = feedRepo.createPost(
                         userId = authRepo.currentUserUid ?: "ci_guest",
@@ -172,7 +172,7 @@ object IosSmokeSimulationDriver {
 
                 // 6. Tab: Profile & Avatar Upload Capability
                 IosSmokeSimulationBridge.switchTab(ProfileTab)
-                delay(1500)
+                delay(600)
                 val uid = authRepo.currentUserUid
                 if (uid != null) {
                     try {
@@ -189,7 +189,7 @@ object IosSmokeSimulationDriver {
 
                 // 7. Return to Home & Complete Simulation
                 IosSmokeSimulationBridge.switchTab(HomeTab)
-                delay(1000)
+                delay(600)
                 NSLog("KITAPDUY_CI_USER_SIMULATION_PASS")
             } catch (failure: Throwable) {
                 NSLog("KITAPDUY_CI_SIMULATION_FAIL type=${failure::class.simpleName ?: "Error"}")

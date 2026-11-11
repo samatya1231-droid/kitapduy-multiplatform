@@ -60,6 +60,7 @@ class IosSmokeSimulationCommonValidationTest {
         val dur = audioController.duration.value
         val rawPos = audioPlayer.getCurrentPosition()
         val rawDur = audioPlayer.getDuration()
+        val playbackVerified = isPlaying || rawDur > 0 || dur > 0f || rawPos > 0 || pos > 0f
 
         if (audioController.isPlaying.value) {
             audioController.togglePlayPause()

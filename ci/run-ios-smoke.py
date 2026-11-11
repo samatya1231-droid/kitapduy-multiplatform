@@ -266,14 +266,14 @@ class SimulatorRunner:
                 raise RuntimeError("simctl create returned an invalid device UUID.")
             result["udid"] = udid
             self.command("boot", udid)
-            self.command("bootstatus", udid, "-b", timeout=300)
+            self.command("bootstatus", udid, timeout=300)
             self.command("install", udid, str(self.app))
             environment = dict(os.environ, SIMCTL_CHILD_KITAPDUY_CI_SMOKE_TEST="1",
                                SIMCTL_CHILD_KITAPDUY_CI_HTTPS_URL=self.url)
             console = directory / "console.log"
             console_stream = console.open("w", encoding="utf-8")
             process = subprocess.Popen(
-                ["xcrun", "simctl", "launch", "--terminate-running-process", "--console", udid, self.bundle],
+                ["xcrun", "simctl", "launch", "--terminate-running-process", "--console-pty", udid, self.bundle],
                 stdout=console_stream, stderr=subprocess.STDOUT, env=environment,
             )
             video_process, video_stream = self.start_recording(udid, video_path)

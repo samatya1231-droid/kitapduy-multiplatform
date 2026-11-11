@@ -1,7 +1,14 @@
 package com.semtinazizi.kitapduy
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import cafe.adriel.voyager.navigator.CurrentScreen
 import cafe.adriel.voyager.navigator.Navigator
+import com.semtinazizi.kitapduy.platform.IosSmokeSimulationBridge
+import com.semtinazizi.kitapduy.platform.isSimulatorCiSmokeTest
 
 
 /**
@@ -40,6 +47,30 @@ fun App() {
     }
     
     KitapduyTheme {
-        Navigator(SplashScreen())
+        Navigator(SplashScreen()) { navigator ->
+            if (isSimulatorCiSmokeTest) {
+                DisposableEffect(Unit) {
+                    println("KITAPDUY_CI_UI_APPEARED")
+                    onDispose {}
+                }
+                val targetScreen by IosSmokeSimulationBridge.targetScreen.collectAsState()
+                val popTrigger by IosSmokeSimulationBridge.popTrigger.collectAsState()
+
+                LaunchedEffect(targetScreen) {
+                    targetScreen?.let {
+                        navigator.push(it)
+                        IosSmokeSimulationBridge.clearTargetScreen()
+                    }
+                }
+                LaunchedEffect(popTrigger) {
+                    if (popTrigger > 0 && navigator.canPop) {
+                        try {
+                            navigator.pop()
+                        } catch (_: Throwable) {}
+                    }
+                }
+            }
+            CurrentScreen()
+        }
     }
 }
