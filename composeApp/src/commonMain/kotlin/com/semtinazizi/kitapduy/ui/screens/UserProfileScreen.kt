@@ -20,6 +20,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.util.root
 import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import com.semtinazizi.kitapduy.platform.BillingManager
 import com.semtinazizi.kitapduy.ui.components.*
@@ -136,7 +137,7 @@ class UserProfileScreen(val targetUserId: String? = null) : Screen {
                 profile == null -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                     ProfileEmptyCard("Okur köşen", error ?: "Profil yüklenemedi.",
                         if (uid == null) "Giriş yap" else "Tekrar dene", {
-                            if (uid == null) navigator.push(LoginScreen()) else model.loadProfileData(targetUserId)
+                            if (uid == null) navigator.root.push(LoginScreen()) else model.loadProfileData(targetUserId)
                         })
                 }
                 else -> LazyColumn(Modifier.fillMaxSize().padding(padding),
@@ -219,7 +220,7 @@ class UserProfileScreen(val targetUserId: String? = null) : Screen {
                         }
                         if (own && !premium) item("premium") {
                             PremiumUpgradeCard(modifier = Modifier.padding(horizontal = 20.dp), isPremium = false,
-                                onClick = { navigator.push(SubscriptionPaywallScreen()) })
+                                onClick = { navigator.root.push(SubscriptionPaywallScreen()) })
                         }
                     } else {
                         if (own) item("compose") {

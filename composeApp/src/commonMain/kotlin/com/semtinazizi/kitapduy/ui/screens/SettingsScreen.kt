@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.util.root
 import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -106,7 +107,7 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
                                     if (authRepository.deleteAccount()) {
                                         authViewModel.checkAuthStatus()
                                         showDeleteConfirmation = false
-                                        navigator.replaceAll(WelcomeScreen())
+                                        navigator.root.replaceAll(WelcomeScreen())
                                     } else {
                                         deleteError = "Hesabın silindiği doğrulanamadı. Lütfen tekrar deneyin veya ${LegalContent.supportEmail} adresine yazın."
                                     }
@@ -179,7 +180,7 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
 
                 SettingsSectionTitle("Görünüm")
                 SettingsItem(icon = Icons.Filled.Palette, title = "Tema Seçimi", subtitle = "6 özel renk teması (Premium)") {
-                    if (premium) themeDialog = true else navigator.push(SubscriptionPaywallScreen())
+                    if (premium) themeDialog = true else navigator.root.push(SubscriptionPaywallScreen())
                 }
                 val darkMode = com.semtinazizi.kitapduy.util.KmpThemeManager.isDarkMode(false)
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
@@ -190,7 +191,7 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
                     })
                 }
                 SettingsSectionTitle("Uygulama")
-                SettingsItem(icon = Icons.Filled.WorkspacePremium, title = "Premium", subtitle = "Planlar ve satın alımları geri yükleme") { navigator.push(SubscriptionPaywallScreen()) }
+                SettingsItem(icon = Icons.Filled.WorkspacePremium, title = "Premium", subtitle = "Planlar ve satın alımları geri yükleme") { navigator.root.push(SubscriptionPaywallScreen()) }
                 SettingsItem(icon = Icons.Filled.BarChart, title = "İstatistikler") { navigator.push(StatisticsScreen()) }
                 SettingsItem(icon = Icons.Filled.Language, title = "Uygulama Dili", subtitle = "Türkçe") { }
                 SettingsItem(icon = Icons.Filled.Notifications, title = "Bildirimler", subtitle = when (notificationsEnabled) {
@@ -225,7 +226,7 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
                             try {
                                 authRepository.signOut()
                                 authViewModel.checkAuthStatus()
-                                navigator.replaceAll(WelcomeScreen())
+                                navigator.root.replaceAll(WelcomeScreen())
                             } catch (e: kotlinx.coroutines.CancellationException) { throw e }
                             catch (e: Exception) { signOutError = "Çıkış yapılamadı. Bağlantınızı kontrol edip tekrar deneyin." }
                             finally { isSigningOut = false }

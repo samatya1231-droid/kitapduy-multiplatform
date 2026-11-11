@@ -38,6 +38,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.util.root
 import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.model.Book
 import com.semtinazizi.kitapduy.model.Comment
@@ -211,7 +212,7 @@ data class BookDetailScreen(val book: Book) : Screen {
                                         }
                                     }
                                 } else {
-                                    navigator.push(SubscriptionPaywallScreen())
+                                    navigator.root.push(SubscriptionPaywallScreen())
                                 }
                             }
                         )
@@ -247,7 +248,7 @@ data class BookDetailScreen(val book: Book) : Screen {
                         }
                         PremiumAndAdsSection(
                             isPremium = isPremium,
-                            onPremiumClick = { navigator.push(SubscriptionPaywallScreen()) }
+                            onPremiumClick = { navigator.root.push(SubscriptionPaywallScreen()) }
                         )
 
                         BookCommentsSection(
@@ -294,7 +295,7 @@ data class BookDetailScreen(val book: Book) : Screen {
                     audioController.setAtmosphereVolume(it)
                 },
                 isPremium = isPremium,
-                onPremiumUpgrade = { navigator.push(SubscriptionPaywallScreen()) },
+                onPremiumUpgrade = { navigator.root.push(SubscriptionPaywallScreen()) },
                 showSpeedDialog = showSpeedDialog,
                 onDismissSpeed = { showSpeedDialog = false },
                 currentSpeed = currentSpeed,

@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.util.root
 import com.semtinazizi.kitapduy.ui.components.SmartImage
 import com.semtinazizi.kitapduy.ui.components.PremiumUpgradeCard
 import com.semtinazizi.kitapduy.ui.viewmodel.HomeViewModel
@@ -63,7 +64,7 @@ class MindLibraryScreen : Screen {
                     }
                 }
                 if (profile?.hasPremium() != true && category == "Tümü") item("premium") {
-                    PremiumUpgradeCard(Modifier.padding(horizontal = 16.dp), false) { navigator.push(SubscriptionPaywallScreen()) }
+                    PremiumUpgradeCard(Modifier.padding(horizontal = 16.dp), false) { navigator.root.push(SubscriptionPaywallScreen()) }
                 }
                 item("categories") {
                     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

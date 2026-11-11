@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.util.root
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import com.semtinazizi.kitapduy.ui.components.PremiumUpgradeCard
@@ -253,7 +254,7 @@ object EntertainmentTab : Tab {
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         PremiumUpgradeCard(
-                            onClick = { parentNavigator.push(SubscriptionPaywallScreen()) }
+                            onClick = { navigator.root.push(SubscriptionPaywallScreen()) }
                         )
 
                         Card(

@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.util.root
 import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.model.PodcastEpisode
 import com.semtinazizi.kitapduy.ui.theme.BrandGold
@@ -321,7 +322,7 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { 
                                 if (!isPremium) {
-                                    navigator.push(SubscriptionPaywallScreen())
+                                    navigator.root.push(SubscriptionPaywallScreen())
                                 }
                             }) {
                                 Icon(Icons.Default.Download, null, tint = MaterialTheme.colorScheme.onSurface)
@@ -333,7 +334,7 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                         
                         if (!isPremium) {
                             PremiumTrialBanner(
-                                onClick = { navigator.push(SubscriptionPaywallScreen()) },
+                                onClick = { navigator.root.push(SubscriptionPaywallScreen()) },
                                 modifier = Modifier.padding(horizontal = 24.dp)
                             )
                             Spacer(Modifier.height(24.dp))
@@ -390,7 +391,7 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                         audioController.setAtmosphereVolume(it)
                     },
                     isPremiumUser = isPremium,
-                    onUpgradeClick = { navigator.push(SubscriptionPaywallScreen()) }
+                    onUpgradeClick = { navigator.root.push(SubscriptionPaywallScreen()) }
                 )
             }
             if (showSpeedDialog) {

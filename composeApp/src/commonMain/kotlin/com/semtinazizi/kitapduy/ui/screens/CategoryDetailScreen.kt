@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.*
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.util.root
 import com.semtinazizi.kitapduy.model.Book
 import com.semtinazizi.kitapduy.ui.theme.PremiumAccent
 import com.semtinazizi.kitapduy.ui.theme.PlayfairDisplayFamily
@@ -175,7 +176,7 @@ class CategoryDetailScreen(val categoryName: String) : Screen {
                                 if (!isPremium) {
                                     item(key = "premium_trial_banner") {
                                         PremiumTrialBanner(
-                                            onClick = { navigator.push(SubscriptionPaywallScreen()) }
+                                            onClick = { navigator.root.push(SubscriptionPaywallScreen()) }
                                         )
                                     }
                                 }
@@ -333,7 +334,7 @@ class CategoryDetailScreen(val categoryName: String) : Screen {
                                         if (adIndex % 2 != 0) {
                                             PremiumUpgradeCard(
                                                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                                                onClick = { navigator.push(SubscriptionPaywallScreen()) }
+                                                onClick = { navigator.root.push(SubscriptionPaywallScreen()) }
                                             )
                                         } else {
                                             Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {

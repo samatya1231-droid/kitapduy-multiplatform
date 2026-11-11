@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.*
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.util.root
 import org.koin.compose.viewmodel.koinViewModel
 import com.semtinazizi.kitapduy.ui.viewmodel.HomeViewModel
 import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
@@ -131,7 +132,7 @@ class HomeScreen : Screen {
                         item {
                             GreetingAndProfileBar(photoUrl, isPremium,
                                 onProfileClick = { navigator.push(UserProfileScreen()) },
-                                onPremiumClick = { navigator.push(SubscriptionPaywallScreen()) })
+                                onPremiumClick = { navigator.root.push(SubscriptionPaywallScreen()) })
                             SearchBarSection(Modifier.padding(horizontal = 16.dp)) { navigator.push(SearchScreen()) }
                         }
                         item {
@@ -174,7 +175,7 @@ class HomeScreen : Screen {
                         }
                         if (!isPremium) item {
                             PremiumUpgradeCard(modifier = Modifier.padding(horizontal = 16.dp, vertical = 32.dp),
-                                isPremium = false, onClick = { navigator.push(SubscriptionPaywallScreen()) })
+                                isPremium = false, onClick = { navigator.root.push(SubscriptionPaywallScreen()) })
                         }
                         groupedBooks.forEach { (category, categoryBooks) ->
                             if (categoryBooks.isNotEmpty()) item(key = "category_" + category) {

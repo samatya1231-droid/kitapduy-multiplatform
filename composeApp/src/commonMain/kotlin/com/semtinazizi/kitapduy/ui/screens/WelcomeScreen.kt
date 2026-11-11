@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.util.root
 import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import com.semtinazizi.kitapduy.ui.components.GoogleIcon
@@ -64,7 +65,7 @@ class WelcomeScreen : Screen {
 
         LaunchedEffect(isLoggedIn) {
             if (isLoggedIn) {
-                navigator.replaceAll(MainScreen())
+                navigator.root.replaceAll(MainScreen())
             }
         }
 

@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.util.root
 import com.semtinazizi.kitapduy.ui.components.PremiumUpgradeCard
 import com.semtinazizi.kitapduy.ui.theme.SleekChampagne
 import com.semtinazizi.kitapduy.ui.theme.PlayfairDisplayFamily
@@ -195,7 +196,7 @@ class KitapBilScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         PremiumUpgradeCard(
-                            onClick = { navigator.push(SubscriptionPaywallScreen()) }
+                            onClick = { navigator.root.push(SubscriptionPaywallScreen()) }
                         )
 
                         Card(

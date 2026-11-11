@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.util.root
 import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
@@ -57,7 +58,7 @@ class LoginScreen : Screen {
         val isLoggedIn by authViewModel.isLoggedIn.collectAsState()
         LaunchedEffect(isLoggedIn) {
             if (isLoggedIn) {
-                navigator.replaceAll(MainScreen())
+                navigator.root.replaceAll(MainScreen())
             }
         }
 
@@ -111,7 +112,7 @@ class LoginScreen : Screen {
 
             IconButton(
                 onClick = {
-                    if (navigator.canPop) navigator.pop() else navigator.replaceAll(WelcomeScreen())
+                    if (navigator.canPop) navigator.pop() else navigator.root.replaceAll(WelcomeScreen())
                 },
                 modifier = Modifier
                     .align(Alignment.TopStart)

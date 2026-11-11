@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.util.root
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import coil3.compose.AsyncImage
@@ -146,7 +147,7 @@ object LibraryTab : Tab {
             PremiumUpgradeCard(
                 modifier = Modifier.padding(top = 16.dp),
                 isPremium = isPremium,
-                onClick = { (navigator.parent ?: navigator).push(SubscriptionPaywallScreen()) }
+                onClick = { navigator.root.push(SubscriptionPaywallScreen()) }
             )
 
             Spacer(Modifier.height(16.dp))

@@ -46,6 +46,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.util.root
 
 class MainScreen : Screen {
     @Composable
@@ -116,7 +117,7 @@ class MainScreen : Screen {
                                     audioController.togglePlayPause()
                                 },
                                 onUpgradeClick = {
-                                    rootNavigator.push(com.semtinazizi.kitapduy.ui.screens.SubscriptionPaywallScreen())
+                                    rootNavigator.root.push(com.semtinazizi.kitapduy.ui.screens.SubscriptionPaywallScreen())
                                 }
                             )
                         }

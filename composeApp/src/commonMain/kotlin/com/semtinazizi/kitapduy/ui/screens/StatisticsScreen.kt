@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.util.root
 import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import com.semtinazizi.kitapduy.domain.repository.BookRepository
 import com.semtinazizi.kitapduy.domain.repository.SocialRepository
@@ -61,7 +62,7 @@ internal fun ReadingSummaryContent(premium: Boolean) {
             if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
             else if (error != null) item {
                 Text(error.orEmpty(), color = MaterialTheme.colorScheme.error)
-                TextButton(onClick = { if (auth.currentUserUid == null) navigator.push(LoginScreen()) else retry++ }) {
+                TextButton(onClick = { if (auth.currentUserUid == null) navigator.root.push(LoginScreen()) else retry++ }) {
                     Text(if (auth.currentUserUid == null) "Giriş yap" else "Tekrar dene")
                 }
             } else {
