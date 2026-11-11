@@ -18,7 +18,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import org.koin.core.context.GlobalContext
+import org.koin.mp.KoinPlatform
 import platform.Foundation.NSLog
 import platform.Foundation.NSProcessInfo
 
@@ -41,20 +41,20 @@ object IosSmokeSimulationDriver {
             try {
                 // 1. Wait for Koin initialization
                 var attempts = 0
-                while (GlobalContext.getOrNull() == null && attempts < 100) {
+                while (KoinPlatform.getKoinOrNull() == null && attempts < 100) {
                     delay(100)
                     attempts++
                 }
-                val koin = GlobalContext.getOrNull() ?: run {
+                val koin = KoinPlatform.getKoinOrNull() ?: run {
                     NSLog("KITAPDUY_CI_SIMULATION_FAIL type=KoinNotReady")
                     return@launch
                 }
 
-                val authRepo = koin.get<AuthRepository>()
-                val audioController = koin.get<GlobalAudioController>()
-                val audioPlayer = koin.get<AudioPlayer>()
-                val bookRepo = koin.get<BookRepository>()
-                val feedRepo = koin.get<FeedRepository>()
+                val authRepo: AuthRepository = koin.get()
+                val audioController: GlobalAudioController = koin.get()
+                val audioPlayer: AudioPlayer = koin.get()
+                val bookRepo: BookRepository = koin.get()
+                val feedRepo: FeedRepository = koin.get()
 
                 // 2. Automated Guest Login & Home Browsing
                 delay(800)
@@ -81,12 +81,12 @@ object IosSmokeSimulationDriver {
 
                 // Wait for Home screen content rendering to settle
                 delay(1200)
-                val books = try {
+                val books: List<Book> = try {
                     bookRepo.getBooks().filter { it.title.isNotBlank() && it.id != "error" }
                 } catch (_: Throwable) {
                     emptyList()
                 }
-                NSLog("KITAPDUY_CI_HOME_LOADED count=%d", books.size)
+                NSLog("KITAPDUY_CI_HOME_LOADED count=${books.size}")
 
                 // 3. Audiobook Playback Verification
                 // Sample book with verified live streaming audio (Birdenbire.MP3: HTTP 206, ~35MB audio stream)
@@ -128,7 +128,7 @@ object IosSmokeSimulationDriver {
                     return@launch
                 }
 
-                NSLog("KITAPDUY_CI_AUDIO_PLAYING title=%@ verified=1", sampleBook.title)
+                NSLog("KITAPDUY_CI_AUDIO_PLAYING title=${sampleBook.title} verified=1")
 
                 delay(1500)
                 if (audioController.isPlaying.value) {
@@ -142,7 +142,7 @@ object IosSmokeSimulationDriver {
                 delay(1500)
                 try {
                     val searchResults = bookRepo.searchBooks("Ali")
-                    NSLog("KITAPDUY_CI_TAB_SEARCH_PASS count=%d", searchResults.size)
+                    NSLog("KITAPDUY_CI_TAB_SEARCH_PASS count=${searchResults.size}")
                 } catch (_: Throwable) {
                     NSLog("KITAPDUY_CI_TAB_SEARCH_PASS")
                 }
@@ -163,7 +163,7 @@ object IosSmokeSimulationDriver {
                         audioUrl = null,
                         pollOptions = null
                     )
-                    NSLog("KITAPDUY_CI_FEED_POST_PASS success=%d", if (postSuccess) 1 else 0)
+                    NSLog("KITAPDUY_CI_FEED_POST_PASS success=${if (postSuccess) 1 else 0}")
                 } catch (_: Throwable) {
                     NSLog("KITAPDUY_CI_FEED_POST_PASS fallback=1")
                 }
@@ -191,7 +191,7 @@ object IosSmokeSimulationDriver {
                 delay(1000)
                 NSLog("KITAPDUY_CI_USER_SIMULATION_PASS")
             } catch (failure: Throwable) {
-                NSLog("KITAPDUY_CI_SIMULATION_FAIL type=%@", failure::class.simpleName ?: "Error")
+                NSLog("KITAPDUY_CI_SIMULATION_FAIL type=${failure::class.simpleName ?: "Error"}")
             }
         }
     }
