@@ -319,10 +319,18 @@ class FixtureTest(unittest.TestCase):
     def test_empty_search_and_audio_range(self):
         with smoke.serve_fixture() as (url, _):
             self.assertEqual(self.request_json(url + "/rest/v1/books?or=(title.ilike.*notfound*)"), [])
-            with urlopen(Request(url + "/audio.wav", headers={"Range": "bytes=0-15"}), timeout=5) as response:
+            book = self.request_json(url + "/rest/v1/books")[0]
+            audio_url = book["audio_url"]
+            with urlopen(url + "/podcast.xml", timeout=5) as response:
+                self.assertIn(f'{audio_url}?episode=1" type="audio/mpeg"'.encode(), response.read())
+            with urlopen(Request(audio_url, method="HEAD"), timeout=5) as response:
+                self.assertEqual(response.headers["Content-Type"], "audio/mpeg")
+                self.assertEqual(response.headers["Accept-Ranges"], "bytes")
+                audio_size = int(response.headers["Content-Length"])
+            with urlopen(Request(audio_url, headers={"Range": "bytes=0-15"}), timeout=5) as response:
                 self.assertEqual(response.status, 206)
                 self.assertEqual(len(response.read()), 16)
-                self.assertTrue(response.headers["Content-Range"].startswith("bytes 0-15/"))
+                self.assertEqual(response.headers["Content-Range"], f"bytes 0-15/{audio_size}")
 
 
 if __name__ == "__main__":

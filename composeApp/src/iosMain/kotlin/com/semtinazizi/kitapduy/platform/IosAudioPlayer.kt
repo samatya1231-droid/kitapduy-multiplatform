@@ -105,11 +105,18 @@ class IosAudioPlayer : AudioPlayer {
         // Let AVPlayer begin buffering for playback while it prepares the item.
         if (startPositionMs <= 0) startPlayback()
         readyJob = scope.launch {
+            val player = avPlayer ?: return@launch
+            // Start the watchdog before waiting for readiness. A stalled buffer
+            // estimate can delay the ready status as well as playback.
+            val startupRetry = if (startPositionMs <= 0) launch {
+                retryBufferedStart(player, playerItem)
+            } else null
             val ready = withTimeoutOrNull(30_000) {
                 while (playerItem.status == AVPlayerItemStatusUnknown) delay(50)
                 playerItem.status == AVPlayerItemStatusReadyToPlay
             } == true
             if (!ready) {
+                startupRetry?.cancel()
                 NSLog("KitapDuy playback item unavailable (code ${playerItem.error?.code ?: "timeout"})")
                 if (item.id == "kitapduy_preroll_ad" && queueIndex + 1 < queue.size) {
                     queueIndex++
@@ -120,9 +127,28 @@ class IosAudioPlayer : AudioPlayer {
                 }
                 return@launch
             }
-            if (startPositionMs > 0) seekTo(startPositionMs)
-            if (shouldPlay) startPlayback()
+            if (startPositionMs > 0) {
+                seekTo(startPositionMs)
+                if (shouldPlay) startPlayback()
+            }
             updateNowPlayingInfo()
+            if (startPositionMs > 0 && shouldPlay) retryBufferedStart(player, playerItem)
+        }
+    }
+
+    private suspend fun retryBufferedStart(player: AVPlayer, item: AVPlayerItem) {
+        delay(3_000)
+        repeat(7) {
+            if (!shouldPlay || player.currentItem != item ||
+                player.timeControlStatus != AVPlayerTimeControlStatusWaitingToPlayAtSpecifiedRate
+            ) return
+            if (item.loadedTimeRanges.isNotEmpty()) {
+                NSLog("KitapDuy playback starting with buffered audio")
+                player.playImmediatelyAtRate(playbackSpeed)
+                updateNowPlayingInfo()
+                return
+            }
+            delay(1_000)
         }
     }
 

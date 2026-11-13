@@ -5,6 +5,7 @@ import XCTest
 @MainActor
 final class ReaderJourneyTests: XCTestCase {
     private let app = XCUIApplication(bundleIdentifier: "com.semtinazizi.kitapduy")
+    private let guestName = "Misafir"
 
     func test01GuestAndBookPlayback() throws {
         try launchAndSignIn()
@@ -103,12 +104,20 @@ final class ReaderJourneyTests: XCTestCase {
         }
         try step("17-profile-saved") {
             let field = element("profile-name")
-            let previous = try XCTUnwrap(field.value as? String)
+            let updatedName = guestName + " Profil"
             try tap(field)
             field.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
-            field.typeText(" QA")
-            try tap(element("profile-save"), scroll: true)
-            try visible(text(previous + " QA"), scroll: true)
+            field.typeText(" Profil")
+            field.typeText(XCUIKeyboardKey.return.rawValue)
+            try waitFor("Profil klavyesi kapanmalı") { !self.app.keyboards.firstMatch.exists }
+            try tap(app.buttons["profile-save"], scroll: true)
+            try waitFor("Profil düzenleme ekranı kapanmalı") { !field.exists }
+            let name = text(updatedName)
+            for _ in 0..<4 {
+                if name.exists && name.isHittable { break }
+                app.swipeDown(velocity: .slow)
+            }
+            try visible(name)
         }
     }
 
@@ -177,8 +186,15 @@ final class ReaderJourneyTests: XCTestCase {
     }
 
     private func elapsed(_ id: String) -> Int {
-        let parts = element(id).label.split(separator: ":").compactMap { Int($0) }
-        return parts.count == 2 ? parts[0] * 60 + parts[1] : -1
+        let timer = element(id)
+        for text in [timer.label, timer.value as? String ?? ""] {
+            let parts = text.split(separator: ":", omittingEmptySubsequences: false)
+            let numbers = parts.compactMap { Int($0) }
+            if numbers.count == parts.count && (numbers.count == 2 || numbers.count == 3) {
+                return numbers.reduce(0) { $0 * 60 + $1 }
+            }
+        }
+        return -1
     }
 
     private func element(_ id: String) -> XCUIElement {

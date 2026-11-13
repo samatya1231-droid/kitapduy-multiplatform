@@ -6,6 +6,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -16,6 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -36,6 +40,7 @@ class ProfileEditScreen : Screen {
         val authViewModel = koinViewModel<AuthViewModel>()
         val userProfile by authViewModel.userProfile.collectAsState()
         val coroutineScope = rememberCoroutineScope()
+        val focusManager = LocalFocusManager.current
 
         var name by remember { mutableStateOf(userProfile?.name ?: "") }
         var username by remember { mutableStateOf(userProfile?.username ?: "") }
@@ -157,6 +162,8 @@ class ProfileEditScreen : Screen {
                     onValueChange = { name = it },
                     label = { Text("İsim Soyisim") },
                     modifier = Modifier.fillMaxWidth().testTag("profile-name"),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
                     singleLine = true
                 )
 

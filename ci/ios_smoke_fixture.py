@@ -4,27 +4,16 @@ import base64
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import io
 import json
 from pathlib import Path
 import re
 from threading import Lock, Thread
 import time
 from urllib.parse import parse_qs, urlsplit
-import wave
 
 USER_ID = "b408ace6-91d0-4c5d-98cc-001234567890"
 BOOK_ID = "local_ci_book"
 PODCAST_ID = "ci_podcast"
-
-
-def audio_sample():
-    buffer = io.BytesIO()
-    with wave.open(buffer, "wb") as audio:
-        audio.setparams((1, 2, 8000, 0, "NONE", "not compressed"))
-        # Long enough to test forward/back controls; no copyrighted recording.
-        audio.writeframes(bytes(8000 * 2 * 90))
-    return buffer.getvalue()
 
 
 def test_token():
@@ -37,7 +26,8 @@ def test_token():
 
 @contextmanager
 def serve_fixture():
-    audio = audio_sample()
+    # A generated 90-second tone exercises the same HTTP MP3 path as the catalog.
+    audio = Path(__file__).with_name("ios-smoke-sample.mp3").read_bytes()
     cover = (Path(__file__).resolve().parents[1] / "iosApp/iosApp/Assets.xcassets/AppIcon.appiconset/icon_1024.png").read_bytes()
     profile = {"uid": USER_ID, "name": "Deneme Okuru"}
     posts = []
@@ -72,7 +62,7 @@ def serve_fixture():
             path = parsed.path
             query = parse_qs(parsed.query)
             base = f"http://localhost:{self.server.server_port}"
-            if path == "/audio.wav":
+            if path == "/audio.mp3":
                 # AVPlayer probes and seeks using byte ranges.
                 match = re.fullmatch(r"bytes=(\d+)-(\d*)", self.headers.get("Range", ""))
                 headers = {"Accept-Ranges": "bytes"}
@@ -80,12 +70,12 @@ def serve_fixture():
                     start = int(match[1])
                     end = min(int(match[2]) if match[2] else len(audio) - 1, len(audio) - 1)
                     if start > end:
-                        self.send_data(416, b"", "audio/wav", {"Content-Range": f"bytes */{len(audio)}"})
+                        self.send_data(416, b"", "audio/mpeg", {"Content-Range": f"bytes */{len(audio)}"})
                         return
                     headers["Content-Range"] = f"bytes {start}-{end}/{len(audio)}"
-                    self.send_data(206, audio[start:end + 1], "audio/wav", headers)
+                    self.send_data(206, audio[start:end + 1], "audio/mpeg", headers)
                 else:
-                    self.send_data(200, audio, "audio/wav", headers)
+                    self.send_data(200, audio, "audio/mpeg", headers)
                 return
             if path == "/cover.png":
                 self.send_data(200, cover, "image/png")
@@ -93,7 +83,7 @@ def serve_fixture():
             if path == "/podcast.xml":
                 rss = f"""<rss version="2.0"><channel><title>KitapDuy Deneme Podcasti</title>
                 <item><title>Deneme Bölümü</title><description>Simülatör için örnek bölüm.</description>
-                <enclosure url="{base}/audio.wav?episode=1" type="audio/wav" length="{len(audio)}"/>
+                <enclosure url="{base}/audio.mp3?episode=1" type="audio/mpeg" length="{len(audio)}"/>
                 <duration>00:01:30</duration></item></channel></rss>"""
                 self.send_data(200, rss.encode(), "application/rss+xml")
                 return
@@ -104,7 +94,7 @@ def serve_fixture():
             with state_lock:
                 if table == "books":
                     rows = [{"id": BOOK_ID, "title": "KitapDuy Deneme Kitabı", "author": "Deneme Yazarı",
-                             "category": "Roman", "cover_url": f"{base}/cover.png", "audio_url": f"{base}/audio.wav",
+                             "category": "Roman", "cover_url": f"{base}/cover.png", "audio_url": f"{base}/audio.mp3",
                              "description": "Simülatör için örnek sesli kitap.", "duration": 90_000}]
                 elif table == "podcasts":
                     rows = [{"id": PODCAST_ID, "name": "KitapDuy Deneme Podcasti", "author": "Deneme Yapımı",
