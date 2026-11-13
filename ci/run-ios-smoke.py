@@ -424,8 +424,9 @@ class SimulatorRunner:
         directory.mkdir(parents=True, exist_ok=True)
         result = {"name": device["name"], "family": device["family"], "runtime": device["runtime"],
                   "passed": False, "error": "", "artifacts": str(directory), "screenshots": []}
-        if os.environ.get("CM_COMMIT"):
-            result["commit"] = os.environ["CM_COMMIT"]
+        commit = os.environ.get("CM_COMMIT") or os.environ.get("GITHUB_SHA")
+        if commit:
+            result["commit"] = commit
         started = time.time()
         udid = None
         launch = None
