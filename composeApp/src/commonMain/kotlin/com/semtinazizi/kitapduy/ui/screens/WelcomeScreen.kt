@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
@@ -66,15 +67,6 @@ class WelcomeScreen : Screen {
         LaunchedEffect(isLoggedIn) {
             if (isLoggedIn) {
                 navigator.root.replaceAll(MainScreen())
-            }
-        }
-
-        if (com.semtinazizi.kitapduy.platform.isSimulatorCiSmokeTest) {
-            LaunchedEffect(Unit) {
-                kotlinx.coroutines.delay(1000)
-                if (!isLoggedIn) {
-                    authViewModel.signInAnonymously("Misafir Test")
-                }
             }
         }
 
@@ -250,7 +242,7 @@ class WelcomeScreen : Screen {
                                 value = guestName,
                                 onValueChange = { if (it.length <= 20) guestName = it },
                                 placeholder = { Text("Adınız nedir?", color = Color.White.copy(alpha = 0.5f)) },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth().testTag("guest-name"),
                                 shape = RoundedCornerShape(16.dp),
                                 singleLine = true,
                                 colors = OutlinedTextFieldDefaults.colors(
@@ -274,7 +266,7 @@ class WelcomeScreen : Screen {
                                         }
                                     }
                                 },
-                                modifier = Modifier.fillMaxWidth().height(50.dp),
+                                modifier = Modifier.fillMaxWidth().height(50.dp).testTag("guest-start"),
                                 shape = RoundedCornerShape(16.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.2f)),
                                 enabled = !isLoading
@@ -290,7 +282,7 @@ class WelcomeScreen : Screen {
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
-                                .clickable { showGuestInput = true }
+                                .clickable { showGuestInput = true }.testTag("guest-open")
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         )
                     }

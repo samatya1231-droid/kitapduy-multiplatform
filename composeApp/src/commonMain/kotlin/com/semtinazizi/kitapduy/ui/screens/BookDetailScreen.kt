@@ -21,6 +21,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
@@ -504,13 +505,19 @@ private fun AudioPlayerControls(
                 inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
             )
         )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(playbackTimeLabel((position * duration).toLong()), Modifier.testTag("book-elapsed"),
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(playbackTimeLabel(if (selected) duration.toLong() else 0L),
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         // Butonlar
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(enabled = selected && duration > 0f, onClick = { audioController.skipBy(-15_000, expectedBookId = book.id) }) {
+            IconButton(modifier = Modifier.testTag("book-skip-back"), enabled = selected && duration > 0f, onClick = { audioController.skipBy(-15_000, expectedBookId = book.id) }) {
                 Icon(Icons.Default.FastRewind, contentDescription = "15 saniye geri")
             }
             Spacer(modifier = Modifier.width(16.dp))
@@ -524,7 +531,7 @@ private fun AudioPlayerControls(
                 },
                 containerColor = BrandGold,
                 shape = CircleShape,
-                modifier = Modifier.size(64.dp)
+                modifier = Modifier.size(64.dp).testTag("book-play-pause")
             ) {
                 Icon(
                     imageVector = if (isPlaying && currentBook?.id == book.id) Icons.Default.Pause else Icons.Default.PlayArrow,
@@ -534,11 +541,16 @@ private fun AudioPlayerControls(
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
-            IconButton(enabled = selected && duration > 0f, onClick = { audioController.skipBy(15_000, expectedBookId = book.id) }) {
+            IconButton(modifier = Modifier.testTag("book-skip-forward"), enabled = selected && duration > 0f, onClick = { audioController.skipBy(15_000, expectedBookId = book.id) }) {
                 Icon(Icons.Default.FastForward, contentDescription = "15 saniye ileri")
             }
         }
     }
+}
+
+private fun playbackTimeLabel(milliseconds: Long): String {
+    val seconds = milliseconds.coerceAtLeast(0) / 1000
+    return "${(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}"
 }
 
 @Composable

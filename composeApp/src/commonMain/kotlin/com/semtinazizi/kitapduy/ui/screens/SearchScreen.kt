@@ -22,6 +22,7 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -95,13 +96,13 @@ class SearchScreen : Screen {
                             value = query,
                             onValueChange = { viewModel.updateSearchQuery(it) },
                             modifier = Modifier
-                                .weight(1f)
+                                .weight(1f).testTag("discover-query")
                                 .then(if (query.isNotEmpty()) Modifier.padding(start = 8.dp) else Modifier),
                             placeholder = { Text("Hangi eseri arıyorsunuz?", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontWeight = FontWeight.Bold) },
                             leadingIcon = { Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)) },
                             trailingIcon = {
                                 if (query.isNotEmpty()) {
-                                    IconButton(onClick = { viewModel.updateSearchQuery("") }) {
+                                    IconButton(onClick = { viewModel.updateSearchQuery("") }, modifier = Modifier.testTag("discover-clear")) {
                                         Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurface)
                                     }
                                 }
@@ -433,7 +434,7 @@ fun DiscoveryPodcastCard(podcast: Podcast, onClick: () -> Unit) {
 @Composable
 fun HorizontalBookSearchItem(modifier: Modifier = Modifier, book: Book, onClick: () -> Unit) {
     Row(
-        modifier = modifier
+        modifier = modifier.testTag("book-result-${book.id}")
             .fillMaxWidth()
             .clickable { onClick() }
             .padding(vertical = 8.dp),
@@ -485,7 +486,7 @@ fun HorizontalBookSearchItem(modifier: Modifier = Modifier, book: Book, onClick:
 @Composable
 fun HorizontalPodcastSearchItem(podcast: Podcast, onClick: () -> Unit) {
     Row(
-        modifier = Modifier
+        modifier = Modifier.testTag("podcast-result-${podcast.id}")
             .fillMaxWidth()
             .clickable { onClick() }
             .padding(vertical = 8.dp),

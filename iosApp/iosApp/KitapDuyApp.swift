@@ -12,19 +12,34 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         let traits = UITraitCollection.current
         _ = UIColor.systemBackground.resolvedColor(with: traits)
         _ = UIColor.label.resolvedColor(with: traits)
-        PushService.shared.configure(launchOptions: launchOptions)
+        if Self.fixtureURL == nil { PushService.shared.configure(launchOptions: launchOptions) }
         #if targetEnvironment(simulator)
         let environment = ProcessInfo.processInfo.environment
-        if environment["KITAPDUY_CI_SMOKE_TEST"] == "1" {
+        if environment["KITAPDUY_CI_SMOKE_TEST"] == "1", environment["KITAPDUY_CI_SKIP_HTTPS"] != "1" {
             IosNetworkSmokeCheck.shared.start(
                 url: environment["KITAPDUY_CI_HTTPS_URL"] ?? "https://example.com/"
             )
-            IosSmokeSimulationDriver.shared.start()
         }
         #endif
         return true
     }
     
+    // Available only to simulator launches using the loopback server started by the test runner.
+    static var fixtureURL: String? {
+        #if targetEnvironment(simulator)
+        let env = ProcessInfo.processInfo.environment
+        if env["KITAPDUY_CI_SMOKE_TEST"] == "1",
+           let value = env["KITAPDUY_CI_FIXTURE_URL"],
+           let url = URLComponents(string: value),
+           url.scheme == "http", url.host == "localhost", url.port != nil,
+           url.user == nil, url.password == nil, url.path.isEmpty,
+           url.query == nil, url.fragment == nil {
+            return value
+        }
+        #endif
+        return nil
+    }
+
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {}
     
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {}
@@ -37,11 +52,12 @@ struct KitapDuyApp: App {
     @Environment(\.scenePhase) private var scenePhase
     
     init() {
+        let fixtureURL = AppDelegate.fixtureURL
         MainViewControllerKt.initializeIOSConfig(
-            supabaseUrl: Bundle.main.infoDictionary?["SUPABASE_URL"] as? String ?? "",
-            supabaseKey: Bundle.main.infoDictionary?["SUPABASE_KEY"] as? String ?? "",
+            supabaseUrl: fixtureURL ?? (Bundle.main.infoDictionary?["SUPABASE_URL"] as? String ?? ""),
+            supabaseKey: fixtureURL == nil ? (Bundle.main.infoDictionary?["SUPABASE_KEY"] as? String ?? "") : "simulator-fixture",
             cfAccountId: Bundle.main.infoDictionary?["CF_ACCOUNT_ID"] as? String ?? "",
-            cfPublicUrl: Bundle.main.infoDictionary?["CF_PUBLIC_URL"] as? String ?? ""
+            cfPublicUrl: fixtureURL ?? (Bundle.main.infoDictionary?["CF_PUBLIC_URL"] as? String ?? "")
         )
         AuthenticationService.shared.configure()
         StoreService.shared.configure()
@@ -53,7 +69,7 @@ struct KitapDuyApp: App {
             ContentView()
                 .ignoresSafeArea(.keyboard)
                 .onAppear {
-                    AdMobBridge.shared.requestConsent()
+                    if AppDelegate.fixtureURL == nil { AdMobBridge.shared.requestConsent() }
                     #if targetEnvironment(simulator)
                     let environment = ProcessInfo.processInfo.environment
                     if environment["KITAPDUY_CI_SMOKE_TEST"] == "1" {
@@ -67,7 +83,7 @@ struct KitapDuyApp: App {
                 }
                 .onChange(of: scenePhase) { phase in
                     if phase == .active {
-                        AdMobBridge.shared.requestConsent()
+                        if AppDelegate.fixtureURL == nil { AdMobBridge.shared.requestConsent() }
                         PushService.shared.refreshPermission()
                         Task { await StoreService.shared.refreshEntitlements() }
                     }

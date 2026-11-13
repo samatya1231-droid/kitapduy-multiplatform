@@ -8,8 +8,6 @@ package com.semtinazizi.kitapduy.platform
 /** Platform adı - debug/logging için */
 expect val platformName: String
 
-/** True only in simulator runs launched with KITAPDUY_CI_SMOKE_TEST=1. */
-expect val isSimulatorCiSmokeTest: Boolean
 
 /**
  * Ses oynatıcı arayüzü

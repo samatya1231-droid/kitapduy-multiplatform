@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -138,7 +139,7 @@ class UserProfileScreen(val targetUserId: String? = null) : Screen {
                         IconButton(onClick = { navigator.push(PremiumWrappedScreen()) }) {
                             Icon(Icons.Default.AutoAwesome, "Yıllık Özet", tint = androidx.compose.ui.graphics.Color(0xFFFFD700))
                         }
-                        IconButton(onClick = { navigator.push(SettingsScreen(isPremium = premium)) }) {
+                        IconButton(onClick = { navigator.push(SettingsScreen(isPremium = premium)) }, modifier = Modifier.testTag("profile-settings")) {
                             Icon(Icons.Default.Settings, "Ayarlar")
                         }
                     }
@@ -186,7 +187,7 @@ class UserProfileScreen(val targetUserId: String? = null) : Screen {
                         if (!profile?.bio.isNullOrBlank()) Text(profile?.bio.orEmpty(), Modifier.padding(horizontal = 20.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Row(Modifier.padding(horizontal = 20.dp)) {
-                            if (own) OutlinedButton(onClick = { navigator.push(ProfileEditScreen()) }) { Text("Profili düzenle") }
+                            if (own) OutlinedButton(onClick = { navigator.push(ProfileEditScreen()) }, modifier = Modifier.testTag("profile-edit")) { Text("Profili düzenle") }
                             else OutlinedButton(enabled = !followBusy && auth.currentUserUid != null,
                                 onClick = { uid?.let(model::toggleFollow) }) { Text(if (follows) "Takipten çık" else "Takip et") }
                         }

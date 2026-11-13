@@ -1,6 +1,6 @@
 workflows:
   ios-build-test:
-    name: iPhone and iPad Release Smoke Tests
+    name: iPhone and iPad User Journey Tests
     max_build_duration: 120
     instance_type: mac_mini_m2
 
@@ -34,31 +34,63 @@ workflows:
           chmod +x gradlew
           KOTLIN_BUILD_LOG=/tmp/kotlin-simulator.log bash ci/compile-ios.sh :composeApp:linkReleaseFrameworkIosSimulatorArm64
 
-      - name: Build Complete Simulator App
+      - name: Build KitapDuy and XCUITest runner
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
-          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp \
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme KitapDuyUI \
             -configuration Release -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build/ios-simulator \
-            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee /tmp/xcode-simulator.log
+            CODE_SIGNING_ALLOWED=NO build-for-testing 2>&1 | tee /tmp/xcode-simulator.log
 
-      - name: Launch on iPhone and iPad and verify Ktor HTTPS
+      - name: Test user journeys on iPhone and iPad
         script: |
+          #!/usr/bin/env bash
           set -euo pipefail
           python3 -m unittest discover -s ci -p 'test_run_ios_smoke.py'
+          products=build/ios-simulator/Build/Products
+          shopt -s nullglob
+          test_runs=("$products"/KitapDuyUI*.xctestrun)
+          if [[ ${#test_runs[@]} != 1 ]]; then
+            echo "Expected exactly one KitapDuyUI .xctestrun file, found ${#test_runs[@]}"
+            exit 1
+          fi
+          app="$products/Release-iphonesimulator/KitapDuy.app"
+          # The sample backend uses loopback HTTP. Apply the local exception only to this unsigned simulator copy.
+          python3 - "$app/Info.plist" <<'PY'
+          import plistlib
+          import sys
+          from pathlib import Path
+          info_path = Path(sys.argv[1])
+          info = plistlib.loads(info_path.read_bytes())
+          assert info["DTPlatformName"] == "iphonesimulator"
+          info.setdefault("NSAppTransportSecurity", {})["NSAllowsLocalNetworking"] = True
+          info_path.write_bytes(plistlib.dumps(info, fmt=plistlib.FMT_BINARY))
+          PY
+          status=0
           python3 ci/run-ios-smoke.py \
-            --app build/ios-simulator/Build/Products/Release-iphonesimulator/KitapDuy.app \
-            --output build/ios-smoke \
-            --duration 180
+            --app "$app" \
+            --test-run "${test_runs[0]}" \
+            --output build/ios-smoke || status=$?
+          if [[ -f build/ios-smoke/index.html ]]; then
+            (cd build/ios-smoke && zip -qr ../kitapduy-ios-qa.zip index.html iPhone iPad summary.json junit.xml runner.log devices.json \
+              -x '*/xcode-attachments/*')
+          fi
+          exit "$status"
         test_report: build/ios-smoke/junit.xml
 
     artifacts:
       - /tmp/kotlin-simulator.log
       - /tmp/kotlin-xcode.log
       - /tmp/xcode-simulator.log
-      - build/ios-smoke/**
+      - build/kitapduy-ios-qa.zip
+      - build/ios-smoke/index.html
+      - build/ios-smoke/*.json
+      - build/ios-smoke/*.log
+      - build/ios-smoke/junit.xml
+      - build/ios-smoke/iPhone/*
+      - build/ios-smoke/iPad/*
 
   ios-release:
     name: iOS App Store Release

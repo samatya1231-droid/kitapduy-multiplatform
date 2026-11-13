@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -186,12 +187,12 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Text("Koyu tema", modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
-                    Switch(checked = darkMode, onCheckedChange = {
+                    Switch(checked = darkMode, modifier = Modifier.testTag("settings-dark-mode"), onCheckedChange = {
                         com.semtinazizi.kitapduy.util.KmpThemeManager.setDarkMode(it)
                     })
                 }
                 SettingsSectionTitle("Uygulama")
-                SettingsItem(icon = Icons.Filled.WorkspacePremium, title = "Premium", subtitle = "Planlar ve satın alımları geri yükleme") { navigator.root.push(SubscriptionPaywallScreen()) }
+                SettingsItem(icon = Icons.Filled.WorkspacePremium, title = "Premium", subtitle = "Planlar ve satın alımları geri yükleme", modifier = Modifier.testTag("settings-premium")) { navigator.root.push(SubscriptionPaywallScreen()) }
                 SettingsItem(icon = Icons.Filled.BarChart, title = "İstatistikler") { navigator.push(StatisticsScreen()) }
                 SettingsItem(icon = Icons.Filled.Language, title = "Uygulama Dili", subtitle = "Türkçe") { }
                 SettingsItem(icon = Icons.Filled.Notifications, title = "Bildirimler", subtitle = when (notificationsEnabled) {
@@ -270,13 +271,14 @@ fun SettingsItem(
     subtitle: String? = null,
     iconTint: Color = MaterialTheme.colorScheme.onSurface,
     titleColor: Color = MaterialTheme.colorScheme.onSurface,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Surface(
         onClick = onClick,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+        modifier = modifier.fillMaxWidth().padding(bottom = 8.dp)
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(shape = CircleShape, color = iconTint.copy(alpha = 0.1f), modifier = Modifier.size(40.dp)) {

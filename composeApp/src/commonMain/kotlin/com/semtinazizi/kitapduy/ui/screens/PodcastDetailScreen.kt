@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.scale
@@ -253,6 +254,7 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                             ) {
                                 Text(
                                     text = formatTime(currentTimeMs),
+                                    modifier = Modifier.testTag("podcast-elapsed"),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = SleekGray
                                 )
@@ -285,7 +287,7 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                                     },
                                     containerColor = SleekChampagne,
                                     shape = CircleShape,
-                                    modifier = Modifier.size(64.dp)
+                                    modifier = Modifier.size(64.dp).testTag("podcast-play-pause")
                                 ) {
                                     Icon(
                                         imageVector = if (isPlaying && currentEpisode?.id == episode.id) Icons.Default.Pause else Icons.Default.PlayArrow, 

@@ -18,6 +18,7 @@
 		058557D9273AAEEB004C7B11 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 058557D8273AAEEB004C7B11 /* Preview Assets.xcassets */; };
 		2152FB042600AC8F00CF470E /* KitapDuyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2152FB032600AC8F00CF470E /* KitapDuyApp.swift */; };
 		7555FF83242A565900829871 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF82242A565900829871 /* ContentView.swift */; };
+		BEE000000000000000000001 = {isa = PBXBuildFile; fileRef = BEE000000000000000000002; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +34,8 @@
 		7555FF82242A565900829871 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		7555FF8C242A565B00829871 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AB3632DC29227652001CCB65 /* Config.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
+		BEE000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderJourneyTests.swift; sourceTree = "<group>"; };
+		BEE000000000000000000003 = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KitapDuyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -69,6 +72,7 @@
 			children = (
 				AB1DB47929225F7C00F7AF9C /* Configuration */,
 				7555FF7D242A565900829871 /* iosApp */,
+				BEE000000000000000000004 /* KitapDuyUITests */,
 				7555FF7C242A565900829871 /* Products */,
 				42799AB246E5F90AF97AA0EF /* Frameworks */,
 			);
@@ -78,6 +82,7 @@
 			isa = PBXGroup;
 			children = (
 				7555FF7B242A565900829871 /* My application.app */,
+				BEE000000000000000000003 /* KitapDuyUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -107,7 +112,16 @@
 			path = Configuration;
 			sourceTree = "<group>";
 		};
+		BEE000000000000000000004 = {isa = PBXGroup; children = (BEE000000000000000000002,); path = KitapDuyUITests; sourceTree = "<group>"; };
 /* End PBXGroup section */
+
+/* Begin PBXContainerItemProxy section */
+		BEE000000000000000000009 = {isa = PBXContainerItemProxy; containerPortal = 7555FF73242A565900829871; proxyType = 1; remoteGlobalIDString = 7555FF7A242A565900829871; remoteInfo = iosApp; };
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		BEE00000000000000000000A = {isa = PBXTargetDependency; target = 7555FF7A242A565900829871; targetProxy = BEE000000000000000000009; };
+/* End PBXTargetDependency section */
 
 /* Begin PBXNativeTarget section */
 		7555FF7A242A565900829871 /* iosApp */ = {
@@ -133,6 +147,17 @@
 			productReference = 7555FF7B242A565900829871 /* My application.app */;
 			productType = "com.apple.product-type.application";
 		};
+		BEE000000000000000000006 /* KitapDuyUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BEE000000000000000000008;
+			buildPhases = (BEE000000000000000000005,);
+			buildRules = ();
+			dependencies = (BEE00000000000000000000A,);
+			name = KitapDuyUITests;
+			productName = KitapDuyUITests;
+			productReference = BEE000000000000000000003;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -143,6 +168,7 @@
 				LastUpgradeCheck = 1130;
 				ORGANIZATIONNAME = orgName;
 				TargetAttributes = {
+					BEE000000000000000000006 = {TestTargetID = 7555FF7A242A565900829871; };
 					7555FF7A242A565900829871 = {
 						CreatedOnToolsVersion = 11.3.1;
 						SystemCapabilities = { com.apple.Push = { enabled = 1; }; com.apple.BackgroundModes = { enabled = 1; }; com.apple.SignInWithApple = { enabled = 1; }; };
@@ -168,6 +194,7 @@
 			projectRoot = "";
 			targets = (
 				7555FF7A242A565900829871 /* iosApp */,
+				BEE000000000000000000006 /* KitapDuyUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -220,6 +247,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BEE000000000000000000005 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (BEE000000000000000000001,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
@@ -407,6 +435,19 @@
 			};
 			name = Release;
 		};
+		BEE000000000000000000007 /* Release (UI tests) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.semtinazizi.kitapduy.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = iosApp;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -428,6 +469,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		BEE000000000000000000008 = {isa = XCConfigurationList; buildConfigurations = (BEE000000000000000000007,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */

@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
@@ -65,19 +66,6 @@ class MainScreen : Screen {
         val rootNavigator = LocalNavigator.currentOrThrow
 
         TabNavigator(HomeTab) { tabNavigator ->
-            if (com.semtinazizi.kitapduy.platform.isSimulatorCiSmokeTest) {
-                DisposableEffect(Unit) {
-                    com.semtinazizi.kitapduy.platform.IosSmokeSimulationBridge.setMainScreenMounted(true)
-                    onDispose {
-                        com.semtinazizi.kitapduy.platform.IosSmokeSimulationBridge.setMainScreenMounted(false)
-                    }
-                }
-                val targetTab by com.semtinazizi.kitapduy.platform.IosSmokeSimulationBridge.targetTab.collectAsState()
-
-                LaunchedEffect(targetTab) {
-                    targetTab?.let { tabNavigator.current = it }
-                }
-            }
             Scaffold(
                 containerColor = MaterialTheme.colorScheme.background,
                 bottomBar = {
@@ -129,8 +117,15 @@ class MainScreen : Screen {
     private fun KitapDuyFloatingNavigation() {
         val tabNavigator = LocalTabNavigator.current
         NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
-            listOf(HomeTab, com.semtinazizi.kitapduy.ui.screens.tabs.SearchTab, FeedTab, LibraryTab, ProfileTab).forEach { tab ->
+            listOf(
+                "home" to HomeTab,
+                "discover" to com.semtinazizi.kitapduy.ui.screens.tabs.SearchTab,
+                "feed" to FeedTab,
+                "library" to LibraryTab,
+                "profile" to ProfileTab
+            ).forEach { (name, tab) ->
                 NavigationBarItem(selected = tabNavigator.current == tab,
+                    modifier = Modifier.testTag("tab-$name"),
                     onClick = { tabNavigator.current = tab },
                     icon = { tab.options.icon?.let { Icon(painter = it, contentDescription = null) } },
                     label = { Text(tab.options.title, maxLines = 1) }, alwaysShowLabel = true)

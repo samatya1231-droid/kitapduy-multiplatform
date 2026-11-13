@@ -21,6 +21,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
@@ -137,7 +138,7 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                                 value = postText,
                                 onValueChange = { if (it.length <= 280) postText = it },
                                 placeholder = { Text(if (selectedPostTab == 3) "Mısralarını buraya fısılda..." else "Düşüncelerin...", color = Color.Gray) },
-                                modifier = Modifier.fillMaxWidth().height(150.dp),
+                                modifier = Modifier.fillMaxWidth().height(150.dp).testTag("feed-post-text"),
                                 maxLines = 10,
                                 shape = RoundedCornerShape(16.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
@@ -221,6 +222,7 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = BrandGold),
+                        modifier = Modifier.testTag("feed-post-submit"),
                         shape = RoundedCornerShape(50)
                     ) { Text("Paylaş", color = Color.Black, fontWeight = FontWeight.Black) }
                 },
@@ -520,7 +522,7 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                modifier = Modifier.clickable(
+                                modifier = Modifier.testTag("feed-compose-${opt.tab}").clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null
                                 ) {
@@ -563,7 +565,7 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                 Box(
                     modifier = Modifier
                         .height(56.dp)
-                        .width(fabWidth)
+                        .width(fabWidth).testTag("feed-compose")
                         .shadow(8.dp, RoundedCornerShape(28.dp))
                         .background(Brush.linearGradient(listOf(BrandGold, BrandAccent)), RoundedCornerShape(28.dp))
                         .clickable(

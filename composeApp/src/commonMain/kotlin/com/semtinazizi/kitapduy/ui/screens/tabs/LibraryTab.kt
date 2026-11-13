@@ -17,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -92,7 +93,7 @@ object LibraryTab : Tab {
             )
 
             Box {
-                TextButton(onClick = { showShelves = true }) { Text("Raflarım") }
+                TextButton(onClick = { showShelves = true }, modifier = Modifier.testTag("library-shelves")) { Text("Raflarım") }
                 DropdownMenu(expanded = showShelves, onDismissRequest = { showShelves = false }) {
                     listOf("READING" to "Dinliyorum", "FINISHED" to "Bitirdiklerim", "WISHLIST" to "Dinleyeceklerim").forEach { (type, title) ->
                         DropdownMenuItem(text = { Text(title) }, onClick = {
@@ -126,7 +127,7 @@ object LibraryTab : Tab {
                                     if (isSelected) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
                                     else Color.Transparent
                                 )
-                                .clickable { selectedTab = i },
+                                .clickable { selectedTab = i }.testTag("library-tab-$i"),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
