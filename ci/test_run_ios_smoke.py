@@ -137,7 +137,7 @@ class RunnerTest(unittest.TestCase):
 
     def run_mock_journey(self, requests, test_status=0, screenshots=True, video=True, test_count=4):
         runner = self.make_runner()
-        created = "11111111-2222-3333-4444-555555555555"
+        created = "13E121F2-2ACF-4F0B-8F30-85745C53CA4F"
         phone = dict(device("iPhone 17"), family="iPhone", runtime="runtime.iOS-27-2")
 
         def command(*args, **kwargs):
@@ -147,7 +147,8 @@ class RunnerTest(unittest.TestCase):
                 Path(args[-1]).write_bytes(b"png")
             return ""
 
-        def run_xcode(*args, **kwargs):
+        def run_xcode(args, **kwargs):
+            self.assertIn(f"platform=iOS Simulator,id={created}", args)
             (self.output / "iPhone/journey.xcresult").mkdir()
             return SimpleNamespace(returncode=test_status)
 

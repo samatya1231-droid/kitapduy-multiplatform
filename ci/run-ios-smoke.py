@@ -300,7 +300,8 @@ class SimulatorRunner:
         try:
             candidate = self.command("create", f"KitapDuy-CI-{uuid.uuid4().hex[:12]}",
                                      device["deviceTypeIdentifier"], device["runtime"])
-            udid = str(uuid.UUID(candidate))
+            # Xcode matches simulator destinations against their uppercase CoreSimulator UUIDs.
+            udid = str(uuid.UUID(candidate)).upper()
             result["udid"] = udid
             self.command("boot", udid)
             self.command("bootstatus", udid, timeout=300)
