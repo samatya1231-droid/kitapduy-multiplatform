@@ -74,8 +74,7 @@ workflows:
             --test-run "${test_runs[0]}" \
             --output build/ios-smoke || status=$?
           if [[ -f build/ios-smoke/index.html ]]; then
-            (cd build/ios-smoke && zip -qr ../kitapduy-ios-qa.zip index.html iPhone iPad summary.json junit.xml runner.log devices.json \
-              -x '*/xcode-attachments/*')
+            (cd build/ios-smoke && zip -qr ../kitapduy-ios-qa.zip . -x '*/xcode-attachments/*')
           fi
           exit "$status"
         test_report: build/ios-smoke/junit.xml

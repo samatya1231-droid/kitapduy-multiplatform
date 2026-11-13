@@ -7,8 +7,17 @@ final class ReaderJourneyTests: XCTestCase {
     private let app = XCUIApplication(bundleIdentifier: "com.semtinazizi.kitapduy")
     private let guestName = "Misafir"
 
-    func test01GuestAndBookPlayback() throws {
+    func test01HomeDiscoverAndBookDetail() throws {
         try launchAndSignIn()
+        try step("22-home-catalog") {
+            try visible(text("Yeni hikâyeler keşfet"))
+            audit("22-home-catalog")
+        }
+        try step("24-discover") {
+            try tap(element("tab-discover"))
+            try visible(element("discover-query"))
+            audit("24-discover")
+        }
         try step("03-search-empty-result") {
             try search("zxq-no-catalog-result")
             try visible(text("Kitap veya podcast bulunamadı."))
@@ -18,9 +27,28 @@ final class ReaderJourneyTests: XCTestCase {
             try visible(element("book-result-local_ci_book"))
         }
         try step("05-book-detail") {
-            try tap(element("book-result-local_ci_book"))
-            try visible(text("KitapDuy Deneme Kitabı"))
+            try openBookResult()
             audit("05-book-detail")
+        }
+        try step("08-book-back-to-search") {
+            try tap(text("Geri"))
+            try visible(element("discover-query"))
+        }
+    }
+
+    func test07HomePodcasts() throws {
+        try launchAndSignIn()
+        try step("23-home-podcasts") {
+            try visible(text("Podcast dünyası"), scroll: true)
+        }
+    }
+
+    func test02BookPlayback() throws {
+        try launchAndSignIn()
+        try search("Deneme Kitabı", clearFirst: true)
+        try openBookResult()
+        try step("25-book-player") {
+            try visible(element("book-play-pause"), scroll: true)
         }
         try step("06-book-playing") {
             try tap(element("book-play-pause"), scroll: true)
@@ -41,34 +69,48 @@ final class ReaderJourneyTests: XCTestCase {
             try tap(element("book-skip-back"))
             try waitFor("15 saniye geri atlama") { abs(self.elapsed("book-elapsed") - beforeSkip) <= 1 }
         }
-        try step("08-book-back-to-search") {
-            try tap(text("Geri"))
-            try visible(element("discover-query"))
-        }
     }
 
-    func test02PodcastAndLibrary() throws {
+    func test03PodcastPlayback() throws {
         try launchAndSignIn()
         try step("09-podcast-episodes") {
             try search("Deneme Podcasti", clearFirst: element("discover-clear").exists)
             try tap(element("podcast-result-ci_podcast"))
             try visible(element("podcast-episode-0"))
         }
-        try step("10-podcast-playing") {
+        try step("26-podcast-player") {
             try tap(element("podcast-episode-0"))
             try visible(element("podcast-play-pause"), scroll: true)
             try visible(element("podcast-elapsed"), scroll: true)
+        }
+        try step("10-podcast-playing") {
             try waitFor("Podcast konumu ilerlemeli") { self.elapsed("podcast-elapsed") >= 2 }
+        }
+        try step("31-podcast-back-to-search") {
             try tap(element("podcast-play-pause"))
             try tap(text("Geri"))
             try visible(element("podcast-episode-0"))
             try tap(text("Geri"))
+            try visible(element("discover-query"))
         }
-        try step("11-library-downloads-empty") {
+    }
+
+    func test04Library() throws {
+        try launchAndSignIn()
+        try step("27-library-favorites") {
             try tap(element("tab-library"))
             try visible(text("Kitaplığım"))
+            try tap(element("library-tab-0"))
+            try visible(text("Favoriler listeniz şu an boş."))
+            audit("27-library-favorites")
+        }
+        try step("11-library-downloads-empty") {
             try tap(element("library-tab-1"))
             try visible(text("İndirilenler listeniz şu an boş."))
+        }
+        try step("28-library-history") {
+            try tap(element("library-tab-2"))
+            try visible(text("Geçmiş"))
         }
         try step("12-library-shelves") {
             try tap(element("library-shelves"))
@@ -78,7 +120,7 @@ final class ReaderJourneyTests: XCTestCase {
         }
     }
 
-    func test03FeedAndProfile() throws {
+    func test05FeedAndProfile() throws {
         try launchAndSignIn()
         try step("13-feed") {
             try tap(element("tab-feed"))
@@ -96,9 +138,12 @@ final class ReaderJourneyTests: XCTestCase {
             try visible(text("Simulator deneme paylasimi", contains: true))
             try waitFor("Yazı penceresi kapanmalı") { !self.element("feed-post-text").exists }
         }
-        try step("16-profile-edit") {
+        try step("29-profile") {
             try tap(element("tab-profile"))
             try visible(text("Okur köşem"))
+            audit("29-profile")
+        }
+        try step("16-profile-edit") {
             try tap(element("profile-edit"), scroll: true)
             try visible(element("profile-name"))
         }
@@ -121,7 +166,7 @@ final class ReaderJourneyTests: XCTestCase {
         }
     }
 
-    func test04ThemeAndPremium() throws {
+    func test06ThemeAndPremium() throws {
         try launchAndSignIn()
         try step("18-settings-light") {
             try tap(element("tab-profile"))
@@ -139,15 +184,22 @@ final class ReaderJourneyTests: XCTestCase {
             try visible(text("KitapDuy · PREMIUM"))
             audit("20-premium")
         }
-        try step("21-premium-legal") {
+        try step("30-premium-terms") {
             try visible(text("Satın Alımları Geri Yükle"), scroll: true)
             try tap(text("Kullanım Koşulları (EULA)"), scroll: true)
             try visible(text("KitapDuy — Kullanım Koşulları", contains: true))
+        }
+        try step("21-premium-legal") {
             try tap(text("Geri"))
             try visible(text("KitapDuy · PREMIUM"))
             try tap(text("Gizlilik Politikası"), scroll: true)
             try visible(text("KitapDuy — iOS Gizlilik Politikası", contains: true))
         }
+    }
+
+    private func openBookResult() throws {
+        try tap(element("book-result-local_ci_book"))
+        try visible(text("KitapDuy Deneme Kitabı"))
     }
 
     private func launchAndSignIn() throws {

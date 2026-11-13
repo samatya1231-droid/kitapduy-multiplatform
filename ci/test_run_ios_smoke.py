@@ -138,7 +138,7 @@ class RunnerTest(unittest.TestCase):
         cleanups = [call.args for call in runner.command.call_args_list if call.args[0] in ("shutdown", "delete")]
         self.assertEqual(cleanups, [("shutdown", created), ("delete", created)])
 
-    def run_mock_journey(self, requests, test_status=0, screenshots=True, video=True, test_count=4):
+    def run_mock_journey(self, requests, test_status=0, screenshots=True, video=True, test_count=len(smoke.JOURNEYS)):
         runner = self.make_runner()
         created = "13E121F2-2ACF-4F0B-8F30-85745C53CA4F"
         phone = dict(device("iPhone 17"), family="iPhone", runtime="runtime.iOS-27-2")
@@ -152,6 +152,9 @@ class RunnerTest(unittest.TestCase):
 
         def run_xcode(args, stdout, **kwargs):
             self.assertIn(f"platform=iOS Simulator,id={created}", args)
+            for test in list(smoke.JOURNEYS)[:test_count]:
+                outcome = "failed" if test_status and test == "test02BookPlayback" else "passed"
+                stdout.write(f"Test Case '-[KitapDuyUITests.ReaderJourneyTests {test}]' {outcome} (1 second).\n")
             if test_status:
                 stdout.write("ReaderJourneyTests.swift:232: error: 15-feed-published: post missing\n")
             (self.output / "iPhone/journey.xcresult").mkdir()
@@ -175,6 +178,8 @@ class RunnerTest(unittest.TestCase):
         self.assertFalse(result["passed"])
         self.assertIn("XCUITest failed", result["error"])
         self.assertIn("15-feed-published: post missing", result["error"])
+        self.assertEqual(result["journeys"]["test02BookPlayback"], "failed")
+        self.assertEqual(result["journeys"]["test04Library"], "passed")
         self.assertIn("failure-screen.png", result["screenshots"])
         self.assertEqual(result["video"], "recording.mp4")
         self.assertTrue((self.output / "iPhone/journey.xcresult.zip").is_file())
@@ -269,6 +274,31 @@ class RunnerTest(unittest.TestCase):
         self.assertEqual(root.attrib["failures"], "1")
         self.assertEqual(root.find("testcase/failure").attrib["message"], "native crash")
         self.assertEqual(len(json.loads((self.output / "summary.json").read_text(encoding="utf-8"))), 2)
+
+    def test_gallery_keeps_library_and_playback_evidence_when_playback_fails(self):
+        reference = self.output / "Android"
+        reference.mkdir(parents=True)
+        (reference / "27-library-favorites.png").touch()
+        (reference / "source.txt").write_text("KitapDuy3 4.1.2", encoding="utf-8")
+        smoke.write_reports([
+            {"name": "Phone", "family": "iPhone", "passed": False, "error": "Playback stalled",
+             "video": "recording.mp4", "screenshots": ["failure-06-book-playing.png", "27-library-favorites.png"],
+             "journeys": {"test02BookPlayback": "failed", "test04Library": "passed"}},
+            {"name": "Tablet", "family": "iPad", "passed": True,
+             "screenshots": ["06-book-playing.png", "27-library-favorites.png"]},
+        ], self.output)
+        report = (self.output / "index.html").read_text(encoding="utf-8")
+        self.assertIn('<video controls preload="none" src="iPhone/recording.mp4">', report)
+        self.assertIn('iPhone/failure-06-book-playing.png', report)
+        self.assertIn('iPad/06-book-playing.png', report)
+        self.assertIn('iPhone/27-library-favorites.png', report)
+        self.assertIn('Android/27-library-favorites.png', report)
+        self.assertIn('KitapDuy3 4.1.2', report)
+        self.assertIn('Kitaplık sekmeleri ve raflar <strong>Geçti</strong>', report)
+        self.assertIn('Kitap oynatma, duraklatma ve atlama <strong>Hata</strong>', report)
+        xml = ET.parse(self.output / "junit.xml").getroot()
+        self.assertEqual(xml.attrib["failures"], "1")
+        self.assertIsNone(xml.find("testcase[@name='Kitaplık sekmeleri ve raflar']/failure"))
 
     def test_setup_failure_is_reported_with_nonzero_exit_status(self):
         test_run = self.root / "test.xctestrun"

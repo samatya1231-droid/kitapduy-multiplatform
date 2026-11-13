@@ -1,0 +1,1 @@
+KitapDuy3 4.1.2 (297), Android emülatörü, 13 Kasım 2026. Android canlı katalog ve Google Play planlarının yüklenemediği Premium ekranını, iOS ise Codemagic örnek kataloğunu gösterir.

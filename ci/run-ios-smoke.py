@@ -29,6 +29,63 @@ FAILURE_MARKERS = (
     "Uncaught Kotlin exception",
 )
 
+JOURNEYS = {
+    "test01HomeDiscoverAndBookDetail": "Ana Sayfa, Keşfet ve kitap detayı",
+    "test02BookPlayback": "Kitap oynatma, duraklatma ve atlama",
+    "test03PodcastPlayback": "Podcast bölüm listesi ve oynatma",
+    "test04Library": "Kitaplık sekmeleri ve raflar",
+    "test05FeedAndProfile": "Akışta paylaşım ve profil kaydı",
+    "test06ThemeAndPremium": "Koyu tema, Premium ve yasal metinler",
+    "test07HomePodcasts": "Ana Sayfa podcast bölümü",
+}
+
+LEGACY_JOURNEYS = {
+    "test01GuestAndBookPlayback": "Misafir, arama ve kitap oynatma",
+    "test02PodcastAndLibrary": "Podcast ve Kitaplık",
+    "test03FeedAndProfile": JOURNEYS["test05FeedAndProfile"],
+    "test04ThemeAndPremium": JOURNEYS["test06ThemeAndPremium"],
+}
+
+SCREEN_GROUPS = (
+    ("Giriş ve Ana Sayfa", "Önerilen kitaplara, duygu kartlarına ve podcast sırasına bak.", (
+        ("01-guest-entry", "Misafir girişi"), ("02-guest-home", "Ana Sayfa · giriş sonrası"),
+        ("22-home-catalog", "Önerilen kitaplar"), ("23-home-podcasts", "Podcast dünyası"),
+    )),
+    ("Keşfet ve kitap", "Arama alanını, boş sonucu, kapak yerleşimini ve oynatıcı kontrollerini karşılaştır.", (
+        ("24-discover", "Keşfet"), ("03-search-empty-result", "Sonuçsuz arama"),
+        ("04-book-search", "Kitap sonucu"), ("05-book-detail", "Kitap detayı"),
+        ("25-book-player", "Kitap oynatıcı"), ("06-book-playing", "Kitap oynatma"),
+        ("07-book-pause-and-skip", "Duraklatma ve 15 saniye atlama"), ("08-book-back-to-search", "Aramaya dönüş"),
+    )),
+    ("Podcast", "Bölüm listesini, oynatıcıyı, süreyi ve geri dönüşü incele.", (
+        ("09-podcast-episodes", "Podcast bölümleri"), ("26-podcast-player", "Podcast oynatıcı"),
+        ("10-podcast-playing", "Podcast oynatma"), ("31-podcast-back-to-search", "Podcastten aramaya dönüş"),
+    )),
+    ("Kitaplık", "KitapDuy3’teki Favoriler, İndirilenler, Geçmiş ve raf akışlarıyla karşılaştır.", (
+        ("27-library-favorites", "Favoriler"), ("11-library-downloads-empty", "İndirilenler · boş durum"),
+        ("28-library-history", "Geçmiş"), ("12-library-shelves", "Bitirdiklerim rafı"),
+    )),
+    ("Akış ve Profil", "Gönderi yazma, yayınlama, profil ve düzenleme akışlarını kontrol et.", (
+        ("13-feed", "Edebiyat Duvarı"), ("14-feed-compose", "Gönderi düzenleyici"),
+        ("15-feed-published", "Yayınlanan gönderi"), ("29-profile", "Okur köşem"),
+        ("16-profile-edit", "Profili düzenle"), ("17-profile-saved", "Kaydedilen profil"),
+    )),
+    ("Ayarlar ve Premium", "Açık ve koyu temayı, planları, geri yüklemeyi ve yasal metinleri incele.", (
+        ("18-settings-light", "Ayarlar · açık tema"), ("19-settings-dark", "Ayarlar · koyu tema"),
+        ("20-premium", "Premium planları"), ("30-premium-terms", "Kullanım koşulları"),
+        ("21-premium-legal", "Gizlilik politikası"),
+    )),
+)
+
+
+def journey_outcomes(log):
+    outcomes = {}
+    for test, outcome in re.findall(r"^Test Case '-\[\S+ (\w+)\]' (passed|failed|skipped)\b", log, re.MULTILINE):
+        # Keep a failure visible if a test was repeated.
+        if outcomes.get(test) != "failed":
+            outcomes[test] = outcome
+    return outcomes
+
 
 def select_devices(devices):
     """Use the newest installed iOS runtime that has both available device families."""
@@ -110,46 +167,125 @@ def write_reports(results, output):
     output.mkdir(parents=True, exist_ok=True)
     (output / "summary.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
     write_gallery(results, output)
-    suite = ET.Element("testsuite", name="iOS user journeys", tests=str(len(results)),
-                       failures=str(sum(not result["passed"] for result in results)))
+    suite = ET.Element("testsuite", name="iOS user journeys")
     for result in results:
-        case = ET.SubElement(suite, "testcase", classname="KitapDuy.SimulatorSmoke",
-                             name=result["name"], time=str(result.get("seconds", 0)))
-        if not result["passed"]:
-            ET.SubElement(case, "failure", message=result["error"]).text = result["error"]
-        ET.SubElement(case, "system-out").text = json.dumps(result, indent=2)
+        outcomes = result.get("journeys", {})
+        if outcomes:
+            append_journey_cases(suite, result, outcomes)
+        if not outcomes or (not result["passed"] and "failed" not in outcomes.values()):
+            case = ET.SubElement(suite, "testcase", classname="KitapDuy.SimulatorSmoke",
+                                 name=result["name"], time=str(result.get("seconds", 0)))
+            if not result["passed"]:
+                ET.SubElement(case, "failure", message=result["error"]).text = result["error"]
+            ET.SubElement(case, "system-out").text = json.dumps(result, indent=2)
+    suite.set("tests", str(len(suite)))
+    suite.set("failures", str(len(suite.findall("testcase/failure"))))
+    suite.set("skipped", str(len(suite.findall("testcase/skipped"))))
     ET.ElementTree(suite).write(output / "junit.xml", encoding="utf-8", xml_declaration=True)
+
+
+def append_journey_cases(suite, result, outcomes):
+    titles = journey_titles(outcomes)
+    for test, label in titles.items():
+        case = ET.SubElement(suite, "testcase", classname=f'KitapDuy.{result["family"]}', name=label)
+        outcome = outcomes.get(test)
+        if outcome == "failed":
+            detail = next((line for line in result["error"].splitlines() if f" {test}]" in line),
+                          "See the XCUITest log for the failing step.")
+            ET.SubElement(case, "failure", message=detail).text = detail
+        elif outcome != "passed":
+            ET.SubElement(case, "skipped", message="No completed result")
+
+
+def journey_titles(outcomes):
+    return LEGACY_JOURNEYS if outcomes.keys() & LEGACY_JOURNEYS.keys() else JOURNEYS
 
 
 def write_gallery(results, output):
     sections = []
+    devices = {result["family"]: set(result.get("screenshots", [])) for result in results if result.get("family")}
+    reference = output / "Android"
+    has_android = any((reference / f"{step}.png").is_file()
+                      for _, _, screens in SCREEN_GROUPS for step, _ in screens)
+    outcome_labels = {"passed": "Geçti", "failed": "Hata", "skipped": "Atlandı"}
     for result in results:
-        family = result.get("family", "")
+        family = result.get("family")
         status = "Geçti" if result["passed"] else "Başarısız"
-        links = ""
+        video = ""
         if result.get("video"):
-            links += f'<p><a href="{family}/recording.mp4">Video kaydı</a></p>'
+            video = (f'<video controls preload="none" src="{family}/recording.mp4"></video>'
+                     f'<p><a href="{family}/recording.mp4">Video dosyası</a></p>')
+        links = []
+        if family and "failure-screen.png" in devices[family]:
+            links.append(f'<a href="{family}/failure-screen.png">Hata sonundaki ekran</a>')
         for filename, label in (("uitest.log", "XCUITest günlüğü"), ("console.log", "Başlangıç günlüğü"),
                                 ("accessibility.txt", "Erişilebilirlik bulguları")):
             if family and (output / family / filename).exists():
-                links += f'<p><a href="{family}/{filename}">{label}</a></p>'
-        images = "".join(f'<a href="{family}/{html.escape(name, quote=True)}"><figure>'
-                         f'<img loading="lazy" src="{family}/{html.escape(name, quote=True)}" alt="">'
-                         f'<figcaption>{html.escape(name)}</figcaption></figure></a>'
-                         for name in sorted(result.get("screenshots", [])))
+                links.append(f'<a href="{family}/{filename}">{label}</a>')
         tests = result.get("xcuitest")
         progress = f'<p>{tests["passedTests"]} / {tests["totalTestCount"]} senaryo geçti.</p>' if tests else ""
-        warnings = " ".join(str(result.get(key, "")) for key in ("error", "video_warning", "screenshot_warning")).strip()
-        sections.append(f'<section><h2>{html.escape(result["name"])} · {status}</h2>'
-                        f'<p>{html.escape(result.get("runtime", ""))}</p>{progress}<p>{html.escape(warnings)}</p>'
-                        f'{links}<div class="screens">{images}</div></section>')
+        outcomes = result.get("journeys", {})
+        journey_list = "".join(f'<li>{label} <strong>{outcome_labels.get(outcomes.get(test), "Sonuç yok")}</strong></li>'
+                               for test, label in journey_titles(outcomes).items()) if family else ""
+        warnings = "\n".join(result[key] for key in ("error", "video_warning", "screenshot_warning",
+                                                     "collection_warning") if result.get(key))
+        details = f'<details><summary>Hata ayrıntıları</summary><pre>{html.escape(warnings)}</pre></details>' if warnings else ""
+        device_id = f' id="{family}"' if family else ""
+        sections.append(f'<section{device_id}><h2>{html.escape(result["name"])} · {status}</h2>'
+                        f'<p>{html.escape(result.get("runtime", ""))}</p>{progress}<ul>{journey_list}</ul>'
+                        f'{details}{video}<p>{" · ".join(links)}</p></section>')
+
+    # Align the same step across devices and make gaps visible even on a failed run.
+    groups = []
+    android_header = '<th scope="col">KitapDuy3 · Android</th>' if has_android else ""
+    for index, (title, guide, screens) in enumerate(SCREEN_GROUPS, start=1):
+        rows = []
+        for step, label in screens:
+            cells = []
+            for family in ("iPhone", "iPad"):
+                available = devices.get(family, set())
+                pictures = []
+                for name, state in ((f"{step}.png", "Ekran"), (f"failure-{step}.png", "Hata anı")):
+                    if name in available:
+                        pictures.append(f'<a href="{family}/{name}"><img loading="lazy" src="{family}/{name}" '
+                                        f'alt="{family} · {label} · {state}">{state}</a>')
+                cells.append(f'<td>{"".join(pictures) or "Görüntü alınamadı"}</td>')
+            if has_android:
+                name = f"{step}.png"
+                picture = (f'<a href="Android/{name}"><img loading="lazy" src="Android/{name}" '
+                           f'alt="KitapDuy3 · {label}">Referans</a>') if (reference / name).is_file() else "Referans yok"
+                cells.append(f'<td>{picture}</td>')
+            rows.append(f'<tr><th scope="row">{label}</th>{"".join(cells)}</tr>')
+        groups.append(f'<section id="screens-{index}"><h2>{title}</h2><p>{guide}</p><table>'
+                      f'<thead><tr><th scope="col">Ekran</th><th scope="col">iPhone</th><th scope="col">iPad</th>{android_header}</tr></thead>'
+                      f'<tbody>{"".join(rows)}</tbody></table></section>')
+
+    navigation = " · ".join([f'<a href="#{family}">{family} sonuçları</a>' for family in devices] +
+                             [f'<a href="#screens-{index}">{title}</a>'
+                              for index, (title, _, _) in enumerate(SCREEN_GROUPS, start=1)])
     page = """<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
-<title>KitapDuy iOS test raporu</title><style>
-body{font:16px system-ui;max-width:1200px;margin:32px auto;padding:0 20px;color:#29251f;background:#faf7f1}
-.screens{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px}
-figure{margin:0;background:white;border-radius:12px;padding:10px}img{width:100%;height:280px;object-fit:contain}a{color:#704527}
-</style><h1>KitapDuy iOS test raporu</h1><p>iPhone ve iPad kullanıcı senaryoları · yerel örnek veri</p>"""
-    (output / "index.html").write_text(page + "".join(sections) + "</html>", encoding="utf-8")
+<title>KitapDuy iOS kullanıcı deneyimi</title><style>
+body{font:16px system-ui;max-width:1080px;margin:32px auto;padding:0 16px;color:#29251f;background:#faf7f1}
+a{color:#704527}nav{line-height:2}section{padding:16px 0}li{padding-block:3px}li strong{margin-inline-start:8px}
+video{width:min(100%,680px);max-height:460px;background:#221d18}pre{white-space:pre-wrap;overflow-wrap:anywhere}
+table{width:100%;table-layout:fixed;border-collapse:collapse;background:#fff}th,td{padding:8px;border:1px solid #dfd6cb;text-align:left}
+th:first-child{width:24%}td a{display:block;margin:6px 0}img{display:block;width:100%;height:clamp(110px,36vw,320px);object-fit:contain}
+</style><h1>KitapDuy iOS kullanıcı deneyimi</h1>
+<p>Gerçek iPhone ve iPad simülatörü görüntülerini KitapDuy3 ile karşılaştırmak için ekranlara tıkla.</p>
+<p>Senaryolar yerel örnek veriyle çalışır. Canlı hesap girişi, mağaza işlemleri ve fiziksel cihaz davranışı ayrı doğrulama gerektirir.</p>"""
+    reference_info = reference / "source.txt"
+    provenance = ""
+    if has_android and reference_info.is_file():
+        provenance = f'<p>{html.escape(reference_info.read_text(encoding="utf-8", errors="replace").strip())}</p>'
+    findings_path = output / "observations.txt"
+    findings = ""
+    if findings_path.is_file():
+        observations = findings_path.read_text(encoding="utf-8").splitlines()
+        findings = '<section><h2>Karşılaştırma bulguları</h2><ul>' + "".join(
+            f'<li>{html.escape(line)}</li>' for line in observations if line.strip()
+        ) + '</ul></section>'
+    (output / "index.html").write_text(page + provenance + f'<nav aria-label="Rapor bölümleri">{navigation}</nav>' +
+                                       findings + "".join(sections + groups) + "</html>", encoding="utf-8")
 
 
 class SimulatorRunner:
@@ -340,14 +476,16 @@ class SimulatorRunner:
                         env=environment, stdout=log, stderr=subprocess.STDOUT, timeout=900,
                     )
                 result["fixture_requests"] = list(requests)
+                log_text = test_log.read_text(encoding="utf-8", errors="replace")
+                result["journeys"] = journey_outcomes(log_text)
                 if completed.returncode:
-                    errors = [line.strip()[:500] for line in test_log.read_text(encoding="utf-8", errors="replace").splitlines()
-                              if ": error: " in line]
+                    errors = [line.strip()[:500] for line in log_text.splitlines() if ": error: " in line]
                     detail = "\n" + "\n".join(dict.fromkeys(errors[-8:])) if errors else ""
                     raise RuntimeError(f"XCUITest failed ({completed.returncode}). See uitest.log and screenshots.{detail}")
                 result["xcuitest"] = read_test_summary(bundle)
                 tests = result["xcuitest"]
-                if tests["totalTestCount"] < 4 or tests["passedTests"] != tests["totalTestCount"]:
+                if (tests["passedTests"] != tests["totalTestCount"] or
+                        any(result["journeys"].get(test) != "passed" for test in JOURNEYS)):
                     raise RuntimeError("Xcode did not run and pass the complete journey suite.")
                 missing = set(("guest_signup", "create_post", "update_profile")) - set(requests)
                 if missing:
@@ -427,6 +565,8 @@ def main(argv=None):
     parser.add_argument("--app", type=Path, required=True)
     parser.add_argument("--test-run", type=Path, required=True)
     parser.add_argument("--output", type=Path, default=Path("build/ios-smoke"))
+    parser.add_argument("--android-reference", type=Path, default=Path("ci/kitapduy3-reference"),
+                        help="Directory of Android reference PNGs named after report steps.")
     parser.add_argument("--duration", type=int, default=125)
     parser.add_argument("--https-url", default=os.environ.get("IOS_SMOKE_HTTPS_URL", "https://example.com/"))
     args = parser.parse_args(argv)
@@ -443,6 +583,18 @@ def main(argv=None):
     except Exception as failure:
         results = [{"name": "Simulator setup", "passed": False, "error": f"{type(failure).__name__}: {failure}"}]
         print(results[0]["error"], file=sys.stderr)
+    if args.android_reference.is_dir():
+        reference = output / "Android"
+        try:
+            reference.mkdir(parents=True, exist_ok=True)
+            filenames = ["source.txt", *(f"{step}.png" for _, _, screens in SCREEN_GROUPS for step, _ in screens)]
+            for filename in filenames:
+                source = args.android_reference / filename
+                destination = reference / filename
+                if source.is_file() and source.resolve() != destination.resolve():
+                    shutil.copy2(source, destination)
+        except OSError as failure:
+            print(f"Android reference unavailable: {failure}", file=sys.stderr)
     write_reports(results, output)
     return 0 if len(results) == 2 and all(result["passed"] for result in results) else 1
 
