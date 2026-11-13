@@ -2,9 +2,11 @@
 
 GitHub’da **Actions → KitapDuy iOS QA → Run workflow** yolunu izleyip `main` dalını seçin. Bu akış elle başlatılır. GitHub artifact’i üç gün saklar. Codemagic’te **iPhone and iPad User Journey Tests** (`ios-build-test`) akışını seçin. `main` dalına yapılan push bu akışı başlatır.
 
-İki akış da Release simülatör uygulamasını ve XCUITest hedefini derler. İki cihaz ailesini de destekleyen en yeni kurulu iOS çalışma ortamında bir iPhone ve bir iPad oluşturur. Cihaz ve iOS sürümü raporda gösterilir.
+Bitrise’ta özel GitHub deposunu projeye bağlayın. **Workflows → Change storage** üzerinden depodaki kök `bitrise.yml` dosyasını kullanın. **Start/Schedule a build** ekranında `main` dalı ve `ios-qa` akışını seçin. Arşiv, çalıştırmanın **Artifacts** bölümünde görünür.
 
-Çalıştırmanın **Artifacts** bölümündeki **`kitapduy-ios-qa`** arşivini indirin, tamamını çıkarın ve **`index.html`** dosyasını tarayıcıda açın. Videolar sayfanın içinden izlenebilir. Aynı ekranın iPhone ve iPad görüntüleri yan yana gelir ve tıklandığında tam boy açılır. Senaryo sonuçları, hata anları ve Apple erişilebilirlik bulguları aynı raporda yer alır. `summary.json` cihaz başına senaryo sonuçlarını ve alınan kanıtları listeler. Codemagic ayrıca Xcode ile açılabilen `journey.xcresult.zip` arşivlerini saklar. Derleme simülatör testlerinden önce durursa GitHub artifact’inde varsa derleme günlükleri yer alır.
+Her akış Release simülatör uygulamasını ve XCUITest hedefini derler. İki cihaz ailesini de destekleyen en yeni kurulu iOS çalışma ortamında bir iPhone ve bir iPad oluşturur. Cihaz ve iOS sürümü raporda gösterilir.
+
+Çalıştırmanın **Artifacts** bölümündeki **`kitapduy-ios-qa`** arşivini indirin, tamamını çıkarın ve **`index.html`** dosyasını tarayıcıda açın. Videolar sayfanın içinden izlenebilir. Aynı ekranın iPhone ve iPad görüntüleri yan yana gelir ve tıklandığında tam boy açılır. Senaryo sonuçları, hata anları ve Apple erişilebilirlik bulguları aynı raporda yer alır. `summary.json` cihaz başına senaryo sonuçlarını ve alınan kanıtları listeler. Codemagic ayrıca Xcode ile açılabilen `journey.xcresult.zip` arşivlerini saklar. Derleme simülatör testlerinden önce durursa GitHub ve Bitrise artifact’inde varsa derleme günlükleri yer alır.
 
 ## Kapsam
 

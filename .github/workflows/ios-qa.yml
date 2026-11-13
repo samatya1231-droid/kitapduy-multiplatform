@@ -32,25 +32,8 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Configure the simulator build
-        run: |
-          xcodebuild -version
-          xcrun simctl list devices available
-          mkdir -p "$HOME/.gradle" build/ios-smoke
-          # Use the runner's JDK instead of the developer's Windows JDK path.
-          printf '\norg.gradle.java.home=%s\norg.gradle.workers.max=2\n' "$JAVA_HOME" >> "$HOME/.gradle/gradle.properties"
-          chmod +x gradlew
-          python3 ci/validate-ios-plist.py iosApp/iosApp/Info.plist
-
       - name: Build KitapDuy and its XCUITest runner
-        env:
-          KOTLIN_BUILD_LOG: ${{ github.workspace }}/build/ios-smoke/kotlin-xcode.log
-        run: |
-          xcodebuild -project iosApp/iosApp.xcodeproj -scheme KitapDuyUI \
-            -configuration Release -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath build/ios-simulator \
-            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build-for-testing 2>&1 | tee build/ios-smoke/xcode-build.log
+        run: bash ci/build-ios-simulator.sh
 
       - name: Record iPhone and iPad user journeys
         run: bash ci/test-ios-simulator.sh
