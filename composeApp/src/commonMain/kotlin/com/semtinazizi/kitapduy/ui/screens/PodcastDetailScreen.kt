@@ -274,7 +274,7 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 IconButton(enabled = selectedEpisode && displayDuration > 0f, onClick = { audioController.skipBy(-15_000, expectedEpisodeId = episode.id) }) {
-                                    Icon(Icons.Default.FastRewind, contentDescription = "Geri", tint = Color.White)
+                                    Icon(Icons.Default.FastRewind, contentDescription = "15 saniye geri", tint = Color.White)
                                 }
                                 Spacer(modifier = Modifier.width(16.dp))
                                 FloatingActionButton(
@@ -298,7 +298,7 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                                 }
                                 Spacer(modifier = Modifier.width(16.dp))
                                 IconButton(enabled = selectedEpisode && displayDuration > 0f, onClick = { audioController.skipBy(15_000, expectedEpisodeId = episode.id) }) {
-                                    Icon(Icons.Default.FastForward, contentDescription = "İleri", tint = MaterialTheme.colorScheme.onSurface)
+                                    Icon(Icons.Default.FastForward, contentDescription = "15 saniye ileri", tint = MaterialTheme.colorScheme.onSurface)
                                 }
                             }
                         }

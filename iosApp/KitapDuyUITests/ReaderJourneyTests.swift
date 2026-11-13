@@ -23,6 +23,7 @@ final class ReaderJourneyTests: XCTestCase {
         }
         try step("06-book-playing") {
             try tap(element("book-play-pause"), scroll: true)
+            try visible(element("book-elapsed"), scroll: true)
             try waitFor("Sesli kitap konumu ilerlemeli") { self.elapsed("book-elapsed") >= 2 }
         }
         try step("07-book-pause-and-skip") {
@@ -55,6 +56,7 @@ final class ReaderJourneyTests: XCTestCase {
         try step("10-podcast-playing") {
             try tap(element("podcast-episode-0"))
             try visible(element("podcast-play-pause"), scroll: true)
+            try visible(element("podcast-elapsed"), scroll: true)
             try waitFor("Podcast konumu ilerlemeli") { self.elapsed("podcast-elapsed") >= 2 }
             try tap(element("podcast-play-pause"))
             try tap(text("Geri"))
@@ -115,16 +117,12 @@ final class ReaderJourneyTests: XCTestCase {
         try step("18-settings-light") {
             try tap(element("tab-profile"))
             try tap(element("profile-settings"))
-            try visible(element("settings-dark-mode"))
+            try visible(element("settings-dark-mode-off"))
             audit("18-settings-light")
         }
         try step("19-settings-dark") {
-            let toggle = element("settings-dark-mode")
-            let before = String(describing: toggle.value)
-            try tap(toggle)
-            try waitFor("Koyu tema anahtarı durum değiştirmeli") {
-                toggle.value != nil && String(describing: toggle.value) != before
-            }
+            try tap(element("settings-dark-mode-off"))
+            try visible(element("settings-dark-mode-on"))
             audit("19-settings-dark")
         }
         try step("20-premium") {

@@ -5,10 +5,13 @@ from pathlib import Path
 import plistlib
 import tempfile
 from types import SimpleNamespace
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 import unittest
 from unittest.mock import Mock, patch
 import xml.etree.ElementTree as ET
+
+from ios_smoke_fixture import USER_ID
 
 spec = importlib.util.spec_from_file_location("ios_smoke", Path(__file__).with_name("run-ios-smoke.py"))
 smoke = importlib.util.module_from_spec(spec)
@@ -147,8 +150,10 @@ class RunnerTest(unittest.TestCase):
                 Path(args[-1]).write_bytes(b"png")
             return ""
 
-        def run_xcode(args, **kwargs):
+        def run_xcode(args, stdout, **kwargs):
             self.assertIn(f"platform=iOS Simulator,id={created}", args)
+            if test_status:
+                stdout.write("ReaderJourneyTests.swift:232: error: 15-feed-published: post missing\n")
             (self.output / "iPhone/journey.xcresult").mkdir()
             return SimpleNamespace(returncode=test_status)
 
@@ -169,6 +174,7 @@ class RunnerTest(unittest.TestCase):
         result = self.run_mock_journey([], test_status=65)
         self.assertFalse(result["passed"])
         self.assertIn("XCUITest failed", result["error"])
+        self.assertIn("15-feed-published: post missing", result["error"])
         self.assertIn("failure-screen.png", result["screenshots"])
         self.assertEqual(result["video"], "recording.mp4")
         self.assertTrue((self.output / "iPhone/journey.xcresult.zip").is_file())
@@ -277,7 +283,7 @@ class RunnerTest(unittest.TestCase):
 class FixtureTest(unittest.TestCase):
     def request_json(self, url, body=None, method=None, headers=None):
         data = None if body is None else json.dumps(body).encode()
-        request = Request(url, data=data, method=method, headers=headers or {})
+        request = Request(url, data=data, method=method, headers={"Content-Type": "application/json", **(headers or {})})
         with urlopen(request, timeout=5) as response:
             payload = response.read()
             return json.loads(payload) if payload else None
@@ -286,13 +292,28 @@ class FixtureTest(unittest.TestCase):
         with smoke.serve_fixture() as (url, events):
             auth = self.request_json(url + "/auth/v1/signup", {})
             self.assertTrue(auth["user"]["is_anonymous"])
-            self.request_json(url + "/rest/v1/users", {"name": "Updated Reader"}, method="PATCH")
-            self.request_json(url + "/rest/v1/posts", {"comment": "Test"})
-            self.assertEqual(self.request_json(url + "/rest/v1/users")[0]["name"], "Updated Reader")
-            self.assertEqual(self.request_json(url + "/rest/v1/posts")[0]["comment"], "Test")
+            users = url + "/rest/v1/users"
+            posts = url + "/rest/v1/posts"
+            self.request_json(users, [{"uid": USER_ID, "name": "Guest Reader", "username": "guest"}],
+                              headers={"Prefer": "resolution=merge-duplicates"})
+            self.assertEqual(self.request_json(users)[0]["name"], "Guest Reader")
+            self.request_json(f"{users}?uid=eq.{USER_ID}", {"name": "Updated Reader"}, method="PATCH")
+            self.request_json(posts, [{"comment": "Test", "user_id": USER_ID}])
+            self.assertEqual(self.request_json(users)[0]["name"], "Updated Reader")
+            self.assertEqual(self.request_json(posts)[0]["comment"], "Test")
             self.assertEqual(events, ["guest_signup", "update_profile", "create_post"])
         with smoke.serve_fixture() as (url, events):
             self.assertEqual(self.request_json(url + "/rest/v1/posts"), [])
+            self.assertEqual(events, [])
+
+    def test_invalid_post_rows_do_not_write_or_record_an_event(self):
+        with smoke.serve_fixture() as (url, events):
+            posts = url + "/rest/v1/posts"
+            with self.assertRaises(HTTPError) as rejected:
+                self.request_json(posts, [{"comment": "Do not save"}, "invalid row"])
+            self.assertEqual(rejected.exception.code, 400)
+            rejected.exception.close()
+            self.assertEqual(self.request_json(posts), [])
             self.assertEqual(events, [])
 
     def test_empty_search_and_audio_range(self):

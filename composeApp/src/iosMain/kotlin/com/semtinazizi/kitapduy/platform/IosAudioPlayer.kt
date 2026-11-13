@@ -4,6 +4,7 @@ package com.semtinazizi.kitapduy.platform
 /** iOS playback, queue transitions and lock-screen commands. */
 import platform.AVFoundation.*
 import platform.AVFAudio.*
+import platform.Foundation.NSLog
 import platform.Foundation.NSURL
 import kotlinx.coroutines.*
 import platform.MediaPlayer.*
@@ -101,12 +102,15 @@ class IosAudioPlayer : AudioPlayer {
                 updateNowPlayingInfo()
             }
         }
+        // Let AVPlayer begin buffering for playback while it prepares the item.
+        if (startPositionMs <= 0) startPlayback()
         readyJob = scope.launch {
             val ready = withTimeoutOrNull(30_000) {
                 while (playerItem.status == AVPlayerItemStatusUnknown) delay(50)
                 playerItem.status == AVPlayerItemStatusReadyToPlay
             } == true
             if (!ready) {
+                NSLog("KitapDuy playback item unavailable (code ${playerItem.error?.code ?: "timeout"})")
                 if (item.id == "kitapduy_preroll_ad" && queueIndex + 1 < queue.size) {
                     queueIndex++
                     playCurrentItem(queue[queueIndex].startPositionMs)
@@ -117,9 +121,15 @@ class IosAudioPlayer : AudioPlayer {
                 return@launch
             }
             if (startPositionMs > 0) seekTo(startPositionMs)
-            if (shouldPlay) avPlayer?.rate = playbackSpeed
+            if (shouldPlay) startPlayback()
             updateNowPlayingInfo()
         }
+    }
+
+    private fun startPlayback() {
+        val player = avPlayer ?: return
+        player.play()
+        if (playbackSpeed != 1f) player.rate = playbackSpeed
     }
 
     override fun currentMediaId(): String? = if (avPlayer?.currentItem?.status == AVPlayerItemStatusReadyToPlay) queue.getOrNull(queueIndex)?.id else null
@@ -132,7 +142,7 @@ class IosAudioPlayer : AudioPlayer {
 
     override fun resume() {
         shouldPlay = true
-        if (avPlayer?.currentItem?.status == AVPlayerItemStatusReadyToPlay) avPlayer?.rate = playbackSpeed
+        if (avPlayer?.currentItem?.status == AVPlayerItemStatusReadyToPlay) startPlayback()
         updateNowPlayingInfo()
     }
 

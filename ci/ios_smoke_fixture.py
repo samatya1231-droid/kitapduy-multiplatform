@@ -139,6 +139,9 @@ def serve_fixture():
         def do_POST(self):
             path = urlsplit(self.path).path
             body = self.read_body()
+            if body is None:
+                self.send_data(400, {"message": "Invalid JSON body"})
+                return
             if path in ("/auth/v1/signup", "/auth/v1/token"):
                 if path.endswith("/signup"):
                     with state_lock:
@@ -147,30 +150,51 @@ def serve_fixture():
                         "updated_at": now, "is_anonymous": True, "app_metadata": {}, "user_metadata": {}}
                 self.send_data(200, {"access_token": test_token(), "token_type": "bearer", "expires_in": 3600,
                                      "refresh_token": "simulator-fixture", "user": user})
-            elif path == "/rest/v1/users":
-                with state_lock:
-                    profile.update(body)
-                self.send_data(201, b"", "text/plain")
-            elif path == "/rest/v1/posts":
-                with state_lock:
-                    posts.append({**body, "id": len(posts) + 1, "created_at": now})
-                    requests.append("create_post")
-                self.send_data(201, b"", "text/plain")
             else:
+                self.insert_rows(path, body)
+
+        def insert_rows(self, path, body):
+            if path not in ("/rest/v1/users", "/rest/v1/posts"):
                 self.send_data(404, {"message": "Unknown fixture write"})
+                return
+            # Supabase sends an array even when inserting or upserting one row.
+            rows = body if isinstance(body, list) else [body]
+            if not rows or not all(isinstance(row, dict) for row in rows):
+                self.send_data(400, {"message": "Expected a JSON object or array of objects"})
+                return
+            if path == "/rest/v1/users" and (len(rows) != 1 or rows[0].get("uid", USER_ID) != USER_ID):
+                self.send_data(400, {"message": "Expected one row for the fixture user"})
+                return
+            with state_lock:
+                if path == "/rest/v1/users":
+                    profile.update(rows[0])
+                else:
+                    for row in rows:
+                        posts.append({**row, "id": len(posts) + 1, "created_at": now})
+                    requests.append("create_post")
+            self.send_data(201, b"", "text/plain")
 
         def do_PATCH(self):
+            parsed = urlsplit(self.path)
+            if parsed.path != "/rest/v1/users":
+                self.send_data(404, {"message": "Unknown fixture update"})
+                return
             body = self.read_body()
-            if urlsplit(self.path).path == "/rest/v1/users":
+            if not isinstance(body, dict):
+                self.send_data(400, {"message": "Expected a JSON object"})
+                return
+            uid_filter = parse_qs(parsed.query).get("uid")
+            if uid_filter is None or uid_filter == [f"eq.{USER_ID}"]:
                 with state_lock:
                     profile.update(body)
                     requests.append("update_profile")
-                self.send_data(204, b"", "text/plain")
-            else:
-                self.send_data(404, {"message": "Unknown fixture update"})
+            self.send_data(204, b"", "text/plain")
 
         def read_body(self):
-            return json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or "{}")
+            try:
+                return json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or "{}")
+            except ValueError:
+                return None
 
     with ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:
         thread = Thread(target=server.serve_forever, daemon=True)

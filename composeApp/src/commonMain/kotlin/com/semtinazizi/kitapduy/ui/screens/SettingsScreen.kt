@@ -15,6 +15,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -187,9 +189,13 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Text("Koyu tema", modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
-                    Switch(checked = darkMode, modifier = Modifier.testTag("settings-dark-mode"), onCheckedChange = {
-                        com.semtinazizi.kitapduy.util.KmpThemeManager.setDarkMode(it)
-                    })
+                    Switch(
+                        checked = darkMode,
+                        modifier = Modifier
+                            .testTag(if (darkMode) "settings-dark-mode-on" else "settings-dark-mode-off")
+                            .semantics { contentDescription = "Koyu tema" },
+                        onCheckedChange = com.semtinazizi.kitapduy.util.KmpThemeManager::setDarkMode,
+                    )
                 }
                 SettingsSectionTitle("Uygulama")
                 SettingsItem(icon = Icons.Filled.WorkspacePremium, title = "Premium", subtitle = "Planlar ve satın alımları geri yükleme", modifier = Modifier.testTag("settings-premium")) { navigator.root.push(SubscriptionPaywallScreen()) }

@@ -331,7 +331,8 @@ class SimulatorRunner:
                 if not video_process:
                     result["video_warning"] = self.last_video_warning
                 environment = dict(os.environ, TEST_RUNNER_KITAPDUY_CI_FIXTURE_URL=fixture_url)
-                with (directory / "uitest.log").open("w", encoding="utf-8") as log:
+                test_log = directory / "uitest.log"
+                with test_log.open("w", encoding="utf-8") as log:
                     completed = subprocess.run(
                         ["xcodebuild", "test-without-building", "-xctestrun", str(self.test_run),
                          "-destination", f"platform=iOS Simulator,id={udid}",
@@ -340,7 +341,10 @@ class SimulatorRunner:
                     )
                 result["fixture_requests"] = list(requests)
                 if completed.returncode:
-                    raise RuntimeError(f"XCUITest failed ({completed.returncode}). See uitest.log and screenshots.")
+                    errors = [line.strip()[:500] for line in test_log.read_text(encoding="utf-8", errors="replace").splitlines()
+                              if ": error: " in line]
+                    detail = "\n" + "\n".join(dict.fromkeys(errors[-8:])) if errors else ""
+                    raise RuntimeError(f"XCUITest failed ({completed.returncode}). See uitest.log and screenshots.{detail}")
                 result["xcuitest"] = read_test_summary(bundle)
                 tests = result["xcuitest"]
                 if tests["totalTestCount"] < 4 or tests["passedTests"] != tests["totalTestCount"]:
