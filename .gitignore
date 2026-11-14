@@ -27,6 +27,22 @@ local.properties
 *.ipa
 *.log
 
+# SwiftPM CI cache
+.spm-cache/
+
+# Apple signing secrets (never commit)
+*.p12
+*.pfx
+*.p8
+*.cer
+*.crt
+*.csr
+*.certSigningRequest
+*.mobileprovision
+*.pem
+*.key
+ExportOptions*.plist
+
 # Python
 __pycache__/
 *.pyc

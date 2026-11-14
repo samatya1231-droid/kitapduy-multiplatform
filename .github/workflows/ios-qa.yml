@@ -18,19 +18,39 @@ jobs:
     defaults:
       run:
         shell: bash
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_26.5.app/Contents/Developer
 
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
+      - name: Select Xcode 26.5 when available
+        run: |
+          if [[ -d /Applications/Xcode_26.5.app/Contents/Developer ]]; then
+            echo "DEVELOPER_DIR=/Applications/Xcode_26.5.app/Contents/Developer" >> "$GITHUB_ENV"
+          fi
+
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
           cache: gradle
+
+      - name: Cache Kotlin/Native toolchain
+        uses: actions/cache@v5
+        with:
+          path: ~/.konan
+          key: macos-26-konan-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: |
+            macos-26-konan-
+
+      - name: Cache Swift packages
+        uses: actions/cache@v5
+        with:
+          path: .spm-cache
+          key: macos-26-spm-${{ hashFiles('iosApp/iosApp.xcodeproj/project.pbxproj') }}
+          restore-keys: |
+            macos-26-spm-
 
       - name: Build KitapDuy and its XCUITest runner
         run: bash ci/build-ios-simulator.sh

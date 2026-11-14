@@ -35,6 +35,22 @@ class PlistValidationTests(unittest.TestCase):
                 result = subprocess.run([sys.executable, str(SCRIPT), str(path)], capture_output=True)
                 self.assertEqual(result.returncode, 0 if valid else 1, result.stderr)
 
+    def test_ipa_rejects_wrong_build_number_before_upload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "KitapDuy.ipa"
+            with zipfile.ZipFile(path, "w") as archive:
+                archive.writestr("Payload/KitapDuy.app/Info.plist", plistlib.dumps({
+                    validator.KEY: True,
+                    "CFBundleIdentifier": "com.semtinazizi.kitapduy",
+                    "CFBundleShortVersionString": "1.0.2",
+                    "CFBundleVersion": "27",
+                }))
+            result = subprocess.run([
+                sys.executable, str(SCRIPT), str(path), "--build-number", "28",
+            ], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("CFBundleVersion", result.stderr)
+
     def test_missing_artifact_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             result = subprocess.run([sys.executable, str(SCRIPT), str(Path(directory) / "*.ipa")], capture_output=True)
