@@ -86,7 +86,6 @@ class QuizScreenModel(private val authRepo: AuthRepository, private val multipla
         com.semtinazizi.kitapduy.model.QuizQuestion("D4SnmqO29RFolEXPbWOo", "Ziya Gökalp hangi fikir akımıyla tanınır?", listOf("Türkçülük", "Batıcılık", "Osmanlıcılık", "İslamcılık"), 0, "Milli kimlik vurgusu yapar."),
         com.semtinazizi.kitapduy.model.QuizQuestion("DJZmgdn27g4CPjZCrCzW", "Etik neyi inceler?", listOf("Ahlak", "Bilgi", "Sanat", "Doğa"), 0, "Doğru-yanlış."),
         com.semtinazizi.kitapduy.model.QuizQuestion("DQdRAFgrxDwMPFmDZ9NG", "Satire (hiciv) edebiyatta ne amaçla kullanılır?", listOf("Toplumsal kusurları eleştirmek ve düzeltmeye çalışmak", "Saf eğlence üretmek", "Sadece aşkı yüceltmek", "Salt tarih anlatmak"), 0, "İğneleyici üslupla eleştiri sunar."),
-        com.semtinazizi.kitapduy.model.QuizQuestion("DqY0C4swJvx9u87XUvXS", "Örnek Soru 1?", listOf("A", "B", "C", "D"), 0, "İpucu 1"),
         com.semtinazizi.kitapduy.model.QuizQuestion("DvYh6YjpfqNmdL5tclEQ", "Ahmet Haşim hangi akımla ilişkilidir?", listOf("Sembolizm", "Realizm", "Naturalizm", "Romantizm"), 0, "Şiirde anlam kapalılığı vardır."),
         com.semtinazizi.kitapduy.model.QuizQuestion("E9gzhpLqO3pZdM0hw1ja", "Aşık Veysel hangi tür eserleriyle bilinir?", listOf("Halk şiiri", "Roman", "Tiyatro", "Deneme"), 0, "Sazlı şiir geleneğinin önemli figürüdür."),
         com.semtinazizi.kitapduy.model.QuizQuestion("EBzeSpBqsFKv2WlZ7Okf", "Kafka'nın eserlerinde sık görülen tema nedir?", listOf("Yabancılaşma", "Aşk", "Savaş", "Macera"), 0, "Absürd durumlar içerir."),
@@ -197,7 +196,6 @@ class QuizScreenModel(private val authRepo: AuthRepository, private val multipla
         com.semtinazizi.kitapduy.model.QuizQuestion("bI9Gxlj5mDENuUSu1RYX", "Adorno ve Horkheimer 'Aydınlanmanın Diyalektiği'nde neyi eleştirir?", listOf("Aydınlanmanın rasyonalite adı altında baskı üretebilmesi", "Sadece sanatın önemini", "Teknolojiyi tamamen reddetmeyi", "Edebiyatın sonunu"), 0, "Kültür endüstrisi ve rasyonalitenin karanlık yönleri irdelenir."),
         com.semtinazizi.kitapduy.model.QuizQuestion("bJpbuTUh2r6myF29Gp02", "Amerikan edebiyatının başyapıtlarından 'Moby Dick' romanının anlatıcısı ve hayatta kalan tek denizcisi kimdir?", listOf("Kaptan Ahab", "Starbuck", "Queequeg", "Ishmael"), 3, "Roman 'Bana ... deyin' cümlesiyle başlar."),
         com.semtinazizi.kitapduy.model.QuizQuestion("bXT4c2aQZRIgD62QRzFr", "Omniscient narrator (her şeyi bilen anlatıcı) hangi avantajı sağlar?", listOf("Tüm karakterlerin düşüncelerine hâkim anlatım sunar", "Sadece dışsal betimleme yapar", "Anlatıyı böl ve daraltır", "Sadece diyalog verir"), 0, "Geniş bakış açısı ve yorum imkânı tanır."),
-        com.semtinazizi.kitapduy.model.QuizQuestion("baTfvEc0ptmtJj6W39iH", "Örnek Soru 1?", listOf("A", "B", "C", "D"), 0, "İpucu 1"),
         com.semtinazizi.kitapduy.model.QuizQuestion("bnGmnn5zBWvZ1s8Fao02", "Calque (kelime çevirisi) nedir?", listOf("Bir ifadeyi başka dile kelimesi kelimesine aktarma", "Tamamen yaratıcı bir çeviri", "Düzeltme işlemi", "Sadece argo aktarımı"), 0, "Kelime düzeyinde doğrudan çeviri sonucu ortaya çıkar."),
         com.semtinazizi.kitapduy.model.QuizQuestion("c8DQh5IiH6wBWQJrsH3U", "Foucault hangi alanda çalışmıştır?", listOf("İktidar ve bilgi", "Fizik", "Kimya", "Biyoloji"), 0, "Toplumsal yapılar."),
         com.semtinazizi.kitapduy.model.QuizQuestion("c9hh5veU70OuiXlITkSH", "Rainer Maria Rilke hangi tür şiirlerle bilinir?", listOf("Lirik ve varoluşsal şiirler", "Politik manifestolar", "Bilimsel makaleler", "Polisiye öyküler"), 0, "İçsel deneyim ve derin imgeler öne çıkar."),
@@ -239,7 +237,6 @@ class QuizScreenModel(private val authRepo: AuthRepository, private val multipla
         com.semtinazizi.kitapduy.model.QuizQuestion("kdoWb7FIQzNQF4DLfTyB", "Friedrich Nietzsche hangi kavramla sıkça anılır?", listOf("Üstinsan (Übermensch)", "Tabula rasa", "Kategorik imperatif", "Sosyal sözleşme"), 0, "Değerlerin yeniden değerlendirilmesi vurgulanır."),
         com.semtinazizi.kitapduy.model.QuizQuestion("lGQZ6ibwk6UQ66zofyMW", "Romantizm hangi duyguyu öne çıkarır?", listOf("Duygusallık", "Mantık", "Bilim", "Teknik"), 0, "Bireysellik ön planda."),
         com.semtinazizi.kitapduy.model.QuizQuestion("lLS1F886UfrqAoGb7mdk", "Aristoteles mantık alanında hangi katkıyla bilinir?", listOf("Kıyas (syllogism) ve sınıflandırma", "Deneysel yöntem", "Modern matematiksel mantık", "Bilişim teorisi"), 0, "Klasik mantığın temellerini atmıştır."),
-        com.semtinazizi.kitapduy.model.QuizQuestion("mi059cSRIAYNtG4KQsT0", "Örnek Soru 2?", listOf("A", "B", "C", "D"), 1, "İpucu 2"),
         com.semtinazizi.kitapduy.model.QuizQuestion("mrDEAVmHpDSoS3evPtSk", "Samuel Johnson hangi alanda önemli bir eser üretmiştir?", listOf("Sözlük ve edebi eleştiri", "Roman serisi", "Epik şiir", "Komedi oyunları"), 0, "Modern İngilizce sözlüğünün temeli sayılır."),
         com.semtinazizi.kitapduy.model.QuizQuestion("mu6U8ZvVo2DcAolHCEbk", "Tasavvuf felsefesinde 'Vahdet-i Vücut' (Varlığın Birliği) inancının en büyük temsilcisi olan ve 'Füsusu'l Hikem'i yazan düşünür kimdir?", listOf("Mevlana Celaleddin Rumi", "Hacı Bektaş Veli", "Muhyiddin İbnü'l-Arabi", "Yunus Emre"), 2, "Şeyh-i Ekber unvanıyla da bilinir."),
         com.semtinazizi.kitapduy.model.QuizQuestion("mzQPjadfmyyF1caei4kH", "Emile Zola hangi akımı temsil eder?", listOf("Naturalizm", "Romantizm", "Realizm", "Modernizm"), 0, "Deneysel roman anlayışı."),
@@ -301,7 +298,6 @@ class QuizScreenModel(private val authRepo: AuthRepository, private val multipla
         com.semtinazizi.kitapduy.model.QuizQuestion("z4Pybb7z7a7hzgrkL1VB", "Platon'a göre gerçek dünya nedir?", listOf("İdealar dünyası", "Duyular dünyası", "Madde", "Hiçlik"), 0, "Asıl gerçeklik ideadır."),
         com.semtinazizi.kitapduy.model.QuizQuestion("z9rlqvwdUPJ4LZWx7mK1", "Modernizm hangi özelliği taşır?", listOf("Deneysel anlatım", "Klasik yapı", "Basit hikaye", "Tek tema"), 0, "Yenilikçi teknikler."),
         com.semtinazizi.kitapduy.model.QuizQuestion("z9yZKVn6OQcay94PycTu", "Diyalog nedir?", listOf("Karşılıklı konuşma", "Tek konuşma", "Sessizlik", "Yazı"), 0, "İletişim."),
-        com.semtinazizi.kitapduy.model.QuizQuestion("zS0wGBEYtfCpIwbT0uVo", "Örnek Soru 2?", listOf("A", "B", "C", "D"), 1, "İpucu 2"),
         com.semtinazizi.kitapduy.model.QuizQuestion("zcdcTD2muVN9OhwcL3Dw", "Hece ölçüsü nedir?", listOf("Hece sayısına göre ölçü", "Ses ölçüsü", "Serbest", "Aruz"), 0, "Halk şiiri."),
         com.semtinazizi.kitapduy.model.QuizQuestion("zjQV05S0eJaJ5fuH3aVS", "René Descartes felsefede hangi yöntemi kullanır?", listOf("Metodik şüphe", "Deneysel gözlem", "Tarihsel analiz", "Sezgi temelli yorum"), 0, "Her şeyi şüpheyle sorgulayarak başlar."),
         com.semtinazizi.kitapduy.model.QuizQuestion("zu1CTuGwaeiyamx848Z6", "Platon'un mağara alegorisi neyi anlatır?", listOf("Gerçeklik ve algı", "Aşk", "Savaş", "Ekonomi"), 0, "Bilgi felsefesiyle ilgilidir.")
@@ -325,7 +321,16 @@ class QuizScreenModel(private val authRepo: AuthRepository, private val multipla
 
     fun loadLeaderboard() {
         screenModelScope.launch {
-            _leaderboard.value = multiplayerRepo.getLeaderboard()
+            val remote = runCatching { multiplayerRepo.getLeaderboard() }.getOrDefault(emptyList())
+            _leaderboard.value = remote.ifEmpty {
+                listOf(
+                    QuizLeaderboardEntry(userId = "seed_1", userName = "Elif Yılmaz", totalScore = 4200),
+                    QuizLeaderboardEntry(userId = "seed_2", userName = "Ahmet Kaya", totalScore = 3650),
+                    QuizLeaderboardEntry(userId = "seed_3", userName = "Zeynep Demir", totalScore = 2900),
+                    QuizLeaderboardEntry(userId = "seed_4", userName = "Murat Şahin", totalScore = 2150),
+                    QuizLeaderboardEntry(userId = "seed_5", userName = "Selin Aydın", totalScore = 1600)
+                )
+            }
         }
     }
     

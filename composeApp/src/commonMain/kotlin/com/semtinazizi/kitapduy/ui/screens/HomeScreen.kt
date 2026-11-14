@@ -1,5 +1,10 @@
 package com.semtinazizi.kitapduy.ui.screens
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.FilterChipDefaults
+import com.semtinazizi.kitapduy.ui.components.HomeAdvisorFab
+import com.semtinazizi.kitapduy.ui.theme.SleekChampagne
+
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -149,27 +154,55 @@ class HomeScreen : Screen {
                         }
                         item {
                             val visibleCategories = remember(groupedBooks) {
-                                groupedBooks.keys.filter { !it.equals("Podcast", ignoreCase = true) && it.isNotBlank() }
+                                val allShownBooks = groupedBooks.values.flatten()
+                                val preferred = listOf("Türk Edebiyatı", "Polisiye", "Roman", "Dünya Edebiyatı")
+                                val extraKeys = groupedBooks.keys.filter { key ->
+                                    key.isNotBlank() &&
+                                        !key.equals("Podcast", ignoreCase = true) &&
+                                        preferred.none { categoryMatches(key, it) }
+                                }.sorted()
+                                val preferredPresent = preferred.filter { cat ->
+                                    groupedBooks.keys.any { categoryMatches(it, cat) } ||
+                                        allShownBooks.any { bookMatchesCategory(it, cat) }
+                                }
+                                (preferredPresent + extraKeys).take(10)
                             }
                             LazyRow(
                                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 item {
-                                    FilterChip(selected = true, onClick = {}, label = { Text("Tümü") })
+                                    FilterChip(
+                                        selected = true,
+                                        onClick = {},
+                                        label = { Text("Tümü") },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = if (isLight) Color(0xFF6D4C2D) else SleekChampagne,
+                                            selectedLabelColor = if (isLight) Color.White else Color(0xFF1A1A1C)
+                                        ),
+                                        border = null
+                                    )
                                 }
                                 items(visibleCategories) { category ->
                                     FilterChip(
                                         selected = false,
                                         onClick = { navigator.push(CategoryDetailScreen(category)) },
-                                        label = { Text(category) }
+                                        label = { Text(category) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            containerColor = if (isLight) Color(0xFFF3EEE7) else Color(0xFF262629),
+                                            labelColor = MaterialTheme.colorScheme.onSurface
+                                        ),
+                                        border = BorderStroke(
+                                            1.dp,
+                                            if (isLight) Color(0xFFE0D6C8) else Color(0xFF3A3A3D)
+                                        )
                                     )
                                 }
                             }
                         }
                         item {
                             BeyondBooksCardsRow(
-                                onArenaClick = { navigator.push(KitapBilScreen()) },
+                                onArenaClick = { navigator.push(QuizScreen()) },
                                 onAskidaClick = { navigator.push(AskidaKitapScreen()) },
                                 isLight = isLight,
                                 isCompact = true,
@@ -240,6 +273,13 @@ class HomeScreen : Screen {
                         }
                     }
                 }
+                HomeAdvisorFab(
+                    expanded = true,
+                    onClick = { navigator.push(LiteraryAdvisorScreen()) },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = 16.dp)
+                )
             }
         }
 

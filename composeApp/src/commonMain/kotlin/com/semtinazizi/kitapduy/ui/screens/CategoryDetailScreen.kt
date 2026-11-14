@@ -60,8 +60,7 @@ class CategoryDetailScreen(val categoryName: String) : Screen {
             val targetCategory = categoryName.trim()
             allBooks.filter {
                 targetCategory.equals("Tümü", ignoreCase = true) ||
-                    it.category.trim().equals(targetCategory, ignoreCase = true) ||
-                    categoryMatches(it.category, targetCategory)
+                    bookMatchesCategory(it, targetCategory)
             }
                 .filter { 
                     it.title.contains(searchQuery, ignoreCase = true) || 

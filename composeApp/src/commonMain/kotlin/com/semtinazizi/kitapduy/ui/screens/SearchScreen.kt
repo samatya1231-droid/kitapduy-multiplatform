@@ -262,8 +262,8 @@ class SearchScreen : Screen {
                             initialBooks = initialBooks,
                             onCategoryClick = { navigator.push(CategoryDetailScreen(it)) },
                             onAskida = { navigator.push(AskidaKitapScreen()) },
-                            onActivities = { navigator.push(KitapBilScreen()) },
-                            onAdvisor = { navigator.push(MindLibraryScreen()) }
+                            onActivities = { navigator.push(QuizScreen()) },
+                            onAdvisor = { navigator.push(LiteraryAdvisorScreen()) }
                         )
                     } else {
                         when (selectedCategory) {

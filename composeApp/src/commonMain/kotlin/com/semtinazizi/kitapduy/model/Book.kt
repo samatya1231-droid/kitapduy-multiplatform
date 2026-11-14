@@ -15,5 +15,7 @@ data class Book(
     val duration: Long = 0L,
     @SerialName("listen_count") val listenCount: Long = 0L,
     @SerialName("view_count") val viewCount: Int = 0,
-    @SerialName("like_count") val likeCount: Int = 0
+    @SerialName("like_count") val likeCount: Int = 0,
+    val language: String = "tr",
+    val tags: List<String> = emptyList()
 )

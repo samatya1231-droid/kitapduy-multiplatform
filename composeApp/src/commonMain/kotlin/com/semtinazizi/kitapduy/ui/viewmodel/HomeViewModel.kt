@@ -82,7 +82,10 @@ class HomeViewModel(
                     try {
                         val fetchedBooks = bookRepository.getBooks()
                         _books.value = fetchedBooks
-                        val prioritizedBooks = fetchedBooks.sortedWith(
+                        val audiobookCatalog = fetchedBooks.filterNot {
+                            it.category.trim().equals("Podcast", ignoreCase = true)
+                        }
+                        val prioritizedBooks = audiobookCatalog.sortedWith(
                             compareBy<Book> { if (it.id == "local_ci_book") 1 else 0 }
                                 .thenByDescending { it.viewCount }
                         )

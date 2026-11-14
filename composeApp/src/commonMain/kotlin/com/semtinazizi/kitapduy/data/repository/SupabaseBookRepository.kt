@@ -21,7 +21,9 @@ private data class BookDto(
     val duration: Long? = null,
     @SerialName("listen_count") val listenCount: Long? = null,
     @SerialName("view_count") val viewCount: Int? = null,
-    @SerialName("like_count") val likeCount: Int? = null
+    @SerialName("like_count") val likeCount: Int? = null,
+    val language: String? = null,
+    val tags: List<String>? = null
 ) {
     fun toBook() = Book(
         id = id ?: "",
@@ -34,7 +36,9 @@ private data class BookDto(
         duration = duration ?: 0L,
         listenCount = listenCount ?: 0L,
         viewCount = viewCount ?: 0,
-        likeCount = likeCount ?: 0
+        likeCount = likeCount ?: 0,
+        language = language ?: "tr",
+        tags = tags ?: emptyList()
     )
 }
 
@@ -95,22 +99,60 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
     }
 
     override suspend fun getBooks(): List<Book> {
+        val isLocalFixture = AppConfig.supabaseUrl.startsWith("http://localhost:")
         return try {
             val books = supabaseClient.postgrest["books"]
                 .select()
                 .decodeList<BookDto>().map { it.toBook() }
 
-            val filtered = books.filter { it.title.isNotBlank() && it.author.isNotBlank() }.map {
+            val remote = books.filter { it.title.isNotBlank() && it.author.isNotBlank() }.map {
                 it.copy(
                     coverUrl = fixImageUrl(it.coverUrl),
                     audioUrl = fixUrl(it.audioUrl)
                 )
             }
-            if (filtered.isNotEmpty()) filtered else sampleFallbackBooks
+            if (isLocalFixture) {
+                if (remote.isNotEmpty()) remote else CatalogSeed.books
+            } else {
+                mergeWithSeedCatalog(remote)
+            }
         } catch (e: Throwable) {
             println("GET_BOOKS_ERROR: ${e.stackTraceToString()}")
-            sampleFallbackBooks
+            CatalogSeed.books.ifEmpty { sampleFallbackBooks }
         }
+    }
+
+    private fun mergeWithSeedCatalog(remote: List<Book>): List<Book> {
+        val seedById = CatalogSeed.books.associateBy { it.id }
+        val merged = remote.map { book ->
+            val seed = seedById[book.id]
+            if (seed == null) {
+                book
+            } else {
+                book.copy(
+                    category = book.category.takeIf { it.isNotBlank() && !it.equals("Genel", ignoreCase = true) } ?: seed.category,
+                    coverUrl = book.coverUrl.ifBlank { fixImageUrl(seed.coverUrl) },
+                    audioUrl = book.audioUrl.ifBlank { fixUrl(seed.audioUrl) },
+                    description = book.description.ifBlank { seed.description },
+                    duration = if (book.duration > 0L) book.duration else seed.duration,
+                    viewCount = maxOf(book.viewCount, seed.viewCount),
+                    likeCount = maxOf(book.likeCount, seed.likeCount),
+                    tags = book.tags.ifEmpty { seed.tags }
+                )
+            }
+        }.toMutableList()
+        val seenIds = merged.map { it.id }.toHashSet()
+        CatalogSeed.books.forEach { seed ->
+            if (seed.id !in seenIds) {
+                merged.add(
+                    seed.copy(
+                        coverUrl = fixImageUrl(seed.coverUrl),
+                        audioUrl = fixUrl(seed.audioUrl)
+                    )
+                )
+            }
+        }
+        return merged
     }
 
     override suspend fun getFavoriteBookIds(userId: String): Set<String> {
@@ -152,6 +194,16 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
 
     override suspend fun searchBooks(query: String): List<Book> {
         if (query.isBlank()) return emptyList()
+        val isLocalFixture = AppConfig.supabaseUrl.startsWith("http://localhost:")
+        val seedMatches = if (isLocalFixture) {
+            emptyList()
+        } else {
+            CatalogSeed.books.filter {
+                it.title.contains(query, ignoreCase = true) || it.author.contains(query, ignoreCase = true)
+            }.map {
+                it.copy(coverUrl = fixImageUrl(it.coverUrl), audioUrl = fixUrl(it.audioUrl))
+            }
+        }
         return try {
             val books = supabaseClient.postgrest["books"]
                 .select {
@@ -170,12 +222,15 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
                     audioUrl = fixUrl(it.audioUrl)
                 )
             }
-            if (filtered.isNotEmpty()) filtered else sampleFallbackBooks.filter {
-                it.title.contains(query, ignoreCase = true) || it.author.contains(query, ignoreCase = true)
+            if (isLocalFixture) {
+                filtered
+            } else {
+                val seen = filtered.map { it.id }.toHashSet()
+                filtered + seedMatches.filter { it.id !in seen }
             }
         } catch (e: Throwable) {
             e.printStackTrace()
-            sampleFallbackBooks.filter {
+            if (seedMatches.isNotEmpty()) seedMatches else sampleFallbackBooks.filter {
                 it.title.contains(query, ignoreCase = true) || it.author.contains(query, ignoreCase = true)
             }
         }

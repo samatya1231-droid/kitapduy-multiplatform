@@ -40,12 +40,12 @@ import com.semtinazizi.kitapduy.platform.BannerAdView
 
 class KitapBilScreen(
     val isPremium: Boolean = false,
-    val onIndependentPensClick: () -> Unit = {},
-    val onMindLibraryClick: () -> Unit = {},
-    val onQuizClick: () -> Unit = {},
+    val onIndependentPensClick: (() -> Unit)? = null,
+    val onMindLibraryClick: (() -> Unit)? = null,
+    val onQuizClick: (() -> Unit)? = null,
     val onArticleClick: (String) -> Unit = {},
-    val onVideoClick: () -> Unit = {},
-    val onPodcastClick: () -> Unit = {}
+    val onVideoClick: (() -> Unit)? = null,
+    val onPodcastClick: (() -> Unit)? = null
 ) : Screen {
 
     @Composable
@@ -133,7 +133,7 @@ class KitapBilScreen(
                         primaryColor = softGold,
                         badgeText = "YARIŞMA",
                         modifier = Modifier.fillMaxWidth().height(160.dp)
-                    ) { onQuizClick() }
+                    ) { onQuizClick?.invoke() ?: navigator.push(QuizScreen()) }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -149,7 +149,7 @@ class KitapBilScreen(
                             primaryColor = softViolet,
                             badgeText = "YENİ",
                             modifier = Modifier.weight(1f).height(150.dp)
-                        ) { onIndependentPensClick() }
+                        ) { onIndependentPensClick?.invoke() ?: navigator.push(IndependentPensScreen()) }
 
                         ModernNeonBentoCard(
                             title = "Zihin Ktp.",
@@ -157,7 +157,7 @@ class KitapBilScreen(
                             icon = Icons.Default.LocalLibrary,
                             primaryColor = softBlue,
                             modifier = Modifier.weight(1f).height(150.dp)
-                        ) { onMindLibraryClick() }
+                        ) { onMindLibraryClick?.invoke() ?: navigator.push(MindLibraryScreen()) }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -173,7 +173,7 @@ class KitapBilScreen(
                             icon = Icons.Default.SelfImprovement,
                             primaryColor = softRed,
                             modifier = Modifier.weight(1f).height(150.dp)
-                        ) { onVideoClick() }
+                        ) { onVideoClick?.invoke() ?: Unit }
 
                         ModernNeonBentoCard(
                             title = "Radyo Tiyatrosu",

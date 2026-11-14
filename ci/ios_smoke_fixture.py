@@ -24,6 +24,101 @@ def test_token():
     return f"{header}.{claims}.c2ltdWxhdG9y"
 
 
+def normalize_tr(value):
+    return (
+        str(value)
+        .replace("İ", "i")
+        .replace("I", "i")
+        .replace("ı", "i")
+        .replace("Ç", "c")
+        .replace("ç", "c")
+        .replace("Ğ", "g")
+        .replace("ğ", "g")
+        .replace("Ö", "o")
+        .replace("ö", "o")
+        .replace("Ş", "s")
+        .replace("ş", "s")
+        .replace("Ü", "u")
+        .replace("ü", "u")
+        .replace("Â", "a")
+        .replace("â", "a")
+        .casefold()
+    )
+
+
+def _resolve_cover_name(book_id, category, tags, available_covers):
+    top_name = f"top_{book_id}.jpg"
+    if top_name in available_covers:
+        return top_name
+    for raw in [category] + list(tags or []):
+        c = normalize_tr(raw)
+        if "polisiye" in c and "cat_polisiye_kizil_dosya.jpg" in available_covers:
+            return "cat_polisiye_kizil_dosya.jpg"
+        if "roman" in c and "cat_roman_budala.jpg" in available_covers:
+            return "cat_roman_budala.jpg"
+        if "tarih" in c and "cat_tarih_lincoln.jpg" in available_covers:
+            return "cat_tarih_lincoln.jpg"
+        if "felsefe" in c and "cat_felsefe_schopenhauer.jpg" in available_covers:
+            return "cat_felsefe_schopenhauer.jpg"
+        if "bilim kurgu" in c and "cat_bilimkurgu_frankenstein.jpg" in available_covers:
+            return "cat_bilimkurgu_frankenstein.jpg"
+        if "siir" in c and "cat_siir_siirler.jpg" in available_covers:
+            return "cat_siir_siirler.jpg"
+        if "kisisel" in c and "cat_gelisim_kendime.jpg" in available_covers:
+            return "cat_gelisim_kendime.jpg"
+        if "cocuk" in c and "cat_cocuk_ozal.jpg" in available_covers:
+            return "cat_cocuk_ozal.jpg"
+        if "turk" in c and "cat_turk_kandil.jpg" in available_covers:
+            return "cat_turk_kandil.jpg"
+        if "ingilizce" in c and "cat_ingilizce_sherlock.jpg" in available_covers:
+            return "cat_ingilizce_sherlock.jpg"
+        if "klasik" in c and "cat_klasik_budala.jpg" in available_covers:
+            return "cat_klasik_budala.jpg"
+    if "cat_dunya_demir_akce.jpg" in available_covers:
+        return "cat_dunya_demir_akce.jpg"
+    return next(iter(sorted(available_covers)))
+
+
+def _load_catalog_templates(available_covers):
+    catalog_path = Path(__file__).with_name("catalog_books.json")
+    raw_books = json.loads(catalog_path.read_text(encoding="utf-8"))
+    templates = [
+        {
+            "id": BOOK_ID,
+            "title": "KitapDuy Deneme Kitabı",
+            "author": "Deneme Yazarı",
+            "category": "Roman",
+            "tags": ["Roman"],
+            "cover_file": "dorian_gray.jpg" if "dorian_gray.jpg" in available_covers else _resolve_cover_name(BOOK_ID, "Roman", [], available_covers),
+            "description": "Simülatör için örnek sesli kitap.",
+            "duration": 90_000,
+            "view_count": 10,
+            "like_count": 1,
+            "language": "tr",
+        }
+    ]
+    for item in raw_books:
+        book_id = item.get("id", "")
+        if not book_id or book_id == BOOK_ID:
+            continue
+        category = item.get("category") or "Dünya Edebiyatı"
+        tags = item.get("tags") or []
+        templates.append({
+            "id": book_id,
+            "title": item.get("title", ""),
+            "author": item.get("author", ""),
+            "category": category,
+            "tags": tags,
+            "cover_file": _resolve_cover_name(book_id, category, tags, available_covers),
+            "description": item.get("description", ""),
+            "duration": item.get("duration", 0),
+            "view_count": item.get("view_count", 0),
+            "like_count": item.get("like_count", 0),
+            "language": item.get("language", "tr"),
+        })
+    return templates
+
+
 @contextmanager
 def serve_fixture():
     # A generated 90-second tone exercises the same HTTP MP3 path as the catalog.
@@ -34,9 +129,62 @@ def serve_fixture():
         for cover_path in sorted(covers_dir.glob("*.jpg"))
         if cover_path.is_file()
     }
+    catalog_templates = _load_catalog_templates(set(covers.keys()))
     cover = covers["sherlock_gloria.jpg"]
     profile = {"uid": USER_ID, "name": "Deneme Okuru"}
     posts = []
+    askida_books = [
+        {
+            "id": "askida_seed_1",
+            "book_name": "Kürk Mantolu Madonna",
+            "donor_id": "community_donor_1",
+            "donor_name": "Elif Yılmaz",
+            "donor_note": "Bir başka okurun kalbine dokunması dileğiyle, temiz durumda.",
+            "cover_file": "top_lX29B2MpxEshEZY0ihlA.jpg",
+            "status": "AVAILABLE",
+            "claimer_id": None,
+            "city": "İstanbul",
+            "category": "Roman",
+            "condition": "Çok İyi",
+            "timestamp": 1_730_000_000_000,
+        },
+        {
+            "id": "askida_seed_2",
+            "book_name": "Küçük Prens",
+            "donor_id": "community_donor_2",
+            "donor_name": "Mert Kaya",
+            "donor_note": "Çocuklar ve içindeki çocuğu yaşatanlar için keyifle okunsun.",
+            "cover_file": "kucuk_prens.jpg",
+            "status": "AVAILABLE",
+            "claimer_id": None,
+            "city": "Ankara",
+            "category": "Klasik",
+            "condition": "Yeni Gibi",
+            "timestamp": 1_729_900_000_000,
+        },
+        {
+            "id": "askida_seed_3",
+            "book_name": "Suç ve Ceza",
+            "donor_id": "community_donor_3",
+            "donor_name": "Zeynep Demir",
+            "donor_note": "Altını çizmeden özenle okudum, sıradaki okuruna emanet.",
+            "cover_file": "top_DXRmYsBl10qfocIjJQYj.jpg",
+            "status": "AVAILABLE",
+            "claimer_id": None,
+            "city": "İzmir",
+            "category": "Dünya Edebiyatı",
+            "condition": "İyi",
+            "timestamp": 1_729_800_000_000,
+        },
+    ]
+    askida_messages = []
+    quiz_leaderboard = [
+        {"user_id": "seed_1", "user_name": "Elif Yılmaz", "total_score": 4200, "updated_at": None},
+        {"user_id": "seed_2", "user_name": "Ahmet Kaya", "total_score": 3650, "updated_at": None},
+        {"user_id": "seed_3", "user_name": "Zeynep Demir", "total_score": 2900, "updated_at": None},
+        {"user_id": "seed_4", "user_name": "Murat Şahin", "total_score": 2150, "updated_at": None},
+        {"user_id": "seed_5", "user_name": "Selin Aydın", "total_score": 1600, "updated_at": None},
+    ]
     requests = []
     state_lock = Lock()
     now = datetime.now(timezone.utc).isoformat()
@@ -127,78 +275,21 @@ def serve_fixture():
             with state_lock:
                 if table == "books":
                     rows = [
-                        {"id": BOOK_ID, "title": "KitapDuy Deneme Kitabı", "author": "Deneme Yazarı",
-                         "category": "Roman", "cover_url": f"{base}/covers/dorian_gray.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Simülatör için örnek sesli kitap.", "duration": 90_000, "view_count": 10},
-                        {"id": "sample_roman_alman_gocmen", "title": "Alman Göçmen", "author": "Jules Verne",
-                         "category": "Roman", "cover_url": f"{base}/covers/alman_gocmen.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Bilinmeyen kıtalara uzanan klasik macera romanı.", "duration": 5_400_000, "view_count": 1890},
-                        {"id": "sample_roman_dort_hikaye", "title": "Dört Hikaye", "author": "Anton Çehov",
-                         "category": "Roman", "cover_url": f"{base}/covers/dort_hikaye.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "İnsan ruhunun derinliklerine inen seçkin öyküler.", "duration": 2_880_000, "view_count": 1710},
-                        {"id": "sample_polisiye_gloria", "title": "Sherlock Holmes: Gloria Scott", "author": "Arthur Conan Doyle",
-                         "category": "Polisiye", "cover_url": f"{base}/covers/sherlock_gloria.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Sherlock Holmes'un üniversite yıllarındaki ilk gizemli vakası.", "duration": 2_140_000, "view_count": 2768},
-                        {"id": "sample_polisiye_kizil_dosya", "title": "Sherlock Holmes: Kızıl Dosya", "author": "Arthur Conan Doyle",
-                         "category": "Polisiye", "cover_url": f"{base}/covers/kizil_dosya.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Baker Street dedektifinin Doktor Watson ile ilk büyük buluşması.", "duration": 4_860_000, "view_count": 1940},
-                        {"id": "sample_polisiye_sussex_vampiri", "title": "Sussex Vampiri", "author": "Arthur Conan Doyle",
-                         "category": "Polisiye", "cover_url": f"{base}/covers/sussex_vampiri.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Batıl inançların ardındaki gerçeği arayan esrarengiz soruşturma.", "duration": 1_850_000, "view_count": 1320},
-                        {"id": "sample_polisiye_gizemli_kimlik", "title": "Gizemli Kimlik", "author": "Arthur Conan Doyle",
-                         "category": "Polisiye", "cover_url": f"{base}/covers/gizemli_kimlik.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "İzler ve tanıklıklar arasında çözülmesi beklenen bir sır.", "duration": 1_620_000, "view_count": 1180},
-                        {"id": "sample_turk_karpuz_sergisi", "title": "Karpuz Sergisi", "author": "Ahmet Rasim",
-                         "category": "Türk Edebiyatı", "cover_url": f"{base}/covers/karpuz_sergisi.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "İstanbul sokaklarından sıcak ve ince mizah dolu anlatılar.", "duration": 1_950_000, "view_count": 2098},
-                        {"id": "sample_turk_kirlangiclar", "title": "Kırlangıçlar", "author": "Ömer Seyfettin",
-                         "category": "Türk Edebiyatı", "cover_url": f"{base}/covers/kirlangiclar.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Türk öykücülüğünün zarif ve sürükleyici klasiklerinden biri.", "duration": 1_740_000, "view_count": 1845},
-                        {"id": "sample_dunya_hayvan_ciftligi", "title": "Hayvan Çiftliği", "author": "George Orwell",
-                         "category": "Dünya Edebiyatı", "cover_url": f"{base}/covers/hayvan_ciftligi.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Güç, özgürlük ve toplum düzeni üzerine unutulmaz taşlama.", "duration": 10_800_000, "view_count": 2540},
-                        {"id": "sample_dunya_dorian_gray", "title": "Dorian Gray'in Portresi", "author": "Oscar Wilde",
-                         "category": "Dünya Edebiyatı", "cover_url": f"{base}/covers/dorian_gray.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Güzellik, vicdan ve tutku üzerine gotik başyapıt.", "duration": 21_600_000, "view_count": 2210},
-                        {"id": "sample_gelisim_ozguven", "title": "Özgüven", "author": "Ralph Waldo Emerson",
-                         "category": "Kişisel Gelişim", "cover_url": f"{base}/covers/ozguven.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Bireysel irade ve içsel bağımsızlık üzerine zamansız fikirler.", "duration": 3_600_000, "view_count": 2315},
-                        {"id": "sample_gelisim_demir_irade", "title": "Demir İrade", "author": "Orison Swett Marden",
-                         "category": "Kişisel Gelişim", "cover_url": f"{base}/covers/demir_irade.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Azim, disiplin ve kararlılıkla hedefe ulaşma rehberi.", "duration": 4_200_000, "view_count": 1765},
-                        {"id": "sample_cocuk_kucuk_prens", "title": "Küçük Prens", "author": "Antoine de Saint-Exupéry",
-                         "category": "Çocuk Masalları", "cover_url": f"{base}/covers/kucuk_prens.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Dostluk, sevgi ve kalple görmek üzerine evrensel masal.", "duration": 5_100_000, "view_count": 2630},
-                        {"id": "sample_cocuk_keloglan", "title": "Keloğlan Masalları", "author": "Türk Halk Masalları",
-                         "category": "Çocuk Masalları", "cover_url": f"{base}/covers/keloglan.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Anadolu kültürünün neşeli ve bilge halk masalları.", "duration": 1_920_000, "view_count": 1540},
-                        {"id": "sample_cocuk_andersen", "title": "Andersen Masalları", "author": "Hans Christian Andersen",
-                         "category": "Çocuk Masalları", "cover_url": f"{base}/covers/andersen.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Hayal gücünü besleyen klasik dünya masalları seçkisi.", "duration": 2_400_000, "view_count": 1490},
-                        {"id": "sample_ingilizce_pride", "title": "Pride and Prejudice", "author": "Jane Austen",
-                         "category": "İngilizce Kitaplar", "cover_url": f"{base}/covers/pride_prejudice.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Classic English novel of manners, wit, and romance.", "duration": 28_800_000, "view_count": 1985},
-                        {"id": "sample_ingilizce_sherlock", "title": "The Adventures of Sherlock Holmes", "author": "Arthur Conan Doyle",
-                         "category": "İngilizce Kitaplar", "cover_url": f"{base}/covers/sherlock_en.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Twelve iconic detective mysteries in original English.", "duration": 25_200_000, "view_count": 1810},
-                        {"id": "sample_klasik_dr_jekyll", "title": "Dr. Jekyll ve Mr. Hyde", "author": "Robert Louis Stevenson",
-                         "category": "Klasik", "cover_url": f"{base}/covers/dr_jekyll.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "İnsan doğasındaki iyilik ve karanlık çatışmasının klasiği.", "duration": 7_200_000, "view_count": 2150},
-                        {"id": "sample_klasik_tilsim", "title": "Tılsım", "author": "Walter Scott",
-                         "category": "Klasik", "cover_url": f"{base}/covers/talisman.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Sadakat ve onur üzerine örülü klasik serüven anlatısı.", "duration": 18_000_000, "view_count": 1410},
-                        {"id": "sample_tarih_kandil", "title": "Kandil", "author": "Ömer Seyfettin",
-                         "category": "Tarih", "cover_url": f"{base}/covers/kandil.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Geçmiş dönemlerden tarih ve insanlık manzaraları.", "duration": 1_580_000, "view_count": 1620},
-                        {"id": "sample_tarih_seyahat", "title": "Tarih Boyunca Seyahatnameler", "author": "Jules Verne",
-                         "category": "Tarih", "cover_url": f"{base}/covers/alman_gocmen.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Tarihsel keşif rotalarını ve yolculuk hikâyelerini bir araya getirir.", "duration": 4_900_000, "view_count": 1380},
-                        {"id": "sample_felsefe_fil_maymun", "title": "Fil ve Maymun: Bilgelik Öyküleri", "author": "Ezop",
-                         "category": "Felsefe", "cover_url": f"{base}/covers/fil_maymun.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Kısa fabllar eşliğinde düşünce, erdem ve yaşam bilgeliği.", "duration": 1_200_000, "view_count": 1470},
-                        {"id": "sample_felsefe_kendine_guven", "title": "Kendine Güven Üzerine", "author": "Ralph Waldo Emerson",
-                         "category": "Felsefe", "cover_url": f"{base}/covers/ozguven.jpg", "audio_url": f"{base}/audio.mp3",
-                         "description": "Ahlak, akıl ve bireysel sorumluluk üzerine felsefi metinler.", "duration": 3_100_000, "view_count": 1290},
+                        {
+                            "id": item["id"],
+                            "title": item["title"],
+                            "author": item["author"],
+                            "category": item["category"],
+                            "tags": item["tags"],
+                            "cover_url": f"{base}/covers/{item['cover_file']}",
+                            "audio_url": f"{base}/audio.mp3",
+                            "description": item["description"],
+                            "duration": item["duration"],
+                            "view_count": item["view_count"],
+                            "like_count": item["like_count"],
+                            "language": item["language"],
+                        }
+                        for item in catalog_templates
                     ]
                 elif table == "podcasts":
                     rows = [
@@ -211,6 +302,20 @@ def serve_fixture():
                         {"id": PODCAST_ID, "name": "KitapDuy Deneme Podcasti", "author": "Deneme Yapımı",
                          "rss_url": f"{base}/podcast.xml", "image_url": f"{base}/covers/podcast_111hz.jpg", "category": "Roman"},
                     ]
+                elif table == "askida_kitap":
+                    rows = []
+                    for item in askida_books:
+                        cover_file = item.get("cover_file")
+                        image_url = item.get("image_url") or (f"{base}/covers/{cover_file}" if cover_file in covers else "")
+                        rows.append({**{k: v for k, v in item.items() if k != "cover_file"}, "image_url": image_url})
+                elif table == "askida_mesaj":
+                    rows = [dict(msg) for msg in askida_messages]
+                elif table == "quiz_leaderboard":
+                    rows = sorted(
+                        (dict(entry) for entry in quiz_leaderboard),
+                        key=lambda entry: entry.get("total_score", 0),
+                        reverse=True,
+                    )
                 elif table == "users":
                     rows = [dict(profile)]
                 elif table == "posts":
@@ -220,16 +325,19 @@ def serve_fixture():
                              "created_at": now, "type": "book", "book_id": BOOK_ID}]
                 else:
                     rows = []
-            # Support the PostgREST equality and search filters used by these screens.
+            # Support PostgREST equality and `or` filters (`ilike` & `eq`) used by these screens.
             for field, values in query.items():
                 condition = values[0]
                 if condition.startswith("eq."):
                     rows = [row for row in rows if str(row.get(field, "")) == condition[3:]]
             if "or" in query:
-                terms = re.findall(r"(\w+)\.ilike\.([^,)]+)", query["or"][0])
+                terms = re.findall(r"(\w+)\.(ilike|eq)\.([^,)]+)", query["or"][0])
                 if terms:
-                    rows = [row for row in rows if any(value.strip("%*").casefold() in str(row.get(key, "")).casefold()
-                                                       for key, value in terms)]
+                    def matches_term(row, key, op, val):
+                        if op == "eq":
+                            return str(row.get(key, "")) == val
+                        return normalize_tr(val.strip("%*")) in normalize_tr(row.get(key, ""))
+                    rows = [row for row in rows if any(matches_term(row, key, op, value) for key, op, value in terms)]
             if "application/vnd.pgrst.object+json" in self.headers.get("Accept", ""):
                 if len(rows) != 1:
                     self.send_data(406, {"code": "PGRST116", "message": "No matching fixture row"})
@@ -256,7 +364,14 @@ def serve_fixture():
                 self.insert_rows(path, body)
 
         def insert_rows(self, path, body):
-            if path not in ("/rest/v1/users", "/rest/v1/posts"):
+            allowed = (
+                "/rest/v1/users",
+                "/rest/v1/posts",
+                "/rest/v1/askida_kitap",
+                "/rest/v1/askida_mesaj",
+                "/rest/v1/quiz_leaderboard",
+            )
+            if path not in allowed:
                 self.send_data(404, {"message": "Unknown fixture write"})
                 return
             # Supabase sends an array even when inserting or upserting one row.
@@ -270,26 +385,52 @@ def serve_fixture():
             with state_lock:
                 if path == "/rest/v1/users":
                     profile.update(rows[0])
-                else:
+                elif path == "/rest/v1/posts":
                     for row in rows:
                         posts.append({**row, "id": len(posts) + 1, "created_at": now})
                     requests.append("create_post")
+                elif path == "/rest/v1/askida_kitap":
+                    for row in rows:
+                        askida_books.insert(0, dict(row))
+                elif path == "/rest/v1/askida_mesaj":
+                    for row in rows:
+                        askida_messages.append(dict(row))
+                elif path == "/rest/v1/quiz_leaderboard":
+                    for row in rows:
+                        uid = row.get("user_id")
+                        existing = next((e for e in quiz_leaderboard if e.get("user_id") == uid), None)
+                        if existing is not None:
+                            existing.update(row)
+                        else:
+                            quiz_leaderboard.append(dict(row))
             self.send_data(201, b"", "text/plain")
 
         def do_PATCH(self):
             parsed = urlsplit(self.path)
-            if parsed.path != "/rest/v1/users":
+            if parsed.path not in ("/rest/v1/users", "/rest/v1/askida_kitap", "/rest/v1/quiz_leaderboard"):
                 self.send_data(404, {"message": "Unknown fixture update"})
                 return
             body = self.read_body()
             if not isinstance(body, dict):
                 self.send_data(400, {"message": "Expected a JSON object"})
                 return
-            uid_filter = parse_qs(parsed.query).get("uid")
-            if uid_filter is None or uid_filter == [f"eq.{USER_ID}"]:
-                with state_lock:
-                    profile.update(body)
-                    requests.append("update_profile")
+            query = parse_qs(parsed.query)
+            with state_lock:
+                if parsed.path == "/rest/v1/users":
+                    uid_filter = query.get("uid")
+                    if uid_filter is None or uid_filter == [f"eq.{USER_ID}"]:
+                        profile.update(body)
+                        requests.append("update_profile")
+                elif parsed.path == "/rest/v1/askida_kitap":
+                    id_filter = query.get("id")
+                    for item in askida_books:
+                        if id_filter is None or id_filter == [f"eq.{item.get('id')}"]:
+                            item.update(body)
+                elif parsed.path == "/rest/v1/quiz_leaderboard":
+                    uid_filter = query.get("user_id")
+                    for entry in quiz_leaderboard:
+                        if uid_filter is None or uid_filter == [f"eq.{entry.get('user_id')}"]:
+                            entry.update(body)
             self.send_data(204, b"", "text/plain")
 
         def read_body(self):

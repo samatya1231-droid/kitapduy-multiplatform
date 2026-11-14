@@ -2,6 +2,8 @@
 
 package com.semtinazizi.kitapduy.ui.screens
 
+import androidx.compose.ui.platform.testTag
+
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -113,7 +115,8 @@ class AskidaKitapScreen : Screen {
                                     .fillMaxHeight()
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(if (isSelected) BrandGold else Color.Transparent)
-                                    .clickable { selectedTab = index },
+                                    .clickable { selectedTab = index }
+                                    .testTag("askida-tab-$index"),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
@@ -508,7 +511,7 @@ fun AskidaKitapBagis(viewModel: AskidaViewModel, onSuccess: () -> Unit) {
         OutlinedTextField(
             value = bookName, onValueChange = { bookName = it },
             label = { Text("Kitap Adı") },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("askida-donate-title"),
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFFFFD700), unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(0.1f))
         )
@@ -518,7 +521,7 @@ fun AskidaKitapBagis(viewModel: AskidaViewModel, onSuccess: () -> Unit) {
         OutlinedTextField(
             value = city, onValueChange = { city = it },
             label = { Text("Şehir") },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("askida-donate-city"),
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFFFFD700), unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(0.1f)),
             placeholder = { Text("Örn: İstanbul", color = Color.Gray) }
@@ -563,7 +566,7 @@ fun AskidaKitapBagis(viewModel: AskidaViewModel, onSuccess: () -> Unit) {
         OutlinedTextField(
             value = donorNote, onValueChange = { donorNote = it },
             label = { Text("Kısa Bir Not") },
-            modifier = Modifier.fillMaxWidth().height(120.dp),
+            modifier = Modifier.fillMaxWidth().height(120.dp).testTag("askida-donate-note"),
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFFFFD700), unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(0.1f))
         )
@@ -578,7 +581,7 @@ fun AskidaKitapBagis(viewModel: AskidaViewModel, onSuccess: () -> Unit) {
                     if (success) onSuccess() 
                 }
             },
-            modifier = Modifier.fillMaxWidth().height(60.dp),
+            modifier = Modifier.fillMaxWidth().height(60.dp).testTag("askida-donate-submit"),
             shape = RoundedCornerShape(50),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD700)),
             enabled = !isUploading && bookName.isNotBlank() && city.isNotBlank()

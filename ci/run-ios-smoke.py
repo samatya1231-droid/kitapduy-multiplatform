@@ -37,6 +37,7 @@ JOURNEYS = {
     "test05FeedAndProfile": "Akışta paylaşım ve profil kaydı",
     "test06ThemeAndPremium": "Koyu tema, Premium ve yasal metinler",
     "test07HomePodcasts": "Ana Sayfa podcast bölümü",
+    "test08AdvisorArenaAndAskida": "Edebi Danışman, KitapDuy Arena ve Askıda Kitap",
 }
 
 LEGACY_JOURNEYS = {
@@ -52,10 +53,19 @@ SCREEN_GROUPS = (
         ("22-home-catalog", "Önerilen kitaplar"), ("23-home-podcasts", "Podcast dünyası"),
     )),
     ("Keşfet ve kitap", "Arama alanını, boş sonucu, kapak yerleşimini ve oynatıcı kontrollerini karşılaştır.", (
-        ("24-discover", "Keşfet"), ("03-search-empty-result", "Sonuçsuz arama"),
+        ("24-discover", "Keşfet"), ("24b-discover-categories", "Keşfet · kategoriler"),
+        ("03-search-empty-result", "Sonuçsuz arama"),
         ("04-book-search", "Kitap sonucu"), ("05-book-detail", "Kitap detayı"),
         ("25-book-player", "Kitap oynatıcı"), ("06-book-playing", "Kitap oynatma"),
         ("07-book-pause-and-skip", "Duraklatma ve 15 saniye atlama"), ("08-book-back-to-search", "Aramaya dönüş"),
+    )),
+    ("Danışman, Arena ve Askıda", "Ana Sayfa ve Keşfet’ten Edebi Danışman’a, KitapDuy Arena’ya ve Askıda Kitap akışına bak.", (
+        ("32-home-advisor", "Edebi Danışman · Ana Sayfa"),
+        ("33-discover-advisor", "Edebi Danışman · Keşfet"),
+        ("34-arena-menu", "KitapDuy Arena · Menü"),
+        ("35-arena-playing", "KitapDuy Arena · Soru"),
+        ("36-askida-list", "Askıda Kitap · Liste"),
+        ("37-askida-donate", "Askıda Kitap · Bağış"),
     )),
     ("Podcast", "Bölüm listesini, oynatıcıyı, süreyi ve geri dönüşü incele.", (
         ("09-podcast-episodes", "Podcast bölümleri"), ("26-podcast-player", "Podcast oynatıcı"),

@@ -18,13 +18,20 @@ final class ReaderJourneyTests: XCTestCase {
             try visible(element("discover-query"))
             audit("24-discover")
         }
+        try step("24b-discover-categories") {
+            try visible(element("discover-category-Polisiye"), scroll: true)
+        }
+        for _ in 0..<6 {
+            if element("discover-query").exists && element("discover-query").isHittable { break }
+            app.swipeDown(velocity: .slow)
+        }
         try step("03-search-empty-result") {
             try search("zxq-no-catalog-result")
             try visible(text("Kitap veya podcast bulunamadı."))
         }
         try step("04-book-search") {
-            try search("Deneme Kitabı", clearFirst: true)
-            try visible(element("book-result-local_ci_book"))
+            try search("Kızıl Dosya", clearFirst: true)
+            try visible(element("book-result-0mVxipNVFmBxtJNs9O0J"))
         }
         try step("05-book-detail") {
             try openBookResult()
@@ -45,7 +52,7 @@ final class ReaderJourneyTests: XCTestCase {
 
     func test02BookPlayback() throws {
         try launchAndSignIn()
-        try search("Deneme Kitabı", clearFirst: true)
+        try search("Kızıl Dosya", clearFirst: true)
         try openBookResult()
         try step("25-book-player") {
             try visible(element("book-play-pause"), scroll: true)
@@ -74,8 +81,8 @@ final class ReaderJourneyTests: XCTestCase {
     func test03PodcastPlayback() throws {
         try launchAndSignIn()
         try step("09-podcast-episodes") {
-            try search("Deneme Podcasti", clearFirst: element("discover-clear").exists)
-            try tap(element("podcast-result-ci_podcast"))
+            try search("Barış Özcan", clearFirst: element("discover-clear").exists)
+            try tap(element("podcast-result-podcast_111hz"))
             try visible(element("podcast-episode-0"))
         }
         try step("26-podcast-player") {
@@ -197,9 +204,56 @@ final class ReaderJourneyTests: XCTestCase {
         }
     }
 
+    func test08AdvisorArenaAndAskida() throws {
+        try launchAndSignIn()
+        try step("32-home-advisor") {
+            try tap(element("home-advisor-fab"))
+            try visible(element("advisor-intent-analysis"))
+        }
+        try tap(element("advisor-back"))
+        try step("33-discover-advisor") {
+            try tap(element("tab-discover"))
+            try tap(element("discover-advisor-button"))
+            try visible(element("advisor-mood-gripping"), scroll: true)
+            try tap(element("advisor-mood-gripping"))
+            try visible(text("Bu Kitabı Dinle", contains: true), scroll: true)
+        }
+        try tap(element("advisor-back"))
+        try step("34-arena-menu") {
+            try tap(element("discover-arena-card"), scroll: true)
+            try visible(element("quiz-start-classic"))
+        }
+        try step("35-arena-playing") {
+            try tap(element("quiz-start-classic"))
+            try visible(element("quiz-question-text"))
+            try visible(element("quiz-option-0"))
+        }
+        try tap(element("quiz-option-0"))
+        try tap(text("Geri"))
+        if element("quiz-start-classic").exists {
+            try tap(text("Geri"))
+        }
+        try step("36-askida-list") {
+            if !element("discover-askida-card").exists {
+                try tap(element("tab-discover"))
+            }
+            for _ in 0..<4 {
+                if element("discover-askida-card").exists && element("discover-askida-card").isHittable { break }
+                app.swipeDown(velocity: .slow)
+            }
+            try tap(element("discover-askida-card"))
+            try visible(element("askida-tab-0"))
+            try visible(text("Kürk Mantolu Madonna", contains: true))
+        }
+        try step("37-askida-donate") {
+            try tap(element("askida-tab-1"))
+            try visible(element("askida-donate-title"))
+        }
+    }
+
     private func openBookResult() throws {
-        try tap(element("book-result-local_ci_book"))
-        try visible(text("KitapDuy Deneme Kitabı"))
+        try tap(element("book-result-0mVxipNVFmBxtJNs9O0J"))
+        try visible(text("Sherlock Holmes - Kızıl Dosya"))
     }
 
     private func launchAndSignIn() throws {

@@ -1,5 +1,8 @@
 package com.semtinazizi.kitapduy.ui.screens
 
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -166,7 +169,7 @@ fun QuizMainMenu(onStartSinglePlayer: () -> Unit, onStartMultiplayer: () -> Unit
 
         // Tek Oyunculu Mod
         GlassCard(
-            modifier = Modifier.fillMaxWidth().height(90.dp),
+            modifier = Modifier.fillMaxWidth().height(90.dp).testTag("quiz-start-classic"),
             onClick = onStartSinglePlayer
         ) {
             Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
@@ -217,7 +220,7 @@ fun QuizMainMenu(onStartSinglePlayer: () -> Unit, onStartMultiplayer: () -> Unit
 
         // Liderlik Tablosu
         GlassCard(
-            modifier = Modifier.fillMaxWidth().height(80.dp),
+            modifier = Modifier.fillMaxWidth().height(80.dp).testTag("quiz-leaderboard-button"),
             onClick = onLeaderboard
         ) {
             Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
@@ -259,7 +262,7 @@ fun QuizPlayingArea(screenModel: QuizScreenModel, adManager: AdManager, isPremiu
 
         // Soru Kartı
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("quiz-question-text").semantics(mergeDescendants = true) {},
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)),
             elevation = CardDefaults.cardElevation(8.dp)
@@ -305,6 +308,7 @@ fun QuizPlayingArea(screenModel: QuizScreenModel, adManager: AdManager, isPremiu
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 8.dp)
+                    .testTag("quiz-option-$index")
                     .clickable(enabled = selectedAnswer == null) {
                         screenModel.submitAnswer(index)
                     },

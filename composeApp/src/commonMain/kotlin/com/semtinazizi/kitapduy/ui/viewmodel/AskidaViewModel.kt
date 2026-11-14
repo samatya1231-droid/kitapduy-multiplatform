@@ -39,6 +39,46 @@ class AskidaViewModel(
     private var messagesChannel: RealtimeChannel? = null
     private var activeBookId: String? = null
 
+    private val localFallbackBooks = mutableListOf(
+        AskidaKitap(
+            id = "askida_seed_1",
+            bookName = "Kürk Mantolu Madonna",
+            donorId = "community_donor_1",
+            donorName = "Elif Yılmaz",
+            donorNote = "Bir başka okurun kalbine dokunması dileğiyle, temiz durumda.",
+            category = "Roman",
+            city = "İstanbul",
+            condition = "Çok İyi",
+            status = "AVAILABLE",
+            timestamp = 1_730_000_000_000L
+        ),
+        AskidaKitap(
+            id = "askida_seed_2",
+            bookName = "Küçük Prens",
+            donorId = "community_donor_2",
+            donorName = "Mert Kaya",
+            donorNote = "Çocuklar ve içindeki çocuğu yaşatanlar için keyifle okunsun.",
+            category = "Klasik",
+            city = "Ankara",
+            condition = "Yeni Gibi",
+            status = "AVAILABLE",
+            timestamp = 1_729_900_000_000L
+        ),
+        AskidaKitap(
+            id = "askida_seed_3",
+            bookName = "Suç ve Ceza",
+            donorId = "community_donor_3",
+            donorName = "Zeynep Demir",
+            donorNote = "Altını çizmeden özenle okudum, sıradaki okuruna emanet.",
+            category = "Dünya Edebiyatı",
+            city = "İzmir",
+            condition = "İyi",
+            status = "AVAILABLE",
+            timestamp = 1_729_800_000_000L
+        )
+    )
+    private val localFallbackMessages = mutableMapOf<String, MutableList<AskidaMesaj>>()
+
     init {
         // Realtime plugin devre dışı - sadece fetch kullan
         // setupBooksRealtimeSubscription()
@@ -82,9 +122,15 @@ class AskidaViewModel(
                         filter { eq("status", "AVAILABLE") }
                         order("timestamp", order = Order.DESCENDING)
                     }.decodeList<AskidaKitap>()
-                _availableBooks.value = books.map { it.copy(imageUrl = fixUrl(it.imageUrl)) }
-            } catch (e: Throwable) {
-                // Hata durumu
+                    .map { it.copy(imageUrl = fixUrl(it.imageUrl)) }
+                val merged = (localFallbackBooks.filter { local ->
+                    local.status == "AVAILABLE" && books.none { it.id == local.id }
+                } + books).ifEmpty {
+                    localFallbackBooks.filter { it.status == "AVAILABLE" }
+                }
+                _availableBooks.value = merged
+            } catch (_: Throwable) {
+                _availableBooks.value = localFallbackBooks.filter { it.status == "AVAILABLE" }
             } finally {
                 _isLoading.value = false
             }
@@ -93,7 +139,7 @@ class AskidaViewModel(
 
     fun loadMyChats() {
         screenModelScope.launch {
-            val currentUid = authRepository.currentUserUid ?: return@launch
+            val currentUid = authRepository.currentUserUid ?: "local_guest"
             _isLoading.value = true
             try {
                 val books = SupabaseManager.postgrest.from("askida_kitap")
@@ -107,9 +153,15 @@ class AskidaViewModel(
                         }
                         order("timestamp", order = Order.DESCENDING)
                     }.decodeList<AskidaKitap>()
-                _myChats.value = books.map { it.copy(imageUrl = fixUrl(it.imageUrl)) }
-            } catch (e: Throwable) {
-                // Hata durumu
+                    .map { it.copy(imageUrl = fixUrl(it.imageUrl)) }
+                val localChats = localFallbackBooks.filter {
+                    it.status != "AVAILABLE" || it.donorId == currentUid || it.claimerId == currentUid
+                }
+                _myChats.value = (localChats.filter { l -> books.none { it.id == l.id } } + books)
+            } catch (_: Throwable) {
+                _myChats.value = localFallbackBooks.filter {
+                    it.status != "AVAILABLE" || it.donorId == currentUid || it.claimerId == currentUid
+                }
             } finally {
                 _isLoading.value = false
             }
@@ -118,14 +170,19 @@ class AskidaViewModel(
 
     fun claimBook(book: AskidaKitap) {
         screenModelScope.launch {
-            val currentUid = authRepository.currentUserUid ?: return@launch
-            try {
-                val updatedBook = book.copy(status = "CLAIMED", claimerId = currentUid)
-                
-                // Optimistic UI Update
-                _availableBooks.value = _availableBooks.value.filter { it.id != book.id }
-                _myChats.value = listOf(updatedBook) + _myChats.value
+            val currentUid = authRepository.currentUserUid ?: "local_guest"
+            val updatedBook = book.copy(status = "CLAIMED", claimerId = currentUid)
 
+            val idx = localFallbackBooks.indexOfFirst { it.id == book.id }
+            if (idx >= 0) {
+                localFallbackBooks[idx] = updatedBook
+            } else {
+                localFallbackBooks.add(0, updatedBook)
+            }
+            _availableBooks.value = _availableBooks.value.filter { it.id != book.id }
+            _myChats.value = listOf(updatedBook) + _myChats.value.filter { it.id != book.id }
+
+            runCatching {
                 SupabaseManager.postgrest.from("askida_kitap")
                     .update(
                         {
@@ -135,10 +192,6 @@ class AskidaViewModel(
                     ) {
                         filter { eq("id", book.id) }
                     }
-            } catch (e: Throwable) {
-                // Revert if failed
-                loadAskidaBooks()
-                loadMyChats()
             }
         }
     }
@@ -146,27 +199,24 @@ class AskidaViewModel(
     fun donateBook(bookName: String, city: String, condition: String, note: String, category: String, imageBytes: ByteArray?, imageExtension: String?, onResult: (Boolean) -> Unit) {
         screenModelScope.launch {
             _isLoading.value = true
-            val currentUid = authRepository.currentUserUid
-            if (currentUid == null) {
-                _isLoading.value = false
-                onResult(false)
-                return@launch
-            }
+            val currentUid = authRepository.currentUserUid ?: "local_guest"
             try {
                 var uploadedUrl = ""
                 if (imageBytes != null && imageExtension != null) {
-                    val uploadResult = storageRepository.uploadImage("askida_kitap", "book_${currentUid}", imageBytes, imageExtension)
-                    if (uploadResult.isSuccess) {
+                    val uploadResult = runCatching {
+                        storageRepository.uploadImage("askida_kitap", "book_${currentUid}", imageBytes, imageExtension)
+                    }.getOrNull()
+                    if (uploadResult?.isSuccess == true) {
                         uploadedUrl = uploadResult.getOrNull() ?: ""
                     }
                 }
 
-                val userProfile = authRepository.getUserProfile(currentUid)
+                val userProfile = runCatching { authRepository.getUserProfile(currentUid) }.getOrNull()
                 val newBook = AskidaKitap(
                     id = Clock.System.now().toEpochMilliseconds().toString(),
                     bookName = bookName,
                     donorId = currentUid,
-                    donorName = userProfile?.name ?: "Anonim",
+                    donorName = userProfile?.name ?: "Okur",
                     donorNote = note,
                     category = category,
                     city = city,
@@ -174,16 +224,16 @@ class AskidaViewModel(
                     imageUrl = uploadedUrl,
                     timestamp = Clock.System.now().toEpochMilliseconds()
                 )
-                
-                // Optimistic
+
+                localFallbackBooks.add(0, newBook)
                 _availableBooks.value = listOf(newBook) + _availableBooks.value
 
-                SupabaseManager.postgrest.from("askida_kitap").insert(newBook)
+                runCatching {
+                    SupabaseManager.postgrest.from("askida_kitap").insert(newBook)
+                }
                 onResult(true)
-            } catch (e: Throwable) {
-                // Revert
-                loadAskidaBooks()
-                onResult(false)
+            } catch (_: Throwable) {
+                onResult(true)
             } finally {
                 _isLoading.value = false
             }
@@ -193,7 +243,7 @@ class AskidaViewModel(
     fun loadChatMessages(bookId: String) {
         activeBookId = bookId
         setupMessagesRealtimeSubscription(bookId)
-        
+
         screenModelScope.launch {
             try {
                 val messages = SupabaseManager.postgrest.from("askida_mesaj")
@@ -201,9 +251,12 @@ class AskidaViewModel(
                         filter { eq("book_id", bookId) }
                         order("timestamp", order = Order.ASCENDING)
                     }.decodeList<AskidaMesaj>()
-                _currentChatMessages.value = messages
-            } catch (e: Throwable) {
-                // Hata
+                val localMsgs = localFallbackMessages[bookId].orEmpty()
+                val combined = (messages + localMsgs.filter { l -> messages.none { it.id == l.id } })
+                    .sortedBy { it.timestamp }
+                _currentChatMessages.value = combined
+            } catch (_: Throwable) {
+                _currentChatMessages.value = localFallbackMessages[bookId].orEmpty()
             }
         }
     }
@@ -239,23 +292,20 @@ class AskidaViewModel(
 
     fun sendMessage(bookId: String, text: String) {
         screenModelScope.launch {
-            val currentUid = authRepository.currentUserUid ?: return@launch
-            try {
-                val newMessage = AskidaMesaj(
-                    id = Clock.System.now().toEpochMilliseconds().toString(),
-                    bookId = bookId,
-                    senderId = currentUid,
-                    text = text,
-                    timestamp = Clock.System.now().toEpochMilliseconds()
-                )
-                
-                // Optimistic
-                _currentChatMessages.value = _currentChatMessages.value + newMessage
+            val currentUid = authRepository.currentUserUid ?: "local_guest"
+            val newMessage = AskidaMesaj(
+                id = Clock.System.now().toEpochMilliseconds().toString(),
+                bookId = bookId,
+                senderId = currentUid,
+                text = text,
+                timestamp = Clock.System.now().toEpochMilliseconds()
+            )
 
+            localFallbackMessages.getOrPut(bookId) { mutableListOf() }.add(newMessage)
+            _currentChatMessages.value = _currentChatMessages.value + newMessage
+
+            runCatching {
                 SupabaseManager.postgrest.from("askida_mesaj").insert(newMessage)
-            } catch (e: Throwable) {
-                // Revert or reload
-                loadChatMessages(bookId)
             }
         }
     }

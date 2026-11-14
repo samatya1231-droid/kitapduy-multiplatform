@@ -40,12 +40,13 @@ class DiscoveryCategoriesTest {
             book("5", "Dünya Edebiyatı"),
             book("6", "Podcast"),
             book("7", "   "),
-            book("8", "Bilim Kurgu")
+            book("8", "Bilim Kurgu"),
+            book("9", "Biyografi")
         )
 
         val (genres, collections) = buildActiveDiscoveryCategories(books)
         assertEquals(
-            listOf("Roman", "Türk Edebiyatı", "Kişisel Gelişim", "İngilizce Kitaplar", "Bilim Kurgu"),
+            listOf("Roman", "Bilim Kurgu", "Kişisel Gelişim", "Türk Edebiyatı", "İngilizce Kitaplar", "Biyografi"),
             genres.map { it.title }
         )
         assertEquals(listOf("Dünya Edebiyatı"), collections.map { it.title })
@@ -87,5 +88,19 @@ class DiscoveryCategoriesTest {
         val (genres, collections) = buildActiveDiscoveryCategories(books)
         assertEquals(genreCategories, genres)
         assertEquals(collectionCategories, collections)
+    }
+
+    @Test
+    fun tagsContributeToDiscoveryCategoriesAndMatching() {
+        val taggedBook = book("1", "Roman").copy(tags = listOf("Polisiye", "Klasik", "öykü"))
+        val (genres, collections) = buildActiveDiscoveryCategories(listOf(taggedBook))
+
+        assertEquals(listOf("Roman", "Polisiye", "Hikâye"), genres.map { it.title })
+        assertEquals(listOf("Klasik"), collections.map { it.title })
+        assertTrue(bookMatchesCategory(taggedBook, "Polisiye"))
+        assertTrue(bookMatchesCategory(taggedBook, "Hikâye"))
+        assertTrue(bookMatchesCategory(taggedBook, "Klasik"))
+        assertTrue(bookMatchesCategory(taggedBook, "Tümü"))
+        assertFalse(bookMatchesCategory(taggedBook, "Bilim"))
     }
 }

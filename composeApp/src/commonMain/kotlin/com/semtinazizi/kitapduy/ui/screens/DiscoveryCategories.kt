@@ -1,5 +1,7 @@
 package com.semtinazizi.kitapduy.ui.screens
 
+import androidx.compose.ui.platform.testTag
+
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
@@ -53,16 +55,18 @@ internal data class DiscoveryCategory(
 
 internal val genreCategories: List<DiscoveryCategory> = listOf(
     DiscoveryCategory("Roman", Color(0xFF6B2D29), Icons.AutoMirrored.Rounded.MenuBook), // Şarap Rengi
-    DiscoveryCategory("Türk Edebiyatı", Color(0xFF8B3A2B), Icons.Rounded.HistoryEdu), // Bakır Terrakota
     DiscoveryCategory("Polisiye", Color(0xFF2C3E50), Icons.Rounded.Search), // Gece Mavisi
+    DiscoveryCategory("Hikâye", Color(0xFF7B4B3A), Icons.Rounded.AutoStories), // Sıcak Kahve
     DiscoveryCategory("Tarih", Color(0xFF704214), Icons.Rounded.AccountBalance), // Sepya / Kahve
     DiscoveryCategory("Felsefe", Color(0xFF2E4F4F), Icons.Rounded.Psychology), // Koyu Orman Yeşili
+    DiscoveryCategory("Bilim Kurgu", Color(0xFF3E4E7A), Icons.Rounded.AutoAwesome), // Derin Uzay Mavisi
     DiscoveryCategory("Bilim", Color(0xFF4A5D7E), Icons.Rounded.Science), // Mat Mavi
     DiscoveryCategory("Şiir", Color(0xFF6E4C5E), Icons.Rounded.AutoAwesome), // Kurumuş Gül
     DiscoveryCategory("Din", Color(0xFF8A795D), Icons.Rounded.AutoStories), // Eskimiş Altın
     DiscoveryCategory("Kişisel Gelişim", Color(0xFF2D6A4F), Icons.Rounded.SelfImprovement), // Zümrüt Yeşili
-    DiscoveryCategory("İngilizce Kitaplar", Color(0xFF1D4E89), Icons.Rounded.Translate), // Lacivert
-    DiscoveryCategory("Çocuk Masalları", Color(0xFF965D41), Icons.Rounded.ChildCare) // Kiremit
+    DiscoveryCategory("Çocuk Masalları", Color(0xFF965D41), Icons.Rounded.ChildCare), // Kiremit
+    DiscoveryCategory("Türk Edebiyatı", Color(0xFF8B3A2B), Icons.Rounded.HistoryEdu), // Bakır Terrakota
+    DiscoveryCategory("İngilizce Kitaplar", Color(0xFF1D4E89), Icons.Rounded.Translate) // Lacivert
 )
 
 internal val collectionCategories: List<DiscoveryCategory> = listOf(
@@ -85,12 +89,33 @@ internal fun normalizeCategoryName(name: String): String =
         .lowercase()
         .replace("\u0307", "")
 
+internal fun canonicalCategoryKey(name: String): String =
+    when (normalizeCategoryName(name)) {
+        "hikaye", "hikâye", "öykü", "oyku" -> "hikâye"
+        "bilimkurgu", "bilim kurgu", "bilim-kurgu" -> "bilim kurgu"
+        "kisisel gelisim", "kişisel gelişim" -> "kişisel gelişim"
+        "cocuk", "çocuk", "çocuk masalları", "cocuk masallari", "masal" -> "çocuk masalları"
+        "siir", "şiir" -> "şiir"
+        "turk edebiyati", "türk edebiyatı" -> "türk edebiyatı"
+        "dunya edebiyati", "dünya edebiyatı" -> "dünya edebiyatı"
+        "ingilizce", "ingilizce kitaplar" -> "ingilizce kitaplar"
+        "klasik", "klasikler" -> "klasik"
+        else -> normalizeCategoryName(name)
+    }
+
 internal fun categoryMatches(actual: String, target: String): Boolean {
     val cleanActual = actual.trim()
     val cleanTarget = target.trim()
     if (cleanActual.isEmpty() || cleanTarget.isEmpty()) return false
     return cleanActual.equals(cleanTarget, ignoreCase = true) ||
-        normalizeCategoryName(cleanActual) == normalizeCategoryName(cleanTarget)
+        normalizeCategoryName(cleanActual) == normalizeCategoryName(cleanTarget) ||
+        canonicalCategoryKey(cleanActual) == canonicalCategoryKey(cleanTarget)
+}
+
+internal fun bookMatchesCategory(book: Book, category: String): Boolean {
+    if (category.trim().equals("Tümü", ignoreCase = true)) return true
+    if (categoryMatches(book.category, category)) return true
+    return book.tags.any { tag -> categoryMatches(tag, category) }
 }
 
 internal fun buildActiveDiscoveryCategories(
@@ -102,12 +127,15 @@ internal fun buildActiveDiscoveryCategories(
 
     val distinctCategories = linkedMapOf<String, String>()
     for (book in books) {
-        val trimmed = book.category.trim()
-        if (trimmed.isBlank()) continue
-        val normalized = normalizeCategoryName(trimmed)
-        if (normalized == "podcast") continue
-        if (!distinctCategories.containsKey(normalized)) {
-            distinctCategories[normalized] = trimmed
+        val rawCategories = listOf(book.category) + book.tags
+        for (raw in rawCategories) {
+            val trimmed = raw.trim()
+            if (trimmed.isBlank()) continue
+            val normalized = canonicalCategoryKey(trimmed)
+            if (normalized == "podcast") continue
+            if (!distinctCategories.containsKey(normalized)) {
+                distinctCategories[normalized] = trimmed
+            }
         }
     }
 
@@ -222,7 +250,7 @@ internal fun DiscoverCategories(
                 )
             }
             items(genres, key = { it.title }) { category ->
-                val matchingBooks = initialBooks.filter { categoryMatches(it.category, category.title) }
+                val matchingBooks = initialBooks.filter { bookMatchesCategory(it, category.title) }
                 DiscoveryCategoryCard(
                     categoryName = category.title,
                     backgroundColor = category.color,
@@ -247,7 +275,7 @@ internal fun DiscoverCategories(
                 )
             }
             items(collections, key = { it.title }) { category ->
-                val matchingBooks = initialBooks.filter { categoryMatches(it.category, category.title) }
+                val matchingBooks = initialBooks.filter { bookMatchesCategory(it, category.title) }
                 DiscoveryCategoryCard(
                     categoryName = category.title,
                     backgroundColor = category.color,
@@ -287,7 +315,8 @@ internal fun BeyondBooksCardsRow(
             isCompact = isCompact,
             modifier = Modifier
                 .weight(1f)
-                .fillMaxHeight(),
+                .fillMaxHeight()
+                .testTag("discover-arena-card"),
             onClick = onArenaClick
         )
         ModernBeyondBooksCard(
@@ -302,7 +331,8 @@ internal fun BeyondBooksCardsRow(
             isCompact = isCompact,
             modifier = Modifier
                 .weight(1f)
-                .fillMaxHeight(),
+                .fillMaxHeight()
+                .testTag("discover-askida-card"),
             onClick = onAskidaClick
         )
     }
@@ -325,6 +355,7 @@ private fun LiteraryAdvisorPromoCard(
         border = BorderStroke(1.dp, BrandGold.copy(alpha = if (isLight) 0.45f else 0.35f)),
         modifier = Modifier
             .fillMaxWidth()
+            .testTag("discover-advisor-button")
             .semantics(mergeDescendants = true) {}
     ) {
         Row(
@@ -535,6 +566,7 @@ internal fun DiscoveryCategoryCard(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 124.dp)
+            .testTag("discover-category-$categoryName")
             .semantics(mergeDescendants = true) {},
         shape = RoundedCornerShape(16.dp),
         color = backgroundColor,

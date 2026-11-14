@@ -1,5 +1,8 @@
 package com.semtinazizi.kitapduy.ui.screens.tabs
 
+import androidx.compose.ui.platform.testTag
+import com.semtinazizi.kitapduy.ui.screens.LiteraryAdvisorScreen
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -86,11 +89,38 @@ object LibraryTab : Tab {
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            Text(
-                text = "Kitaplığım",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Kitaplığım",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Surface(
+                    onClick = { (navigator.parent ?: navigator).push(LiteraryAdvisorScreen()) },
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xFF6D4C2D).copy(alpha = 0.14f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6D4C2D).copy(alpha = 0.28f)),
+                    modifier = Modifier.testTag("library-advisor-pill")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Text("✨", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            text = "Danışman",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
 
             Box {
                 TextButton(onClick = { showShelves = true }, modifier = Modifier.testTag("library-shelves")) { Text("Raflarım") }
@@ -124,7 +154,7 @@ object LibraryTab : Tab {
                                 .fillMaxHeight()
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(
-                                    if (isSelected) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                                    if (isSelected) Color(0xFF6D4C2D)
                                     else Color.Transparent
                                 )
                                 .clickable { selectedTab = i }.testTag("library-tab-$i"),
@@ -132,7 +162,7 @@ object LibraryTab : Tab {
                         ) {
                             Text(
                                 text = title,
-                                color = if (isSelected) MaterialTheme.colorScheme.onSurface
+                                color = if (isSelected) Color.White
                                         else MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,

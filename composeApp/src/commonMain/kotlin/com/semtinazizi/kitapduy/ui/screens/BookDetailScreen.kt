@@ -1,5 +1,8 @@
 package com.semtinazizi.kitapduy.ui.screens
 
+import com.semtinazizi.kitapduy.ui.theme.PlayfairDisplayFamily
+import com.semtinazizi.kitapduy.ui.theme.SleekChampagne
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
@@ -240,6 +243,9 @@ data class BookDetailScreen(val book: Book) : Screen {
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
                             Text("Kitaplığıma ekle")
                         }
+                        Spacer(Modifier.height(16.dp))
+
+                        OneMinuteSummaryBentoCard(book = book)
                         Spacer(Modifier.height(16.dp))
 
                         BookDescriptionSection(
@@ -508,73 +514,102 @@ private fun AudioPlayerControls(
     val duration by audioController.duration.collectAsState()
     val selected = currentBook?.id == book.id
     val position = if (selected) currentPosition.coerceIn(0f, 1f) else 0f
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(36.dp)).padding(24.dp)) {
-        // Slider
-        Slider(
-            value = position,
-            enabled = selected && duration > 0f,
-            onValueChange = { audioController.seekTo(it, expectedBookId = book.id) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .semantics { contentDescription = "Oynatma konumu" },
-            colors = SliderDefaults.colors(
-                thumbColor = BrandGold,
-                activeTrackColor = BrandGold,
-                inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-            )
-        )
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(playbackTimeLabel((position * duration).toLong()), Modifier.testTag("book-elapsed"),
-                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(playbackTimeLabel(if (selected) duration.toLong() else 0L),
-                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        // Butonlar
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                modifier = Modifier
-                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                    .testTag("book-skip-back"),
-                enabled = selected && duration > 0f,
-                onClick = { audioController.skipBy(-15_000, expectedBookId = book.id) }
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.14f)),
+        shadowElevation = 2.dp
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.FastRewind, contentDescription = "15 saniye geri")
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            FloatingActionButton(
-                onClick = {
-                    if (currentBook?.id == book.id) {
-                        audioController.togglePlayPause()
-                    } else {
-                        audioController.playTrack(book, isPremium)
-                    }
-                },
-                containerColor = BrandGold,
-                shape = CircleShape,
-                modifier = Modifier.size(64.dp).testTag("book-play-pause")
-            ) {
-                Icon(
-                    imageVector = if (isPlaying && currentBook?.id == book.id) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = "Oynat/Duraklat",
-                    tint = Color.Black,
-                    modifier = Modifier.size(32.dp)
+                Text(
+                    text = "Şu Anki Konum",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontFamily = PlayfairDisplayFamily,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = playbackTimeLabel(if (selected) duration.toLong() else book.duration.toLong()),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
-            Spacer(modifier = Modifier.width(16.dp))
-            IconButton(
-                modifier = Modifier
-                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                    .testTag("book-skip-forward"),
+            Spacer(Modifier.height(6.dp))
+            // Slider
+            Slider(
+                value = position,
                 enabled = selected && duration > 0f,
-                onClick = { audioController.skipBy(15_000, expectedBookId = book.id) }
+                onValueChange = { audioController.seekTo(it, expectedBookId = book.id) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .semantics { contentDescription = "Oynatma konumu" },
+                colors = SliderDefaults.colors(
+                    thumbColor = BrandGold,
+                    activeTrackColor = BrandGold,
+                    inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                )
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(playbackTimeLabel((position * duration).toLong()), Modifier.testTag("book-elapsed"),
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(playbackTimeLabel(if (selected) duration.toLong() else 0L),
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.height(8.dp))
+            // Butonlar
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.FastForward, contentDescription = "15 saniye ileri")
+                IconButton(
+                    modifier = Modifier
+                        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                        .testTag("book-skip-back"),
+                    enabled = selected && duration > 0f,
+                    onClick = { audioController.skipBy(-15_000, expectedBookId = book.id) }
+                ) {
+                    Icon(Icons.Default.FastRewind, contentDescription = "15 saniye geri")
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                FloatingActionButton(
+                    onClick = {
+                        if (currentBook?.id == book.id) {
+                            audioController.togglePlayPause()
+                        } else {
+                            audioController.playTrack(book, isPremium)
+                        }
+                    },
+                    containerColor = BrandGold,
+                    shape = CircleShape,
+                    modifier = Modifier.size(64.dp).testTag("book-play-pause")
+                ) {
+                    Icon(
+                        imageVector = if (isPlaying && currentBook?.id == book.id) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = "Oynat/Duraklat",
+                        tint = Color.Black,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                IconButton(
+                    modifier = Modifier
+                        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                        .testTag("book-skip-forward"),
+                    enabled = selected && duration > 0f,
+                    onClick = { audioController.skipBy(15_000, expectedBookId = book.id) }
+                ) {
+                    Icon(Icons.Default.FastForward, contentDescription = "15 saniye ileri")
+                }
             }
         }
     }
@@ -665,31 +700,94 @@ private fun BookActionBarItem(
 }
 
 @Composable
+private fun OneMinuteSummaryBentoCard(book: Book) {
+    var expanded by remember { mutableStateOf(false) }
+    val rawDesc = book.description.trim()
+    val leadText = if (rawDesc.isNotBlank()) {
+        rawDesc
+    } else {
+        "${book.author} kaleminden ${book.title}; ${book.category.ifBlank { "edebiyat" }} türünde dikkat çeken anlatımıyla dinleyiciyi ilk dakikalardan içine alır."
+    }
+
+    Surface(
+        onClick = { expanded = !expanded },
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = SleekChampagne.copy(alpha = 0.08f),
+        border = BorderStroke(1.dp, SleekChampagne.copy(alpha = 0.28f))
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "✨ 1 Dakikada Eser Özeti",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontFamily = PlayfairDisplayFamily,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = if (expanded) "Kısalt" else "Tamamı",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = leadText,
+                style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = if (expanded) Int.MAX_VALUE else 3,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
 private fun BookDescriptionSection(
     description: String,
     isExpanded: Boolean,
     onToggleExpand: () -> Unit
 ) {
-    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-        Text("Hakkında", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = description.ifEmpty { "Bu kitap hakkında henüz bir açıklama eklenmemiş." },
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
-            lineHeight = 24.sp,
-            maxLines = if (isExpanded) Int.MAX_VALUE else 4,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.clickable { onToggleExpand() }
-        )
-        if (description.length > 150) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.14f))
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(18.dp)) {
             Text(
-                text = if (isExpanded) "Daha az göster" else "Devamını oku",
-                color = MaterialTheme.colorScheme.primary,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.clickable { onToggleExpand() }.padding(top = 4.dp)
+                text = "Kitap Hakkında",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontFamily = PlayfairDisplayFamily,
+                    fontWeight = FontWeight.Bold
+                )
             )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = description.ifEmpty { "Bu kitap hakkında henüz bir açıklama eklenmemiş." },
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f),
+                lineHeight = 24.sp,
+                maxLines = if (isExpanded) Int.MAX_VALUE else 4,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.clickable { onToggleExpand() }
+            )
+            if (description.length > 150) {
+                Text(
+                    text = if (isExpanded) "Daha az göster" else "Devamını oku",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.clickable { onToggleExpand() }.padding(top = 8.dp)
+                )
+            }
         }
     }
 }

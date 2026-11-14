@@ -378,21 +378,31 @@ class FixtureTest(unittest.TestCase):
             "Klasik",
             "Tarih",
             "Felsefe",
+            "Şiir",
+            "Bilim Kurgu",
         }
         with smoke.serve_fixture() as (url, _):
             books = self.request_json(url + "/rest/v1/books")
-            self.assertGreaterEqual(len(books), 18)
+            self.assertGreaterEqual(len(books), 368)
             self.assertEqual(books[0]["id"], "local_ci_book")
             self.assertEqual(books[0]["title"], "KitapDuy Deneme Kitabı")
-            category_counts = {}
+            category_and_tag_counts = {}
             for book in books:
-                category_counts[book["category"]] = category_counts.get(book["category"], 0) + 1
+                all_labels = {book["category"], *book.get("tags", [])}
+                for label in all_labels:
+                    if label:
+                        category_and_tag_counts[label] = category_and_tag_counts.get(label, 0) + 1
                 self.assertIn("/covers/", book["cover_url"])
                 self.assertTrue(book["cover_url"].endswith(".jpg"))
                 self.assertTrue(book["audio_url"].endswith("/audio.mp3"))
-            self.assertEqual(set(category_counts), expected_categories)
-            for category, count in category_counts.items():
-                self.assertGreaterEqual(count, 2, f"{category} should have multiple books")
+            for expected in expected_categories:
+                self.assertGreaterEqual(
+                    category_and_tag_counts.get(expected, 0),
+                    1,
+                    f"{expected} should appear in catalog categories/tags",
+                )
+            self.assertGreaterEqual(category_and_tag_counts.get("Roman", 0), 18)
+            self.assertGreaterEqual(category_and_tag_counts.get("Polisiye", 0), 28)
             with urlopen(books[1]["cover_url"], timeout=5) as cover_resp:
                 cover_bytes = cover_resp.read()
                 self.assertEqual(cover_resp.status, 200)
@@ -412,10 +422,39 @@ class FixtureTest(unittest.TestCase):
                 urlopen(url + "/covers/../test_run_ios_smoke.py", timeout=5)
             self.assertEqual(rejected_cover.exception.code, 404)
             rejected_cover.exception.close()
-            deneme_matches = self.request_json(url + "/rest/v1/books?or=(title.ilike.*Deneme*)")
-            self.assertEqual([b["id"] for b in deneme_matches], ["local_ci_book"])
-            podcast_matches = self.request_json(url + "/rest/v1/podcasts?or=(name.ilike.*Deneme%20Podcasti*)")
-            self.assertEqual([p["id"] for p in podcast_matches], ["ci_podcast"])
+            kizil_matches = self.request_json(url + "/rest/v1/books?or=(title.ilike.*K%C4%B1z%C4%B1l%20Dosya*)")
+            self.assertIn("0mVxipNVFmBxtJNs9O0J", [b["id"] for b in kizil_matches])
+            podcast_matches = self.request_json(url + "/rest/v1/podcasts?or=(name.ilike.*111*)")
+            self.assertEqual([p["id"] for p in podcast_matches], ["podcast_111hz"])
+
+    def test_askida_and_quiz_leaderboard_fixture_routes(self):
+        with smoke.serve_fixture() as (url, _):
+            askida = self.request_json(url + "/rest/v1/askida_kitap?status=eq.AVAILABLE")
+            self.assertGreaterEqual(len(askida), 3)
+            self.assertTrue(any("Kürk Mantolu Madonna" in b["book_name"] for b in askida))
+            self.request_json(
+                url + "/rest/v1/askida_kitap",
+                [{"id": "new_askida_1", "book_name": "Simyacı", "donor_id": USER_ID, "city": "Bursa", "status": "AVAILABLE"}],
+            )
+            after_donate = self.request_json(url + "/rest/v1/askida_kitap?status=eq.AVAILABLE")
+            self.assertTrue(any(b["id"] == "new_askida_1" for b in after_donate))
+            self.request_json(
+                url + "/rest/v1/askida_kitap?id=eq.new_askida_1",
+                {"status": "CLAIMED", "claimer_id": USER_ID},
+                method="PATCH",
+            )
+            claimed = self.request_json(f"{url}/rest/v1/askida_kitap?or=(donor_id.eq.{USER_ID},claimer_id.eq.{USER_ID})")
+            self.assertTrue(any(b["id"] == "new_askida_1" and b["status"] == "CLAIMED" for b in claimed))
+
+            leaderboard = self.request_json(url + "/rest/v1/quiz_leaderboard")
+            self.assertGreaterEqual(len(leaderboard), 5)
+            self.request_json(
+                url + "/rest/v1/quiz_leaderboard",
+                [{"user_id": USER_ID, "user_name": "Deneme Okuru", "total_score": 5000}],
+            )
+            updated_board = self.request_json(url + "/rest/v1/quiz_leaderboard")
+            self.assertEqual(updated_board[0]["user_id"], USER_ID)
+            self.assertEqual(updated_board[0]["total_score"], 5000)
 
 
 if __name__ == "__main__":
