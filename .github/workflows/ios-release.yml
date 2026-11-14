@@ -4,20 +4,20 @@ on:
   workflow_dispatch:
     inputs:
       build_number:
-        description: "CFBundleVersion (leave empty for auto: Info.plist + run_number)"
+        description: "Otomatik Build No (boş bırakın, her çalıştırmada kendiliğinden artar)"
         required: false
         type: string
         default: ""
       marketing_version:
-        description: "CFBundleShortVersionString (leave empty to keep Info.plist value)"
+        description: "Otomatik Sürüm No (boş bırakın, her çalıştırmada kendiliğinden artar)"
         required: false
         type: string
         default: ""
       upload_to_app_store:
-        description: "Upload the signed IPA to App Store Connect"
+        description: "İmzalı IPA paketini App Store Connect / TestFlight'a otomatik yükle"
         required: false
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: read

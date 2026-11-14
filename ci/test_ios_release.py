@@ -186,8 +186,40 @@ class VersionAndExportTests(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 ios_release.compute_build_version("26", 1, override=bad)
 
+    def test_compute_marketing_version_auto_and_override(self):
+        self.assertEqual(ios_release.compute_marketing_version("1.0.2", 1), "1.0.3")
+        self.assertEqual(ios_release.compute_marketing_version("1.0.2", 4), "1.0.6")
+        self.assertEqual(ios_release.compute_marketing_version("1.0", 2), "1.0.2")
+        self.assertEqual(
+            ios_release.compute_marketing_version("1.0.2", 1, override="2.1.0"),
+            "2.1.0",
+        )
+        for bad in ("1", "1.0-beta", "abc"):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                ios_release.compute_marketing_version("1.0.2", 1, override=bad)
+        with self.assertRaises(ValueError):
+            ios_release.compute_marketing_version("invalid", 1)
+        with self.assertRaises(ValueError):
+            ios_release.compute_marketing_version("1.0.2", 0)
+
     def test_update_info_plist_and_export_options(self):
         with tempfile.TemporaryDirectory() as tmp:
+            auto_plist_path = Path(tmp) / "Info-auto.plist"
+            auto_plist_path.write_bytes(
+                (REPO_ROOT / "iosApp/iosApp/Info.plist").read_bytes()
+            )
+            auto_short, auto_build = ios_release.update_info_plist(
+                auto_plist_path,
+                run_number=3,
+                override_build_number="",
+                override_marketing_version="",
+            )
+            self.assertEqual(auto_short, "1.0.5")
+            self.assertEqual(auto_build, "29")
+            auto_updated = plistlib.loads(auto_plist_path.read_bytes())
+            self.assertEqual(auto_updated["CFBundleVersion"], "29")
+            self.assertEqual(auto_updated["CFBundleShortVersionString"], "1.0.5")
+
             plist_path = Path(tmp) / "Info.plist"
             plist_path.write_bytes(
                 (REPO_ROOT / "iosApp/iosApp/Info.plist").read_bytes()

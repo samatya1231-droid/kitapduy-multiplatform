@@ -200,13 +200,36 @@ def compute_build_version(current_version: str, run_number: int, override: str =
     return str(int(cur) + run_number)
 
 
+def compute_marketing_version(current_version: str, run_number: int, override: str = "") -> str:
+    """Compute a strictly valid, monotonic CFBundleShortVersionString."""
+    explicit = (override or "").strip()
+    if explicit:
+        if not re.fullmatch(r"\d+\.\d+(?:\.\d+)?", explicit):
+            raise ValueError(
+                f"Invalid marketing_version '{explicit}'. Expected format like '1.0.3'."
+            )
+        return explicit
+
+    cur = (current_version or "").strip()
+    if not re.fullmatch(r"\d+\.\d+(?:\.\d+)?", cur):
+        raise ValueError(
+            f"Current CFBundleShortVersionString '{cur}' is invalid; specify marketing_version explicitly."
+        )
+    if run_number < 1:
+        raise ValueError(f"run_number must be >= 1, got {run_number}")
+    parts = [int(p) for p in cur.split(".")]
+    major, minor = parts[0], parts[1]
+    patch = parts[2] if len(parts) == 3 else 0
+    return f"{major}.{minor}.{patch + run_number}"
+
+
 def update_info_plist(
     plist_path: Path,
     run_number: int,
     override_build_number: str = "",
     override_marketing_version: str = "",
 ) -> tuple[str, str]:
-    """Update CFBundleVersion (and optionally CFBundleShortVersionString) in Info.plist."""
+    """Update CFBundleVersion and CFBundleShortVersionString in Info.plist."""
     plist = plistlib.loads(plist_path.read_bytes())
     if not isinstance(plist, dict):
         raise ValueError(f"{plist_path}: Info.plist must be a dictionary")
@@ -222,17 +245,12 @@ def update_info_plist(
     )
     plist["CFBundleVersion"] = new_build
 
-    explicit_short = (override_marketing_version or "").strip()
-    if explicit_short:
-        if not re.fullmatch(r"\d+\.\d+(?:\.\d+)?", explicit_short):
-            raise ValueError(
-                f"Invalid marketing_version '{explicit_short}'. Expected format like '1.0.3'."
-            )
-        plist["CFBundleShortVersionString"] = explicit_short
-
-    short_version = str(plist.get("CFBundleShortVersionString") or "").strip()
-    if not short_version:
-        raise ValueError(f"{plist_path}: CFBundleShortVersionString is empty")
+    short_version = compute_marketing_version(
+        str(plist.get("CFBundleShortVersionString") or ""),
+        run_number=run_number,
+        override=override_marketing_version,
+    )
+    plist["CFBundleShortVersionString"] = short_version
 
     plist_path.write_bytes(plistlib.dumps(plist, fmt=plistlib.FMT_XML))
     return short_version, new_build
