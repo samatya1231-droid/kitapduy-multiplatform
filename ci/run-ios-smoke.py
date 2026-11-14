@@ -569,7 +569,7 @@ def main(argv=None):
     parser.add_argument("--android-reference", type=Path, default=Path("ci/kitapduy3-reference"),
                         help="Directory of Android reference PNGs named after report steps.")
     parser.add_argument("--duration", type=int, default=125)
-    parser.add_argument("--https-url", default=os.environ.get("IOS_SMOKE_HTTPS_URL", "https://example.com/"))
+    parser.add_argument("--https-url", default=os.environ.get("IOS_SMOKE_HTTPS_URL", "https://www.apple.com/library/test/success.html"))
     args = parser.parse_args(argv)
     if args.duration < 1:
         parser.error("--duration must be positive")

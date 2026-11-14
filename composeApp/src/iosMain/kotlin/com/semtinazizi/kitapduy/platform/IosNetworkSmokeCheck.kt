@@ -30,36 +30,45 @@ object IosNetworkSmokeCheck {
         scope.launch {
             delay(2500)
             var lastFailure: Throwable? = null
-            for (attempt in 1..4) {
-                var client: HttpClient? = null
-                try {
-                    require(url.startsWith("https://")) { "HTTPS is required" }
-                    val probe = HttpClient(Darwin) {
-                        expectSuccess = true
-                        install(HttpTimeout) {
-                            requestTimeoutMillis = 20_000
-                            connectTimeoutMillis = 15_000
-                            socketTimeoutMillis = 20_000
+            val candidates = listOf(
+                url,
+                "https://www.apple.com/library/test/success.html",
+                "https://cloudflare.com/cdn-cgi/trace",
+                "https://api.github.com/zen",
+                "https://example.com/"
+            ).map { it.trim() }.filter { it.startsWith("https://") }.distinct()
+            for (round in 1..2) {
+                for (candidate in candidates) {
+                    var client: HttpClient? = null
+                    try {
+                        require(candidates.isNotEmpty()) { "HTTPS is required" }
+                        val probe = HttpClient(Darwin) {
+                            expectSuccess = true
+                            install(HttpTimeout) {
+                                requestTimeoutMillis = 12_000
+                                connectTimeoutMillis = 8_000
+                                socketTimeoutMillis = 12_000
+                            }
                         }
+                        client = probe
+                        withTimeout(15_000) {
+                            val response = probe.get(candidate)
+                            // Reading real response headers exercises the Build 24 failure path.
+                            val headerCount = response.headers.names().size
+                            val body = response.bodyAsText()
+                            check(response.status.value in 200..299)
+                            check(headerCount > 0 && body.isNotEmpty())
+                            NSLog("KITAPDUY_CI_NETWORK_PASS status=${response.status.value} headers=$headerCount chars=${body.length}")
+                        }
+                        return@launch
+                    } catch (failure: Throwable) {
+                        lastFailure = failure
+                    } finally {
+                        client?.close()
                     }
-                    client = probe
-                    withTimeout(25_000) {
-                        val response = probe.get(url)
-                        // Reading real response headers exercises the Build 24 failure path.
-                        val headerCount = response.headers.names().size
-                        val body = response.bodyAsText()
-                        check(response.status.value in 200..299)
-                        check(headerCount > 0 && body.isNotEmpty())
-                        NSLog("KITAPDUY_CI_NETWORK_PASS status=${response.status.value} headers=$headerCount chars=${body.length}")
-                    }
-                    return@launch
-                } catch (failure: Throwable) {
-                    lastFailure = failure
-                    if (attempt < 4) {
-                        delay(2000)
-                    }
-                } finally {
-                    client?.close()
+                }
+                if (round < 2) {
+                    delay(1000)
                 }
             }
             // Log no URL, response body or credentials; absence of PASS also fails CI.

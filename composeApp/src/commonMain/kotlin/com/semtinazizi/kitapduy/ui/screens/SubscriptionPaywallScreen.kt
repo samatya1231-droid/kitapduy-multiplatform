@@ -8,6 +8,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.foundation.layout.*
@@ -212,7 +215,11 @@ class SubscriptionPaywallScreen : Screen {
                     Text("Bu mağaza hesabında aktif Premium aboneliğiniz var.",
                         color = MaterialTheme.colorScheme.primary)
                 }
-                if (loading || busy) CircularProgressIndicator()
+                if (loading || busy) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.semantics { contentDescription = "Yükleniyor" }
+                    )
+                }
                 message?.let {
                     Text(
                         it,
@@ -221,14 +228,18 @@ class SubscriptionPaywallScreen : Screen {
                     )
                 }
                 displayProducts.forEach { product ->
-                    OutlinedCard(modifier = Modifier.fillMaxWidth().selectable(
+                    OutlinedCard(modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.selectable(
                         selected = selected?.id == product.id, enabled = !busy,
                         role = Role.RadioButton, onClick = { selectedId = product.id }),
                         shape = RoundedCornerShape(20.dp),
                         border = BorderStroke(if (selected?.id == product.id) 2.dp else 1.dp,
                             if (selected?.id == product.id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected = selected?.id == product.id, onClick = null)
+                            RadioButton(
+                                selected = selected?.id == product.id,
+                                onClick = null,
+                                modifier = Modifier.clearAndSetSemantics {}
+                            )
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(product.title, style = MaterialTheme.typography.titleMedium)
                                 Text("${product.price} / ${product.period}", style = MaterialTheme.typography.titleLarge)
