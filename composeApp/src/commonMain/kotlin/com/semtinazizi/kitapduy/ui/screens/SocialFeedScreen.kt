@@ -121,14 +121,38 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                         TabRow(
                             selectedTabIndex = selectedPostTab,
                             containerColor = Color.Transparent,
-                            contentColor = BrandGold,
+                            contentColor = MaterialTheme.colorScheme.primary,
                             divider = {}
                         ) {
-                            Tab(selected = selectedPostTab == 0, onClick = { selectedPostTab = 0; postText = "" }, text = { Text("Yazı") })
-                            Tab(selected = selectedPostTab == 1, onClick = { selectedPostTab = 1 }, text = { Text("Anket") })
-                            Tab(selected = selectedPostTab == 2, onClick = { selectedPostTab = 2 }, text = { Text("Resim") })
+                            Tab(
+                                selected = selectedPostTab == 0,
+                                onClick = { selectedPostTab = 0; postText = "" },
+                                selectedContentColor = MaterialTheme.colorScheme.primary,
+                                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                text = { Text("Yazı") }
+                            )
+                            Tab(
+                                selected = selectedPostTab == 1,
+                                onClick = { selectedPostTab = 1 },
+                                selectedContentColor = MaterialTheme.colorScheme.primary,
+                                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                text = { Text("Anket") }
+                            )
+                            Tab(
+                                selected = selectedPostTab == 2,
+                                onClick = { selectedPostTab = 2 },
+                                selectedContentColor = MaterialTheme.colorScheme.primary,
+                                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                text = { Text("Resim") }
+                            )
                             if (isAdmin) {
-                                Tab(selected = selectedPostTab == 3, onClick = { selectedPostTab = 3; postText = "" }, text = { Text("Mısra") })
+                                Tab(
+                                    selected = selectedPostTab == 3,
+                                    onClick = { selectedPostTab = 3; postText = "" },
+                                    selectedContentColor = MaterialTheme.colorScheme.primary,
+                                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    text = { Text("Mısra") }
+                                )
                             }
                         }
                         Spacer(Modifier.height(24.dp))
@@ -144,7 +168,7 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedTextColor = MaterialTheme.colorScheme.onSurface,
                                     unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                    focusedBorderColor = BrandGold,
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                                     unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
                                 )
                             )
@@ -168,7 +192,7 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                             }
                             if (pollOptions.size < 4) {
                                 TextButton(onClick = { pollOptions.add("") }) {
-                                    Text("+ Yeni Seçenek", color = BrandGold)
+                                    Text("+ Yeni Seçenek", color = MaterialTheme.colorScheme.primary)
                                 }
                             }
                         } else if (selectedPostTab == 2) {
@@ -188,7 +212,7 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                                     }
                                 } else {
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Icon(Icons.Filled.AddPhotoAlternate, null, modifier = Modifier.size(48.dp), tint = BrandGold)
+                                        Icon(Icons.Filled.AddPhotoAlternate, null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
                                         Text("Fotoğraf Seç", color = Color.Gray)
                                     }
                                 }
@@ -270,27 +294,35 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Box(
+                        IconButton(
+                            onClick = { viewModel.loadFeed(true) },
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(48.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-                                .clickable { viewModel.loadFeed(true) },
-                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Filled.Refresh, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                            Icon(
+                                Icons.Filled.Refresh,
+                                contentDescription = "Akışı yenile",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
-                        Box(
+                        IconButton(
+                            onClick = { navigator.push(NotificationScreen()) },
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(48.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-                                .clickable { navigator.push(NotificationScreen()) },
-                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Filled.Notifications, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                            Icon(
+                                Icons.Filled.Notifications,
+                                contentDescription = "Bildirimler",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
                 }
@@ -522,19 +554,22 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                modifier = Modifier.testTag("feed-compose-${opt.tab}").clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) {
-                                    selectedPostTab = opt.tab
-                                    postText = ""
-                                    pollQuestion = ""
-                                    pollOptions.clear()
-                                    pollOptions.addAll(listOf("", ""))
-                                    selectedImageFile = null
-                                    fabExpanded = false
-                                    showPostDialog = true
-                                }
+                                modifier = Modifier
+                                    .heightIn(min = 48.dp)
+                                    .testTag("feed-compose-${opt.tab}")
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) {
+                                        selectedPostTab = opt.tab
+                                        postText = ""
+                                        pollQuestion = ""
+                                        pollOptions.clear()
+                                        pollOptions.addAll(listOf("", ""))
+                                        selectedImageFile = null
+                                        fabExpanded = false
+                                        showPostDialog = true
+                                    }
                             ) {
                                 Surface(
                                     shape = RoundedCornerShape(12.dp),

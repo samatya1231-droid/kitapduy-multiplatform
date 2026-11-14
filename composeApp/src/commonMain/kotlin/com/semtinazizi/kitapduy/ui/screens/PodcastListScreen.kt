@@ -118,7 +118,7 @@ class PodcastListScreen : Screen {
                                     onClick = {
                                         println("PodcastList: Clicking podcast ${podcast.name}, rssUrl=${podcast.rssUrl}")
                                         if (podcast.rssUrl.isNotBlank()) {
-                                            navigator.push(PodcastEpisodesScreen(podcast.id, podcast.name, podcast.rssUrl))
+                                            navigator.push(PodcastEpisodesScreen(podcast.id, podcast.name, podcast.rssUrl, podcast.imageUrl))
                                         } else {
                                             println("PodcastList: RSS URL is blank for ${podcast.name}")
                                         }

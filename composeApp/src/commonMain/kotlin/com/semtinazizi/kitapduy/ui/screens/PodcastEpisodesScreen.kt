@@ -20,7 +20,12 @@ import com.semtinazizi.kitapduy.platform.BannerAdView
 import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
-data class PodcastEpisodesScreen(val podcastId: String, val title: String, val rssUrl: String) : Screen {
+data class PodcastEpisodesScreen(
+    val podcastId: String,
+    val title: String,
+    val rssUrl: String,
+    val imageUrl: String = ""
+) : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
@@ -33,6 +38,7 @@ data class PodcastEpisodesScreen(val podcastId: String, val title: String, val r
         val audioController = org.koin.compose.koinInject<com.semtinazizi.kitapduy.ui.viewmodel.GlobalAudioController>()
         
         val episodes by viewModel.episodes.collectAsState()
+        val channelImageUrl by viewModel.channelImageUrl.collectAsState()
         val isLoading by viewModel.isLoading.collectAsState()
         val error by viewModel.error.collectAsState()
 
@@ -94,10 +100,18 @@ data class PodcastEpisodesScreen(val podcastId: String, val title: String, val r
                                     .fillMaxWidth()
                                     .padding(vertical = 8.dp)
                                     .clickable {
-                                        if (!isThisPlaying) {
-                                            audioController.playPodcastEpisode(episode)
+                                        val resolvedImage = episode.imageUrl?.takeIf { it.isNotBlank() }
+                                            ?: imageUrl.takeIf { it.isNotBlank() }
+                                            ?: channelImageUrl?.takeIf { it.isNotBlank() }
+                                        val resolvedEpisode = if (resolvedImage != episode.imageUrl) {
+                                            episode.copy(imageUrl = resolvedImage)
+                                        } else {
+                                            episode
                                         }
-                                        navigator.push(PodcastDetailScreen(episode, title))
+                                        if (!isThisPlaying) {
+                                            audioController.playPodcastEpisode(resolvedEpisode, title)
+                                        }
+                                        navigator.push(PodcastDetailScreen(resolvedEpisode, title))
                                     },
                                 colors = CardDefaults.cardColors(
                                     containerColor = if (isThisPlaying) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant

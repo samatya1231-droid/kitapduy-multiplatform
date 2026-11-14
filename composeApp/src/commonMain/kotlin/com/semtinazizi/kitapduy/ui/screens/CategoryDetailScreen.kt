@@ -57,7 +57,12 @@ class CategoryDetailScreen(val categoryName: String) : Screen {
         var searchQuery by remember { mutableStateOf("") }
         
         val filteredBooks = remember(allBooks, categoryName, searchQuery) {
-            allBooks.filter { categoryName == "Tümü" || it.category == categoryName }
+            val targetCategory = categoryName.trim()
+            allBooks.filter {
+                targetCategory.equals("Tümü", ignoreCase = true) ||
+                    it.category.trim().equals(targetCategory, ignoreCase = true) ||
+                    categoryMatches(it.category, targetCategory)
+            }
                 .filter { 
                     it.title.contains(searchQuery, ignoreCase = true) || 
                     it.author.contains(searchQuery, ignoreCase = true) 

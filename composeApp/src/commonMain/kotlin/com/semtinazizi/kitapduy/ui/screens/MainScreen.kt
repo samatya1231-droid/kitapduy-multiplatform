@@ -62,6 +62,8 @@ class MainScreen : Screen {
         val isPremium = (billingManager.isPremium.collectAsState().value || userProfile?.hasPremium() == true)
         val currentBook by audioController.currentBook.collectAsState()
         val currentEpisode by audioController.currentEpisode.collectAsState()
+        val currentPodcastTitle by audioController.currentPodcastTitle.collectAsState()
+        val isFullPlayerVisible by audioController.isFullPlayerVisible.collectAsState()
         val isPlaying by audioController.isPlaying.collectAsState()
         val rootNavigator = LocalNavigator.currentOrThrow
 
@@ -70,10 +72,13 @@ class MainScreen : Screen {
                 containerColor = MaterialTheme.colorScheme.background,
                 bottomBar = {
                     Column(modifier = Modifier.background(Color.Transparent)) {
-                        if (currentBook != null || currentEpisode != null) {
+                        if ((currentBook != null || currentEpisode != null) && !isFullPlayerVisible) {
                             val title = currentBook?.title ?: currentEpisode?.title ?: ""
-                            val artist = currentBook?.author ?: ""
-                            val coverUrl = currentBook?.coverUrl ?: currentEpisode?.imageUrl ?: ""
+                            val artist = currentBook?.author
+                                ?: currentPodcastTitle?.takeIf { it.isNotBlank() }
+                                ?: currentEpisode?.let { "Podcast" }
+                                ?: ""
+                            val coverUrl = currentBook?.coverUrl ?: currentEpisode?.imageUrl.orEmpty()
                             
                             MiniPlayerSection(
                                 title = title,
@@ -89,7 +94,12 @@ class MainScreen : Screen {
                                         }
                                     } else if (currentEpisode != null) {
                                         currentEpisode?.let { episode ->
-                                            rootNavigator.push(com.semtinazizi.kitapduy.ui.screens.PodcastDetailScreen(episode, artist))
+                                            rootNavigator.push(
+                                                com.semtinazizi.kitapduy.ui.screens.PodcastDetailScreen(
+                                                    episode,
+                                                    currentPodcastTitle?.takeIf { it.isNotBlank() } ?: artist
+                                                )
+                                            )
                                         }
                                     }
                                 },

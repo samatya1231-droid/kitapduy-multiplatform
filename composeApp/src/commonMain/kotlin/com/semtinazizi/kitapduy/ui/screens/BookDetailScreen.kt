@@ -124,6 +124,11 @@ data class BookDetailScreen(val book: Book) : Screen {
         var isDescriptionExpanded by remember { mutableStateOf(false) }
 
         val audioController = koinInject<GlobalAudioController>()
+        val fullPlayerToken = remember { Any() }
+        DisposableEffect(fullPlayerToken) {
+            audioController.setFullPlayerVisible(true, fullPlayerToken)
+            onDispose { audioController.setFullPlayerVisible(false, fullPlayerToken) }
+        }
         val isPlaying by audioController.isPlaying.collectAsState()
         val currentPosition by audioController.currentPosition.collectAsState()
         val currentBook by audioController.currentBook.collectAsState()

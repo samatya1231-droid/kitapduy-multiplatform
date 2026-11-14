@@ -213,7 +213,7 @@ data class MoodDetailScreen(val moodId: String) : Screen {
                         ) {
                             items(filteredPodcasts) { podcast ->
                                 PremiumPodcastCard(podcast = podcast) {
-                                    navigator.push(PodcastEpisodesScreen(podcast.id, podcast.name, podcast.rssUrl))
+                                    navigator.push(PodcastEpisodesScreen(podcast.id, podcast.name, podcast.rssUrl, podcast.imageUrl))
                                 }
                             }
                         }

@@ -362,6 +362,34 @@ class FixtureTest(unittest.TestCase):
                 self.assertEqual(len(response.read()), 16)
                 self.assertEqual(response.headers["Content-Range"], f"bytes 0-15/{audio_size}")
 
+    def test_enriched_catalog_serves_all_categories_with_valid_media_urls(self):
+        with smoke.serve_fixture() as (url, _):
+            books = self.request_json(url + "/rest/v1/books")
+            self.assertEqual(len(books), 7)
+            self.assertEqual(books[0]["id"], "local_ci_book")
+            self.assertEqual(books[0]["title"], "KitapDuy Deneme Kitabı")
+            categories = {book["category"] for book in books}
+            self.assertEqual(
+                categories,
+                {
+                    "Roman",
+                    "Dünya Edebiyatı",
+                    "Türk Edebiyatı",
+                    "Polisiye",
+                    "Kişisel Gelişim",
+                    "Çocuk Masalları",
+                    "İngilizce Kitaplar",
+                },
+            )
+            for book in books:
+                self.assertTrue(book["cover_url"].endswith("/cover.png"))
+                self.assertTrue(book["audio_url"].endswith("/audio.mp3"))
+            with urlopen(books[1]["cover_url"], timeout=5) as cover_resp:
+                self.assertEqual(cover_resp.status, 200)
+                self.assertEqual(cover_resp.headers["Content-Type"], "image/png")
+            deneme_matches = self.request_json(url + "/rest/v1/books?or=(title.ilike.*Deneme*)")
+            self.assertEqual([b["id"] for b in deneme_matches], ["local_ci_book"])
+
 
 if __name__ == "__main__":
     unittest.main()

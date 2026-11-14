@@ -135,7 +135,11 @@ class HomeScreen : Screen {
                             GreetingAndProfileBar(photoUrl, isPremium,
                                 onProfileClick = { navigator.push(UserProfileScreen()) },
                                 onPremiumClick = { navigator.root.push(SubscriptionPaywallScreen()) })
-                            SearchBarSection(Modifier.padding(horizontal = 16.dp)) { navigator.push(SearchScreen()) }
+                            SearchBarSection(
+                                Modifier
+                                    .padding(horizontal = 16.dp)
+                                    .graphicsLayer { alpha = (1f - searchBarAlpha).coerceIn(0f, 1f) }
+                            ) { navigator.push(SearchScreen()) }
                         }
                         item {
                             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
@@ -173,7 +177,9 @@ class HomeScreen : Screen {
                         }
                         if (podcasts.isNotEmpty()) item {
                             SpotifySectionHeader("Podcast dünyası")
-                            PodcastRow(podcasts.take(6)) { navigator.push(PodcastEpisodesScreen(it.id, it.name, it.rssUrl)) }
+                            PodcastRow(podcasts.take(6)) {
+                                navigator.push(PodcastEpisodesScreen(it.id, it.name, it.rssUrl, it.imageUrl))
+                            }
                         }
                         if (!isPremium) item {
                             PremiumUpgradeCard(modifier = Modifier.padding(horizontal = 16.dp, vertical = 32.dp),
@@ -194,20 +200,18 @@ class HomeScreen : Screen {
                 }
 
                 // Sticky Compact Search Bar
-                AnimatedVisibility(
-                    visible = searchBarAlpha > 0.95f,
-                    enter = fadeIn() + slideInVertically { -it },
-                    exit = fadeOut() + slideOutVertically { -it },
-                    modifier = Modifier.align(Alignment.TopCenter)
-                ) {
+                if (searchBarAlpha > 0.05f) {
                     Surface(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .fillMaxWidth()
+                            .graphicsLayer { alpha = searchBarAlpha },
                         color = MaterialTheme.colorScheme.background,
-                        shadowElevation = 8.dp
+                        shadowElevation = (8f * searchBarAlpha).dp
                     ) {
-                        Box(modifier = Modifier.statusBarsPadding().padding(vertical = 10.dp)) {
+                        Box(modifier = Modifier.statusBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp)) {
                             SearchBarSection(
-                                modifier = Modifier.padding(horizontal = 16.dp),
+                                modifier = Modifier,
                                 onClick = { navigator.push(SearchScreen()) }
                             )
                         }

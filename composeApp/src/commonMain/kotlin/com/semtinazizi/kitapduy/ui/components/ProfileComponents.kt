@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -70,7 +71,7 @@ fun ProfileBentoStats(
                 icon = Icons.Default.AutoStories,
                 color = BrandGold,
                 modifier = Modifier.weight(1f),
-                onClick = {}
+                onClick = null
             )
             BentoStatItem(
                 label = "Günlük Seri",
@@ -78,7 +79,7 @@ fun ProfileBentoStats(
                 icon = Icons.Default.LocalFireDepartment,
                 color = BrandGold,
                 modifier = Modifier.weight(1f),
-                onClick = {}
+                onClick = null
             )
         }
     }
@@ -117,7 +118,7 @@ fun BentoStatItem(
     icon: ImageVector,
     color: Color,
     modifier: Modifier = Modifier,
-    onClick: () -> Unit
+    onClick: (() -> Unit)? = null
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -126,9 +127,17 @@ fun BentoStatItem(
 
     Surface(
         modifier = modifier
+            .heightIn(min = 48.dp)
             .scale(scale)
             .shadow(8.dp, RoundedCornerShape(22.dp))
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
+            .semantics(mergeDescendants = true) {}
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+                } else {
+                    Modifier
+                }
+            ),
         shape = RoundedCornerShape(22.dp),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
         border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))

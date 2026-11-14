@@ -274,4 +274,6 @@ object IOSBuildConfig {
     var CF_PUBLIC_URL: String = "https://pub-7327d7da4dcf4c1bbf6d53bacbbe276c.r2.dev"
     var CF_WORKER_URL: String = "https://ancient-shape-df97.samatya231.workers.dev"
     var CF_UPLOAD_TOKEN: String = "DUMMY_TOKEN"
+    val isCiSmokeTest: Boolean
+        get() = platform.Foundation.NSProcessInfo.processInfo.environment["KITAPDUY_CI_SMOKE_TEST"] == "1"
 }

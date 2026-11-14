@@ -26,6 +26,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -96,14 +98,16 @@ class SearchScreen : Screen {
                             value = query,
                             onValueChange = { viewModel.updateSearchQuery(it) },
                             modifier = Modifier
-                                .weight(1f).testTag("discover-query")
+                                .weight(1f)
+                                .testTag("discover-query")
+                                .semantics { contentDescription = "Hangi eseri arıyorsunuz?" }
                                 .then(if (query.isNotEmpty()) Modifier.padding(start = 8.dp) else Modifier),
                             placeholder = { Text("Hangi eseri arıyorsunuz?", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontWeight = FontWeight.Bold) },
                             leadingIcon = { Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)) },
                             trailingIcon = {
                                 if (query.isNotEmpty()) {
                                     IconButton(onClick = { viewModel.updateSearchQuery("") }, modifier = Modifier.testTag("discover-clear")) {
-                                        Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onSurface)
+                                        Icon(Icons.Default.Close, contentDescription = "Aramayı temizle", tint = MaterialTheme.colorScheme.onSurface)
                                     }
                                 }
                             },
@@ -192,7 +196,9 @@ class SearchScreen : Screen {
                                                 SectionLabel(icon = "🎙️", text = "Podcastler (${podcastResults.size})")
                                             }
                                             items(podcastResults, key = { "pod_${it.id}" }) { podcast ->
-                                                HorizontalPodcastSearchItem(podcast) { navigator.push(PodcastEpisodesScreen(podcast.id, podcast.name, podcast.rssUrl)) }
+                                                HorizontalPodcastSearchItem(podcast) {
+                                                    navigator.push(PodcastEpisodesScreen(podcast.id, podcast.name, podcast.rssUrl, podcast.imageUrl))
+                                                }
                                             }
                                         }
                                     }

@@ -19,6 +19,9 @@ class PodcastEpisodesViewModel(
     private val _episodes = MutableStateFlow<List<PodcastEpisode>>(emptyList())
     val episodes: StateFlow<List<PodcastEpisode>> = _episodes.asStateFlow()
 
+    private val _channelImageUrl = MutableStateFlow<String?>(null)
+    val channelImageUrl: StateFlow<String?> = _channelImageUrl.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -53,7 +56,20 @@ class PodcastEpisodesViewModel(
 
     private fun parseEpisodes(xmlContent: String): List<PodcastEpisode> {
         val resultList = mutableListOf<PodcastEpisode>()
-        
+        val channelHeader = xmlContent.substringBefore("<item", missingDelimiterValue = xmlContent)
+        val channelItunesImage = "<(?:itunes:)?image[^>]+href\\s*=\\s*['\"]([^'\"]+)['\"][^>]*>"
+            .toRegex(RegexOption.IGNORE_CASE)
+            .find(channelHeader)?.groupValues?.get(1)?.trim()
+        val channelImageBlock = "(?s)<image>(.*?)</image>"
+            .toRegex(RegexOption.IGNORE_CASE)
+            .find(channelHeader)?.groupValues?.get(1)
+        val channelUrlImage = channelImageBlock?.let {
+            "(?s)<url>(.*?)</url>".toRegex(RegexOption.IGNORE_CASE).find(it)?.groupValues?.get(1)?.trim()
+        }
+        val fallbackChannelImage = channelItunesImage?.takeIf { it.isNotBlank() }
+            ?: channelUrlImage?.takeIf { it.isNotBlank() }
+        _channelImageUrl.value = fallbackChannelImage
+
         val itemRegex = "(?s)<item>(.*?)</item>".toRegex(RegexOption.IGNORE_CASE)
         val titleRegex = "(?s)<title>(.*?)</title>".toRegex(RegexOption.IGNORE_CASE)
         val descRegex1 = "(?s)<description><!\\[CDATA\\[(.*?)]]></description>".toRegex(RegexOption.IGNORE_CASE)
@@ -79,6 +95,8 @@ class PodcastEpisodesViewModel(
             val duration = durationRegex.find(itemContent)?.groupValues?.get(1)?.trim() ?: ""
             val pubDate = pubDateRegex.find(itemContent)?.groupValues?.get(1)?.trim() ?: ""
             val imageUrl = imageRegex.find(itemContent)?.groupValues?.get(1)?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?: fallbackChannelImage
             
             resultList.add(
                 PodcastEpisode(

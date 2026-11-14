@@ -60,6 +60,11 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
         var isDescriptionExpanded by remember { mutableStateOf(false) }
 
         val audioController = koinInject<GlobalAudioController>()
+        val fullPlayerToken = remember { Any() }
+        DisposableEffect(fullPlayerToken) {
+            audioController.setFullPlayerVisible(true, fullPlayerToken)
+            onDispose { audioController.setFullPlayerVisible(false, fullPlayerToken) }
+        }
         val isPlaying by audioController.isPlaying.collectAsState()
         val currentPosition by audioController.currentPosition.collectAsState()
         val durationMs by audioController.duration.collectAsState()
@@ -88,7 +93,8 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
         val timerRemaining by audioController.sleepTimerRemainingMinutes.collectAsState()
         val isDownloading by audioController.isDownloading.collectAsState()
 
-        val displayImageUrl = episode.imageUrl ?: "https://images.unsplash.com/photo-1593697821252-0c9137d9fc45?w=400&q=80"
+        val displayImageUrl = episode.imageUrl?.takeIf { it.isNotBlank() }
+            ?: "https://images.unsplash.com/photo-1593697821252-0c9137d9fc45?w=400&q=80"
 
         // Tarih ve Süre Formatlama Yardımcıları
         val formattedDate = remember(episode.pubDate) {
@@ -274,7 +280,7 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 IconButton(enabled = selectedEpisode && displayDuration > 0f, onClick = { audioController.skipBy(-15_000, expectedEpisodeId = episode.id) }) {
-                                    Icon(Icons.Default.FastRewind, contentDescription = "15 saniye geri", tint = Color.White)
+                                    Icon(Icons.Default.FastRewind, contentDescription = "15 saniye geri", tint = MaterialTheme.colorScheme.onSurface)
                                 }
                                 Spacer(modifier = Modifier.width(16.dp))
                                 FloatingActionButton(
@@ -282,7 +288,7 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                                         if (currentEpisode?.id == episode.id) {
                                             audioController.togglePlayPause()
                                         } else {
-                                            audioController.playPodcastEpisode(episode)
+                                            audioController.playPodcastEpisode(episode, podcastTitle)
                                         }
                                     },
                                     containerColor = SleekChampagne,

@@ -27,6 +27,22 @@ class GlobalAudioController(
     private val _currentEpisode = MutableStateFlow<com.semtinazizi.kitapduy.model.PodcastEpisode?>(null)
     val currentEpisode: StateFlow<com.semtinazizi.kitapduy.model.PodcastEpisode?> = _currentEpisode.asStateFlow()
 
+    private val _currentPodcastTitle = MutableStateFlow<String?>(null)
+    val currentPodcastTitle: StateFlow<String?> = _currentPodcastTitle.asStateFlow()
+
+    private val _isFullPlayerVisible = MutableStateFlow(false)
+    val isFullPlayerVisible: StateFlow<Boolean> = _isFullPlayerVisible.asStateFlow()
+    private val fullPlayerTokens = mutableSetOf<Any>()
+
+    fun setFullPlayerVisible(visible: Boolean, token: Any = Unit) {
+        if (visible) {
+            fullPlayerTokens.add(token)
+        } else {
+            fullPlayerTokens.remove(token)
+        }
+        _isFullPlayerVisible.value = fullPlayerTokens.isNotEmpty()
+    }
+
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
 
@@ -72,6 +88,7 @@ class GlobalAudioController(
         saveProgress()
         _currentBook.value = book
         _currentEpisode.value = null
+        _currentPodcastTitle.value = null
         _currentPosition.value = 0f
         _duration.value = 0f
         progressManager.saveLastPlayedBook(book.id)
@@ -113,13 +130,19 @@ class GlobalAudioController(
         audioPlayer.setPlaybackSpeed(1.0f)
     }
 
-    fun playPodcastEpisode(episode: com.semtinazizi.kitapduy.model.PodcastEpisode) {
+    fun playPodcastEpisode(
+        episode: com.semtinazizi.kitapduy.model.PodcastEpisode,
+        podcastTitle: String = ""
+    ) {
         saveProgress()
+        val resolvedTitle = podcastTitle.trim().takeIf { it.isNotBlank() }
         _currentEpisode.value = episode
+        _currentPodcastTitle.value = resolvedTitle
         _currentBook.value = null
         _currentPosition.value = 0f
         _duration.value = 0f
         audioPlayer.playQueue(listOf(AudioMediaItem(episode.id, episode.audioUrl, episode.title,
+            artist = resolvedTitle.orEmpty(),
             artworkUrl = episode.imageUrl.orEmpty(), startPositionMs = progressManager.getProgress(episode.id))))
         _isPlaying.value = true
         _playbackSpeed.value = 1.0f
@@ -132,6 +155,7 @@ class GlobalAudioController(
         _currentBook.value = Book(id = id, title = item.bookTitle.ifBlank { item.userName },
             author = item.userName, coverUrl = item.bookCoverUrl, audioUrl = url)
         _currentEpisode.value = null
+        _currentPodcastTitle.value = null
         _currentPosition.value = 0f
         _duration.value = 0f
         audioPlayer.playQueue(listOf(AudioMediaItem(id, url, item.bookTitle, item.userName,

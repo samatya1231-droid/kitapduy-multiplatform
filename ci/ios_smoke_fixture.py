@@ -93,9 +93,29 @@ def serve_fixture():
             table = path.rsplit("/", 1)[1]
             with state_lock:
                 if table == "books":
-                    rows = [{"id": BOOK_ID, "title": "KitapDuy Deneme Kitabı", "author": "Deneme Yazarı",
-                             "category": "Roman", "cover_url": f"{base}/cover.png", "audio_url": f"{base}/audio.mp3",
-                             "description": "Simülatör için örnek sesli kitap.", "duration": 90_000}]
+                    rows = [
+                        {"id": BOOK_ID, "title": "KitapDuy Deneme Kitabı", "author": "Deneme Yazarı",
+                         "category": "Roman", "cover_url": f"{base}/cover.png", "audio_url": f"{base}/audio.mp3",
+                         "description": "Simülatör için örnek sesli kitap.", "duration": 90_000},
+                        {"id": "sample_dunya_edebiyati", "title": "Suç ve Ceza", "author": "Fyodor Dostoyevski",
+                         "category": "Dünya Edebiyatı", "cover_url": f"{base}/cover.png", "audio_url": f"{base}/audio.mp3",
+                         "description": "Klasik psikolojik gerilim eseri.", "duration": 90_000},
+                        {"id": "sample_turk_edebiyati", "title": "Kürk Mantolu Madonna", "author": "Sabahattin Ali",
+                         "category": "Türk Edebiyatı", "cover_url": f"{base}/cover.png", "audio_url": f"{base}/audio.mp3",
+                         "description": "Türk edebiyatının unutulmaz romanı.", "duration": 90_000},
+                        {"id": "sample_polisiye", "title": "Sherlock Holmes: Kızıl Dosya", "author": "Arthur Conan Doyle",
+                         "category": "Polisiye", "cover_url": f"{base}/cover.png", "audio_url": f"{base}/audio.mp3",
+                         "description": "Dedektiflik tarihinin ilk büyük gizemi.", "duration": 90_000},
+                        {"id": "sample_kisisel_gelisim", "title": "Atomik Alışkanlıklar", "author": "James Clear",
+                         "category": "Kişisel Gelişim", "cover_url": f"{base}/cover.png", "audio_url": f"{base}/audio.mp3",
+                         "description": "Küçük değişikliklerle büyük sonuçlar.", "duration": 90_000},
+                        {"id": "sample_cocuk_masallari", "title": "Küçük Prens", "author": "Antoine de Saint-Exupéry",
+                         "category": "Çocuk Masalları", "cover_url": f"{base}/cover.png", "audio_url": f"{base}/audio.mp3",
+                         "description": "Her yaşa hitap eden evrensel masal.", "duration": 90_000},
+                        {"id": "sample_ingilizce_kitaplar", "title": "The Great Gatsby", "author": "F. Scott Fitzgerald",
+                         "category": "İngilizce Kitaplar", "cover_url": f"{base}/cover.png", "audio_url": f"{base}/audio.mp3",
+                         "description": "Classic American novel in English.", "duration": 90_000},
+                    ]
                 elif table == "podcasts":
                     rows = [{"id": PODCAST_ID, "name": "KitapDuy Deneme Podcasti", "author": "Deneme Yapımı",
                              "rss_url": f"{base}/podcast.xml", "image_url": f"{base}/cover.png", "category": "Roman"}]

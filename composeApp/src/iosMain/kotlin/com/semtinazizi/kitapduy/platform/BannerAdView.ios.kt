@@ -1,6 +1,5 @@
 package com.semtinazizi.kitapduy.platform
 
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
@@ -8,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.interop.UIKitView
 import kotlinx.cinterop.ExperimentalForeignApi
+import platform.UIKit.UIColor
 import platform.UIKit.UIView
 
 /**
@@ -22,16 +22,23 @@ object BannerAdFactory {
 @OptIn(ExperimentalForeignApi::class)
 @Composable
 actual fun BannerAdView(modifier: Modifier) {
-    val factory = BannerAdFactory.createBanner
-    if (factory != null) {
-        UIKitView(
-            factory = { factory() },
-            modifier = modifier.fillMaxWidth().height(60.dp),
-            update = { view ->
-                // Görünüm güncellendiğinde yapılacaklar (şimdilik boş)
+    if (IOSBuildConfig.isCiSmokeTest) return
+    val factory = BannerAdFactory.createBanner ?: return
+    UIKitView(
+        factory = {
+            factory().apply {
+                backgroundColor = UIColor.clearColor
+                setOpaque(false)
+                superview?.backgroundColor = UIColor.clearColor
+                superview?.setOpaque(false)
             }
-        )
-    } else {
-        Spacer(modifier = modifier.fillMaxWidth().height(60.dp))
-    }
+        },
+        modifier = modifier.fillMaxWidth().height(60.dp),
+        update = { view ->
+            view.backgroundColor = UIColor.clearColor
+            view.setOpaque(false)
+            view.superview?.backgroundColor = UIColor.clearColor
+            view.superview?.setOpaque(false)
+        }
+    )
 }

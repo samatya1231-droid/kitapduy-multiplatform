@@ -148,6 +148,40 @@ class GlobalAudioControllerTest {
         advanceTimeBy(60_001)
         assertTrue(player.playing)
     }
+
+    @Test fun fullPlayerVisibilityHandlesNestedTokensAndPodcastTitleMetadata() = runTest {
+        val player = FakePlayer()
+        val controller = GlobalAudioController(player, FakeDownloader(), progress(), backgroundScope)
+        assertFalse(controller.isFullPlayerVisible.value)
+
+        val tokenA = Any()
+        val tokenB = Any()
+        controller.setFullPlayerVisible(true, tokenA)
+        assertTrue(controller.isFullPlayerVisible.value)
+
+        controller.setFullPlayerVisible(true, tokenB)
+        controller.setFullPlayerVisible(false, tokenA)
+        assertTrue(controller.isFullPlayerVisible.value)
+
+        controller.setFullPlayerVisible(false, tokenB)
+        assertFalse(controller.isFullPlayerVisible.value)
+
+        controller.playPodcastEpisode(
+            com.semtinazizi.kitapduy.model.PodcastEpisode(
+                id = "ep1",
+                title = "Bölüm 1",
+                audioUrl = "https://example.com/ep1.mp3",
+                imageUrl = "https://example.com/cover.png"
+            ),
+            podcastTitle = "Deneme Podcasti"
+        )
+        assertEquals("Deneme Podcasti", controller.currentPodcastTitle.value)
+        assertEquals("Deneme Podcasti", player.items.single().artist)
+        assertEquals("https://example.com/cover.png", player.items.single().artworkUrl)
+
+        controller.playTrack(book, isPremium = true)
+        assertNull(controller.currentPodcastTitle.value)
+    }
 }
 
 private class FakeDownloader : FileDownloader {

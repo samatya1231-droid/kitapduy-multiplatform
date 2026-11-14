@@ -168,11 +168,13 @@ final class AdMobBridge: NSObject, FullScreenContentDelegate {
 }
 
 @MainActor
-private final class ConsentBannerView: UIView {
+private final class ConsentBannerView: UIView, BannerViewDelegate {
     private var banner: GoogleMobileAds.BannerView?
 
     init() {
         super.init(frame: .zero)
+        self.isOpaque = false
+        self.backgroundColor = .clear
         NotificationCenter.default.addObserver(self, selector: #selector(reload),
                                                name: AdMobBridge.adsChanged, object: nil)
     }
@@ -191,6 +193,10 @@ private final class ConsentBannerView: UIView {
         guard window != nil, AdMobBridge.shared.canRequestAds,
               let presenter = AdMobBridge.presenter else { return }
         let view = GoogleMobileAds.BannerView(adSize: AdSizeBanner)
+        view.isOpaque = false
+        view.backgroundColor = .clear
+        view.isHidden = true
+        view.delegate = self
         view.adUnitID = ComposeApp.AdManager().bannerAdUnitId
         view.rootViewController = presenter
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -201,5 +207,13 @@ private final class ConsentBannerView: UIView {
         ])
         banner = view
         view.load(AdMobBridge.adRequest())
+    }
+
+    func bannerViewDidReceiveAd(_ bannerView: GoogleMobileAds.BannerView) {
+        bannerView.isHidden = false
+    }
+
+    func bannerView(_ bannerView: GoogleMobileAds.BannerView, didFailToReceiveAdWithError error: Error) {
+        bannerView.isHidden = true
     }
 }

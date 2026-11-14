@@ -224,7 +224,7 @@ object EntertainmentTab : Tab {
                             items(podcasts) { pod ->
                                 Column(
                                     modifier = Modifier.width(120.dp).clickable {
-                                        parentNavigator.push(com.semtinazizi.kitapduy.ui.screens.PodcastEpisodesScreen(pod.id, pod.name, pod.rssUrl))
+                                        parentNavigator.push(com.semtinazizi.kitapduy.ui.screens.PodcastEpisodesScreen(pod.id, pod.name, pod.rssUrl, pod.imageUrl))
                                     }
                                 ) {
                                     coil3.compose.AsyncImage(
