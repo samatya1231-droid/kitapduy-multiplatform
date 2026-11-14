@@ -58,7 +58,9 @@ class DiscoveryCategoriesTest {
         val books = listOf(
             book("1", "  türk edebiyatı "),
             book("2", "İNGİLİZCE KİTAPLAR"),
-            book("3", "ingilizce kitaplar")
+            book("3", "ingilizce kitaplar"),
+            book("4", "I\u0307ngilizce Kitaplar"),
+            book("5", "i\u0307ngilizce kitaplar")
         )
 
         val (genres, collections) = buildActiveDiscoveryCategories(books)
@@ -68,6 +70,10 @@ class DiscoveryCategoriesTest {
         assertTrue(categoryMatches("  türk edebiyatı ", "Türk Edebiyatı"))
         assertTrue(categoryMatches("İNGİLİZCE KİTAPLAR", "İngilizce Kitaplar"))
         assertTrue(categoryMatches("ingilizce kitaplar", "İngilizce Kitaplar"))
+        assertTrue(categoryMatches("I\u0307ngilizce Kitaplar", "İngilizce Kitaplar"))
+        assertTrue(categoryMatches("i\u0307ngilizce kitaplar", "İngilizce Kitaplar"))
+        assertTrue(categoryMatches("kİşİsel gelİşİm", "Kişisel Gelişim"))
+        assertTrue(categoryMatches("KİŞİSEL GELİŞİM", "Kişisel Gelişim"))
         assertFalse(categoryMatches("Podcast", "Roman"))
         assertFalse(categoryMatches("", "Roman"))
     }

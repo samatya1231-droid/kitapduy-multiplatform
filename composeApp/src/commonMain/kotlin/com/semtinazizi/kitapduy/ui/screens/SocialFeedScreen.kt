@@ -612,7 +612,7 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                         Icon(
                             imageVector = Icons.Filled.Add,
-                            contentDescription = "Paylaş",
+                            contentDescription = if (fabExpanded) "Kapat" else null,
                             tint = Color.Black,
                             modifier = Modifier.size(24.dp).rotate(fabRotation)
                         )

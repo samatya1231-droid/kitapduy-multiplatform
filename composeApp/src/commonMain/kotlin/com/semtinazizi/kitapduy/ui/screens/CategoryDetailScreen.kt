@@ -74,18 +74,20 @@ class CategoryDetailScreen(val categoryName: String) : Screen {
         }
 
         val categoryIcon = remember(categoryName) {
-            when (categoryName) {
-                "Din" -> "🕌"
-                "Masal", "Çocuk Masalları" -> "🦄"
-                "Polisiye" -> "🕵️‍♂️"
-                "Dünya Edebiyatı" -> "🌍"
-                "Şiir" -> "🌹"
-                "Türk Edebiyatı" -> "🇹🇷"
-                "Roman" -> "📖"
-                "Klasik" -> "🏛️"
-                "Bilim" -> "🧪"
-                "Felsefe" -> "🧠"
-                "Tarih" -> "📜"
+            when (normalizeCategoryName(categoryName)) {
+                "din" -> "🕌"
+                "masal", "çocuk masalları" -> "🦄"
+                "polisiye" -> "🕵️‍♂️"
+                "dünya edebiyatı" -> "🌍"
+                "şiir" -> "🌹"
+                "türk edebiyatı" -> "🇹🇷"
+                "kişisel gelişim" -> "🌱"
+                "ingilizce kitaplar" -> "📘"
+                "roman" -> "📖"
+                "klasik" -> "🏛️"
+                "bilim" -> "🧪"
+                "felsefe" -> "🧠"
+                "tarih" -> "📜"
                 else -> "📚"
             }
         }

@@ -70,6 +70,7 @@ private val fallbackCategoryStyles: List<Pair<Color, ImageVector>> = listOf(
 
 internal fun normalizeCategoryName(name: String): String =
     name.trim()
+        .replace("I\u0307", "i")
         .replace('İ', 'i')
         .replace('I', 'ı')
         .lowercase()

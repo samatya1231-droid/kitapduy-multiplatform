@@ -21,6 +21,7 @@ final class AdMobBridge: NSObject, FullScreenContentDelegate {
 
     func configure() {
         BannerAdFactory.shared.createBanner = { ConsentBannerView() }
+        BannerAdFactory.shared.setCanRequestAds(enabled: canRequestAds)
         AdMobSwiftBridge.shared.loadInterstitialAd = {
             Task { @MainActor in AdMobBridge.shared.loadInterstitial() }
         }
@@ -65,6 +66,7 @@ final class AdMobBridge: NSObject, FullScreenContentDelegate {
         loadingRewarded = false
         interstitial = nil
         rewardedAd = nil
+        BannerAdFactory.shared.setCanRequestAds(enabled: canRequestAds)
         NotificationCenter.default.post(name: Self.adsChanged, object: nil)
         guard ConsentInformation.shared.canRequestAds else { return }
         if sdkReady {
@@ -77,6 +79,7 @@ final class AdMobBridge: NSObject, FullScreenContentDelegate {
             MobileAds.shared.start { _ in
                 Task { @MainActor in
                     self.sdkReady = true
+                    BannerAdFactory.shared.setCanRequestAds(enabled: self.canRequestAds)
                     NotificationCenter.default.post(name: Self.adsChanged, object: nil)
                     self.loadInterstitial()
                     self.loadRewarded()
@@ -184,10 +187,15 @@ private final class ConsentBannerView: UIView, BannerViewDelegate {
     override func didMoveToWindow() {
         super.didMoveToWindow()
         if window != nil { reload() }
-        else { banner?.removeFromSuperview(); banner = nil }
+        else {
+            banner?.delegate = nil
+            banner?.removeFromSuperview()
+            banner = nil
+        }
     }
 
     @objc private func reload() {
+        banner?.delegate = nil
         banner?.removeFromSuperview()
         banner = nil
         guard window != nil, AdMobBridge.shared.canRequestAds,
@@ -210,10 +218,12 @@ private final class ConsentBannerView: UIView, BannerViewDelegate {
     }
 
     func bannerViewDidReceiveAd(_ bannerView: GoogleMobileAds.BannerView) {
+        guard bannerView === self.banner else { return }
         bannerView.isHidden = false
     }
 
     func bannerView(_ bannerView: GoogleMobileAds.BannerView, didFailToReceiveAdWithError error: Error) {
+        guard bannerView === self.banner else { return }
         bannerView.isHidden = true
     }
 }
