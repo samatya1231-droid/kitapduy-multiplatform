@@ -30,6 +30,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -40,7 +42,6 @@ import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.semtinazizi.kitapduy.util.root
-import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.model.Book
 import com.semtinazizi.kitapduy.model.Comment
 import com.semtinazizi.kitapduy.ui.components.CommentItem
@@ -158,9 +159,17 @@ data class BookDetailScreen(val book: Book) : Screen {
 
             Column(modifier = Modifier.fillMaxSize().verticalScroll(scrollState)) {
                 Spacer(Modifier.statusBarsPadding().height(80.dp))
-                AsyncImage(model = book.coverUrl, contentDescription = book.title,
-                    modifier = Modifier.align(Alignment.CenterHorizontally).width(220.dp).height(320.dp)
-                        .clip(RoundedCornerShape(16.dp)), contentScale = ContentScale.Fit)
+                SmartImage(
+                    imageUrl = book.coverUrl,
+                    contentDescription = book.title,
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .width(220.dp)
+                        .height(320.dp)
+                        .clip(RoundedCornerShape(16.dp)),
+                    contentScale = ContentScale.Crop,
+                    fallbackText = book.title
+                )
                 Spacer(Modifier.height(24.dp))
 
                 Surface(
@@ -333,7 +342,9 @@ private fun BookDetailTopBar(onBackClick: () -> Unit) {
     ) {
         IconButton(
             onClick = onBackClick,
-            modifier = Modifier.background(Color.Black.copy(0.4f), CircleShape)
+            modifier = Modifier
+                .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                .background(Color.Black.copy(0.45f), CircleShape)
         ) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri", tint = Color.White)
         }
@@ -402,15 +413,16 @@ private fun BookDetailDialogs(
 @Composable
 private fun BookParallaxHeader(book: Book, scrollState: ScrollState) {
     // Ambient Glow (Arkaplan Aurası)
-    AsyncImage(
-        model = book.coverUrl,
+    SmartImage(
+        imageUrl = book.coverUrl,
         contentDescription = null,
         modifier = Modifier
             .fillMaxSize()
             .scale(1.2f)
             .blur(120.dp)
             .alpha(0.15f),
-        contentScale = ContentScale.Crop
+        contentScale = ContentScale.Crop,
+        fallbackText = book.title
     )
 }
 
@@ -503,7 +515,10 @@ private fun AudioPlayerControls(
             value = position,
             enabled = selected && duration > 0f,
             onValueChange = { audioController.seekTo(it, expectedBookId = book.id) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .semantics { contentDescription = "Oynatma konumu" },
             colors = SliderDefaults.colors(
                 thumbColor = BrandGold,
                 activeTrackColor = BrandGold,
@@ -522,7 +537,13 @@ private fun AudioPlayerControls(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(modifier = Modifier.testTag("book-skip-back"), enabled = selected && duration > 0f, onClick = { audioController.skipBy(-15_000, expectedBookId = book.id) }) {
+            IconButton(
+                modifier = Modifier
+                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    .testTag("book-skip-back"),
+                enabled = selected && duration > 0f,
+                onClick = { audioController.skipBy(-15_000, expectedBookId = book.id) }
+            ) {
                 Icon(Icons.Default.FastRewind, contentDescription = "15 saniye geri")
             }
             Spacer(modifier = Modifier.width(16.dp))
@@ -546,7 +567,13 @@ private fun AudioPlayerControls(
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
-            IconButton(modifier = Modifier.testTag("book-skip-forward"), enabled = selected && duration > 0f, onClick = { audioController.skipBy(15_000, expectedBookId = book.id) }) {
+            IconButton(
+                modifier = Modifier
+                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    .testTag("book-skip-forward"),
+                enabled = selected && duration > 0f,
+                onClick = { audioController.skipBy(15_000, expectedBookId = book.id) }
+            ) {
                 Icon(Icons.Default.FastForward, contentDescription = "15 saniye ileri")
             }
         }
@@ -573,33 +600,67 @@ private fun BookActionBar(
     onDownloadClick: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onToggleLike() }) {
-            Icon(if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, tint = if (isLiked) Color.Red else MaterialTheme.colorScheme.onSurface)
-            Text("$likeCount", fontSize = 12.sp)
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onShowSpeedDialog() }) {
-            Icon(Icons.Default.Speed, null, tint = MaterialTheme.colorScheme.onSurface)
-            Text("${currentSpeed}x", fontSize = 12.sp)
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onShowAtmosphereDialog() }) {
-            Icon(Icons.Default.Air, null, tint = MaterialTheme.colorScheme.onSurface)
-            Text("Atmosfer", fontSize = 12.sp)
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onShowTimerDialog() }) {
-            Icon(Icons.Default.Timer, null, tint = MaterialTheme.colorScheme.onSurface)
-            Text("Uyku", fontSize = 12.sp)
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onShowQuoteDialog() }) {
-            Icon(Icons.Default.FormatQuote, null, tint = MaterialTheme.colorScheme.onSurface)
-            Text("Alıntı", fontSize = 12.sp)
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onDownloadClick() }) {
-            Icon(if (isDownloaded) Icons.Default.DownloadDone else Icons.Default.Download, null, tint = MaterialTheme.colorScheme.onSurface)
-            Text(if (isDownloading) "İndiriliyor" else "İndir", fontSize = 12.sp)
-        }
+        BookActionBarItem(
+            icon = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+            label = "$likeCount",
+            tint = if (isLiked) Color.Red else MaterialTheme.colorScheme.onSurface,
+            onClick = onToggleLike
+        )
+        BookActionBarItem(
+            icon = Icons.Default.Speed,
+            label = "${currentSpeed}x",
+            tint = MaterialTheme.colorScheme.onSurface,
+            onClick = onShowSpeedDialog
+        )
+        BookActionBarItem(
+            icon = Icons.Default.Air,
+            label = "Atmosfer",
+            tint = MaterialTheme.colorScheme.onSurface,
+            onClick = onShowAtmosphereDialog
+        )
+        BookActionBarItem(
+            icon = Icons.Default.Timer,
+            label = "Uyku",
+            tint = MaterialTheme.colorScheme.onSurface,
+            onClick = onShowTimerDialog
+        )
+        BookActionBarItem(
+            icon = Icons.Default.FormatQuote,
+            label = "Alıntı",
+            tint = MaterialTheme.colorScheme.onSurface,
+            onClick = onShowQuoteDialog
+        )
+        BookActionBarItem(
+            icon = if (isDownloaded) Icons.Default.DownloadDone else Icons.Default.Download,
+            label = if (isDownloading) "İndiriliyor" else "İndir",
+            tint = MaterialTheme.colorScheme.onSurface,
+            onClick = onDownloadClick
+        )
+    }
+}
+
+@Composable
+private fun BookActionBarItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    tint: Color,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = Modifier
+            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 6.dp)
+            .semantics(mergeDescendants = true) {}
+    ) {
+        Icon(icon, null, tint = tint)
+        Text(label, fontSize = 12.sp)
     }
 }
 
@@ -659,7 +720,10 @@ private fun BookCommentsSection(
                 unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(0.1f)
             ),
             trailingIcon = {
-                IconButton(onClick = onSendComment) {
+                IconButton(
+                    onClick = onSendComment,
+                    modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                ) {
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Gönder", tint = BrandGold)
                 }
             }

@@ -1,14 +1,17 @@
 package com.semtinazizi.kitapduy.ui.screens
+
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.ChildCare
+import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.HistoryEdu
 import androidx.compose.material.icons.rounded.Psychology
@@ -16,7 +19,6 @@ import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SelfImprovement
-import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.material3.*
@@ -24,17 +26,24 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.*
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.semtinazizi.kitapduy.model.Book
 import com.semtinazizi.kitapduy.ui.components.SmartImage
-import com.semtinazizi.kitapduy.ui.theme.PremiumAccent
+import com.semtinazizi.kitapduy.ui.theme.BrandGold
 import com.semtinazizi.kitapduy.ui.theme.PlayfairDisplayFamily
+import com.semtinazizi.kitapduy.ui.theme.PremiumAccent
 
 internal data class DiscoveryCategory(
     val title: String,
@@ -129,67 +138,112 @@ internal fun buildActiveDiscoveryCategories(
 
 @Composable
 internal fun DiscoverCategories(
-    initialBooks: List<Book>, onCategoryClick: (String) -> Unit,
-    onAskida: () -> Unit = {}, onActivities: () -> Unit = {}
+    initialBooks: List<Book>,
+    onCategoryClick: (String) -> Unit,
+    onAskida: () -> Unit = {},
+    onActivities: () -> Unit = {},
+    onAdvisor: () -> Unit = {}
 ) {
     val (genres, collections) = remember(initialBooks) {
         buildActiveDiscoveryCategories(initialBooks)
     }
+    val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
+
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 100.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize()
     ) {
+        // 1. Yeni Bir Serüvene Başla + Edebi Danışman kartı (kitapduy3 düzeni)
         item(span = { GridItemSpan(2) }) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "Yeni Bir Serüvene Başla",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontFamily = PlayfairDisplayFamily,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-                Text(
-                    text = "Kitaplığınızın sınırlarını genişletin.",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontStyle = FontStyle.Italic
-                    ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (genres.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = "Edebi Türler",
-                        style = MaterialTheme.typography.titleMedium.copy(
+                        text = "Yeni Bir Serüvene Başla",
+                        style = MaterialTheme.typography.titleLarge.copy(
                             fontFamily = PlayfairDisplayFamily,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                    Text(
+                        text = "Kitaplığınızın sınırlarını genişletin.",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontStyle = FontStyle.Italic
                         ),
-                        modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+
+                LiteraryAdvisorPromoCard(isLight = isLight, onClick = onAdvisor)
             }
         }
-        items(genres, key = { it.title }) { category ->
-            val matchingBooks = initialBooks.filter { categoryMatches(it.category, category.title) }
-            DiscoveryCategoryCard(
-                categoryName = category.title,
-                backgroundColor = category.color,
-                icon = category.icon,
-                bookCount = matchingBooks.size,
-                bookImageUrl = matchingBooks.firstOrNull { it.coverUrl.isNotBlank() }?.coverUrl,
-                onClick = { onCategoryClick(category.title) }
-            )
+
+        // 2. Kitapların Ötesinde (Edebi Türler'in hemen üstünde — kitapduy3 ile birebir)
+        item(span = { GridItemSpan(2) }) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(top = 6.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = "Kitapların Ötesinde",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontFamily = PlayfairDisplayFamily,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                    Text(
+                        text = "Topluluk ve edebiyat etkinliklerini keşfet",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                BeyondBooksCardsRow(
+                    onArenaClick = onActivities,
+                    onAskidaClick = onAskida,
+                    isLight = isLight,
+                    isCompact = false
+                )
+            }
         }
+
+        // 3. Edebi Türler
+        if (genres.isNotEmpty()) {
+            item(span = { GridItemSpan(2) }) {
+                Text(
+                    text = "Edebi Türler",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = PlayfairDisplayFamily,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    modifier = Modifier.padding(top = 12.dp, bottom = 2.dp)
+                )
+            }
+            items(genres, key = { it.title }) { category ->
+                val matchingBooks = initialBooks.filter { categoryMatches(it.category, category.title) }
+                DiscoveryCategoryCard(
+                    categoryName = category.title,
+                    backgroundColor = category.color,
+                    icon = category.icon,
+                    bookCount = matchingBooks.size,
+                    bookImageUrl = matchingBooks.firstOrNull { it.coverUrl.isNotBlank() }?.coverUrl,
+                    onClick = { onCategoryClick(category.title) }
+                )
+            }
+        }
+
+        // 4. Özel Seçkiler
         if (collections.isNotEmpty()) {
             item(span = { GridItemSpan(2) }) {
                 Text(
                     text = "Özel Seçkiler",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontFamily = PlayfairDisplayFamily,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Bold
                     ),
-                    modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
+                    modifier = Modifier.padding(top = 12.dp, bottom = 2.dp)
                 )
             }
             items(collections, key = { it.title }) { category ->
@@ -204,148 +258,264 @@ internal fun DiscoverCategories(
                 )
             }
         }
-        item(span = { GridItemSpan(2) }) {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.padding(top = 24.dp, bottom = 16.dp)) {
-                Text(
-                    text = "Kitapların Ötesinde",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = PlayfairDisplayFamily,
-                        fontWeight = FontWeight.Bold
-                    )
+    }
+}
+
+@Composable
+internal fun BeyondBooksCardsRow(
+    onArenaClick: () -> Unit,
+    onAskidaClick: () -> Unit,
+    isLight: Boolean,
+    isCompact: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        ModernBeyondBooksCard(
+            title = "KitapDuy Arena",
+            subtitle = "Edebi düellolar ve yarışmalar",
+            badgeText = "ARENA",
+            icon = Icons.Rounded.EmojiEvents,
+            watermarkIcon = Icons.Rounded.EmojiEvents,
+            accentColor = Color(0xFF7C3AED),
+            isWarm = false,
+            isLight = isLight,
+            isCompact = isCompact,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+            onClick = onArenaClick
+        )
+        ModernBeyondBooksCard(
+            title = "Askıda Kitap",
+            subtitle = "Kitap bağışla veya ücretsiz talep et",
+            badgeText = "DAYANIŞMA",
+            icon = Icons.AutoMirrored.Rounded.MenuBook,
+            watermarkIcon = Icons.AutoMirrored.Rounded.MenuBook,
+            accentColor = Color(0xFFD97706),
+            isWarm = true,
+            isLight = isLight,
+            isCompact = isCompact,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+            onClick = onAskidaClick
+        )
+    }
+}
+
+@Composable
+private fun LiteraryAdvisorPromoCard(
+    isLight: Boolean,
+    onClick: () -> Unit
+) {
+    val bgBrush = if (isLight) {
+        Brush.horizontalGradient(listOf(Color(0xFFFFFDF7), Color(0xFFFAF3E0)))
+    } else {
+        Brush.horizontalGradient(listOf(Color(0xFF231F18), Color(0xFF1D1A14)))
+    }
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(18.dp),
+        color = Color.Transparent,
+        border = BorderStroke(1.dp, BrandGold.copy(alpha = if (isLight) 0.45f else 0.35f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) {}
+    ) {
+        Row(
+            modifier = Modifier
+                .background(bgBrush)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(BrandGold.copy(alpha = 0.16f))
+                    .border(1.dp, BrandGold.copy(alpha = 0.35f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.AutoAwesome,
+                    contentDescription = null,
+                    tint = Color(0xFFD49A1A),
+                    modifier = Modifier.size(20.dp)
                 )
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = "Edebi Danışman'a Sor ☕",
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "Ruh haline en uygun sesli kitabı bilge sahafımızla keşfet.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFD8A62E)
+            ) {
+                Text(
+                    text = "Danış ✨",
+                    color = Color(0xFF211703),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                )
+            }
+        }
+    }
+}
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+@Composable
+internal fun ModernBeyondBooksCard(
+    title: String,
+    subtitle: String,
+    badgeText: String,
+    icon: ImageVector,
+    watermarkIcon: ImageVector,
+    accentColor: Color,
+    isWarm: Boolean,
+    isLight: Boolean,
+    isCompact: Boolean = false,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val cardShape = RoundedCornerShape(18.dp)
+    val bgColors = when {
+        isLight && isWarm -> listOf(Color(0xFFFFFFFF), Color(0xFFFFFBEB), Color(0xFFFEF3C7))
+        isLight && !isWarm -> listOf(Color(0xFFFFFFFF), Color(0xFFF5F3FF), Color(0xFFEDE9FE))
+        !isLight && isWarm -> listOf(Color(0xFF24180E), Color(0xFF1A1108))
+        else -> listOf(Color(0xFF1F1333), Color(0xFF160C26))
+    }
+    val borderColor = if (isLight) accentColor.copy(alpha = 0.25f) else accentColor.copy(alpha = 0.45f)
+    val iconBg = if (isLight) accentColor.copy(alpha = 0.12f) else accentColor.copy(alpha = 0.2f)
+    val badgeBg = when {
+        isLight && isWarm -> Color(0xFFFEF3C7)
+        isLight && !isWarm -> Color(0xFFEDE9FE)
+        else -> accentColor.copy(alpha = 0.22f)
+    }
+    val badgeTextColor = when {
+        isLight && isWarm -> Color(0xFF92400E)
+        isLight && !isWarm -> Color(0xFF5B21B6)
+        isWarm -> Color(0xFFFDE68A)
+        else -> Color(0xFFDDD6FE)
+    }
+
+    Box(
+        modifier = modifier
+            .heightIn(min = if (isCompact) 96.dp else 132.dp)
+            .clip(cardShape)
+            .background(Brush.linearGradient(bgColors))
+            .border(BorderStroke(0.9.dp, borderColor), cardShape)
+            .clickable { onClick() }
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+            }
+    ) {
+        Icon(
+            imageVector = watermarkIcon,
+            contentDescription = null,
+            modifier = Modifier
+                .size(if (isCompact) 48.dp else 68.dp)
+                .align(Alignment.BottomEnd)
+                .offset(x = 10.dp, y = 10.dp)
+                .rotate(-14f),
+            tint = accentColor.copy(alpha = if (isLight) 0.08f else 0.14f)
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp, vertical = if (isCompact) 10.dp else 14.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(if (isCompact) 32.dp else 36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(iconBg)
+                        .border(0.8.dp, accentColor.copy(alpha = 0.35f), RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    // Askıda Kitap Kartı
-                    Surface(
-                        onClick = onAskida,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(130.dp)
-                            .semantics(mergeDescendants = true) {},
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(if (isCompact) 18.dp else 20.dp),
+                        tint = badgeTextColor
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(7.dp),
+                    color = badgeBg,
+                    border = BorderStroke(0.7.dp, accentColor.copy(alpha = 0.35f))
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                     ) {
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            // Arka plan deseni/ikonu (büyük ve silik) - Burada varsayılan bir ikon veya resim kullanılabilir
-                            // Şimdilik standart kitap ikonunu arka planda hafifçe döndürerek kullanıyoruz.
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.MenuBook,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(80.dp)
-                                    .align(Alignment.BottomEnd)
-                                    .offset(x = 16.dp, y = 16.dp)
-                                    .rotate(-15f),
-                                tint = PremiumAccent.copy(alpha = 0.1f)
-                            )
-
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(16.dp),
-                                verticalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .background(PremiumAccent.copy(alpha = 0.15f), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Rounded.MenuBook,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp),
-                                        tint = PremiumAccent
-                                    )
-                                }
-
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(
-                                        text = "Askıda Kitap",
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontFamily = PlayfairDisplayFamily,
-                                            fontWeight = FontWeight.Bold
-                                        ),
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = "Paylaş ve keşfet",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // Edebi Meydan Kartı
-                    Surface(
-                        onClick = onActivities,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(130.dp)
-                            .semantics(mergeDescendants = true) {},
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-                    ) {
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            // Arka plan deseni/ikonu (büyük ve silik)
-                            Icon(
-                                imageVector = Icons.Rounded.Star,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(80.dp)
-                                    .align(Alignment.BottomEnd)
-                                    .offset(x = 16.dp, y = 16.dp)
-                                    .rotate(-15f),
-                                tint = PremiumAccent.copy(alpha = 0.1f)
-                            )
-
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(16.dp),
-                                verticalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .background(PremiumAccent.copy(alpha = 0.15f), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Star,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp),
-                                        tint = PremiumAccent
-                                    )
-                                }
-
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(
-                                        text = "Edebi Meydan",
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontFamily = PlayfairDisplayFamily,
-                                            fontWeight = FontWeight.Bold
-                                        ),
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = "Düellolar ve testler",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
+                        Text(
+                            text = badgeText,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = badgeTextColor,
+                            letterSpacing = 0.6.sp
+                        )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            modifier = Modifier.size(10.dp),
+                            tint = badgeTextColor
+                        )
                     }
                 }
+            }
+
+            Spacer(Modifier.height(if (isCompact) 6.dp else 10.dp))
+
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontFamily = PlayfairDisplayFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = if (isCompact) 13.5.sp else 14.5.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = if (isCompact) 10.sp else 11.5.sp,
+                        lineHeight = if (isCompact) 13.sp else 15.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }
@@ -362,59 +532,59 @@ internal fun DiscoveryCategoryCard(
 ) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.semantics(mergeDescendants = true) {},
-        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 124.dp)
+            .semantics(mergeDescendants = true) {},
+        shape = RoundedCornerShape(16.dp),
         color = backgroundColor,
         shadowElevation = 2.dp
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(104.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .height(124.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.25f))
+                    )
+                )
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.14f),
-                modifier = Modifier
-                    .size(56.dp)
-                    .align(Alignment.BottomStart)
-                    .offset(x = (-6).dp, y = 10.dp)
-            )
-
-            Column(
+            Text(
+                text = categoryName,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontFamily = PlayfairDisplayFamily,
+                    fontWeight = FontWeight.Bold
+                ),
+                color = Color.White,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(start = 12.dp, top = 12.dp, end = 64.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
+                    .padding(start = 16.dp, top = 16.dp, end = 64.dp)
+            )
+
+            if (bookCount > 0) {
                 Text(
-                    text = categoryName,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = PlayfairDisplayFamily,
-                        fontWeight = FontWeight.Bold
+                    text = "$bookCount kitap",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontWeight = FontWeight.Medium
                     ),
-                    color = Color.White,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    color = Color.White.copy(alpha = 0.88f),
+                    maxLines = 1,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = 16.dp, bottom = 14.dp)
                 )
-                if (bookCount > 0) {
-                    Text(
-                        text = "$bookCount eser",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.85f),
-                        maxLines = 1
-                    )
-                }
             }
 
-            // Kitap kapağını sağ alta yatık yerleştirme (Spotify tarzı)
+            // Kitap kapağını sağ alta yatık yerleştirme (kitapduy3 ile birebir)
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .offset(x = 18.dp, y = 12.dp)
-                    .rotate(-22f)
+                    .offset(x = 12.dp, y = 12.dp)
+                    .rotate(-12f)
             ) {
                 if (!bookImageUrl.isNullOrBlank()) {
                     SmartImage(
@@ -423,16 +593,16 @@ internal fun DiscoveryCategoryCard(
                         fallbackText = categoryName,
                         modifier = Modifier
                             .size(width = 56.dp, height = 80.dp)
-                            .shadow(4.dp, RoundedCornerShape(4.dp))
-                            .clip(RoundedCornerShape(4.dp)),
+                            .shadow(6.dp, RoundedCornerShape(6.dp))
+                            .clip(RoundedCornerShape(6.dp)),
                         contentScale = ContentScale.Crop
                     )
                 } else {
                     Box(
                         modifier = Modifier
                             .size(width = 56.dp, height = 80.dp)
-                            .shadow(4.dp, RoundedCornerShape(4.dp))
-                            .clip(RoundedCornerShape(4.dp))
+                            .shadow(6.dp, RoundedCornerShape(6.dp))
+                            .clip(RoundedCornerShape(6.dp))
                             .background(Color.White.copy(alpha = 0.16f)),
                         contentAlignment = Alignment.Center
                     ) {

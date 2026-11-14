@@ -40,6 +40,7 @@ import com.semtinazizi.kitapduy.model.Book
 import com.semtinazizi.kitapduy.model.Podcast
 import com.semtinazizi.kitapduy.model.UserProfile
 import com.semtinazizi.kitapduy.ui.components.SmartImage
+import com.semtinazizi.kitapduy.ui.theme.PlayfairDisplayFamily
 import com.semtinazizi.kitapduy.ui.viewmodel.SearchCategory
 import com.semtinazizi.kitapduy.ui.viewmodel.SearchScreenModel
 
@@ -58,6 +59,65 @@ class SearchScreen : Screen {
         val initialBooks by viewModel.initialBooks.collectAsState()
         val initialPodcasts by viewModel.initialPodcasts.collectAsState()
         val isLoading by viewModel.isLoading.collectAsState()
+        var showRequestDialog by remember { mutableStateOf(false) }
+        var requestedBookTitle by remember { mutableStateOf("") }
+        var requestedAuthor by remember { mutableStateOf("") }
+        var requestSentNotice by remember { mutableStateOf(false) }
+
+        if (showRequestDialog) {
+            AlertDialog(
+                onDismissRequest = { showRequestDialog = false },
+                title = { Text("Kitap Talep Et", fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "Kütüphanemizde görmek istediğiniz sesli kitabı yazın.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedTextField(
+                            value = requestedBookTitle,
+                            onValueChange = { requestedBookTitle = it },
+                            label = { Text("Kitap Adı") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = requestedAuthor,
+                            onValueChange = { requestedAuthor = it },
+                            label = { Text("Yazar (İsteğe bağlı)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        enabled = requestedBookTitle.isNotBlank(),
+                        onClick = {
+                            requestedBookTitle = ""
+                            requestedAuthor = ""
+                            showRequestDialog = false
+                            requestSentNotice = true
+                        }
+                    ) { Text("Gönder") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showRequestDialog = false }) { Text("Vazgeç") }
+                }
+            )
+        }
+
+        if (requestSentNotice) {
+            AlertDialog(
+                onDismissRequest = { requestSentNotice = false },
+                title = { Text("Talebiniz Alındı") },
+                text = { Text("Öneriniz editör ekibimize iletildi. Teşekkür ederiz!") },
+                confirmButton = {
+                    TextButton(onClick = { requestSentNotice = false }) { Text("Tamam") }
+                }
+            )
+        }
 
         Scaffold(
             topBar = {
@@ -66,26 +126,58 @@ class SearchScreen : Screen {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            if (navigator.canPop) IconButton(onClick = { navigator.pop() }) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Geri", tint = MaterialTheme.colorScheme.onSurface)
-                            }
-                            Text(
-                                text = "Keşfet",
-                                style = MaterialTheme.typography.headlineMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onBackground
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (navigator.canPop) IconButton(onClick = { navigator.pop() }) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Geri", tint = MaterialTheme.colorScheme.onSurface)
+                                }
+                                Text(
+                                    text = "Keşfet",
+                                    style = MaterialTheme.typography.headlineMedium.copy(
+                                        fontFamily = PlayfairDisplayFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
                                 )
-                            )
+                            }
+                            Surface(
+                                onClick = { showRequestDialog = true },
+                                shape = RoundedCornerShape(14.dp),
+                                color = Color(0xFFD9AE36),
+                                shadowElevation = 1.dp,
+                                modifier = Modifier
+                                    .heightIn(min = 44.dp)
+                                    .semantics(mergeDescendants = true) {}
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = null,
+                                        tint = Color(0xFF1F1608),
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Text(
+                                        text = "Kitap Talep Et",
+                                        color = Color(0xFF1F1608),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
                         }
                     }
 
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = if (query.isEmpty()) 0.dp else 8.dp),
+                            .padding(horizontal = 16.dp, vertical = if (query.isEmpty()) 4.dp else 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         if (query.isNotEmpty()) {
@@ -102,7 +194,7 @@ class SearchScreen : Screen {
                                 .testTag("discover-query")
                                 .semantics { contentDescription = "Hangi eseri arıyorsunuz?" }
                                 .then(if (query.isNotEmpty()) Modifier.padding(start = 8.dp) else Modifier),
-                            placeholder = { Text("Hangi eseri arıyorsunuz?", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontWeight = FontWeight.Bold) },
+                            placeholder = { Text("Hangi eseri arıyorsunuz?", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontWeight = FontWeight.Medium) },
                             leadingIcon = { Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)) },
                             trailingIcon = {
                                 if (query.isNotEmpty()) {
@@ -112,14 +204,14 @@ class SearchScreen : Screen {
                                 }
                             },
                             colors = TextFieldDefaults.colors(
-                                focusedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
-                                unfocusedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                                 focusedIndicatorColor = Color.Transparent,
                                 unfocusedIndicatorColor = Color.Transparent,
                                 focusedTextColor = MaterialTheme.colorScheme.onSurface,
                                 unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
-                            shape = RoundedCornerShape(8.dp),
+                            shape = RoundedCornerShape(16.dp),
                             singleLine = true
                         )
                     }
@@ -166,10 +258,13 @@ class SearchScreen : Screen {
                 } else {
                     if (query.isEmpty()) {
                         // Boş durum — karışık öneriler göster
-                        DiscoverCategories(initialBooks,
+                        DiscoverCategories(
+                            initialBooks = initialBooks,
                             onCategoryClick = { navigator.push(CategoryDetailScreen(it)) },
                             onAskida = { navigator.push(AskidaKitapScreen()) },
-                            onActivities = { navigator.push(KitapBilScreen()) })
+                            onActivities = { navigator.push(KitapBilScreen()) },
+                            onAdvisor = { navigator.push(MindLibraryScreen()) }
+                        )
                     } else {
                         when (selectedCategory) {
                             SearchCategory.BOOKS -> {
@@ -366,7 +461,8 @@ fun DiscoveryBookCard(book: Book, onClick: () -> Unit) {
             SmartImage(
                 imageUrl = book.coverUrl,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                fallbackText = book.title
             )
         }
         Spacer(Modifier.height(6.dp))
@@ -405,7 +501,8 @@ fun DiscoveryPodcastCard(podcast: Podcast, onClick: () -> Unit) {
             SmartImage(
                 imageUrl = podcast.imageUrl,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                fallbackText = podcast.name
             )
             // Podcast badge
             Box(
@@ -455,7 +552,8 @@ fun HorizontalBookSearchItem(modifier: Modifier = Modifier, book: Book, onClick:
             SmartImage(
                 imageUrl = book.coverUrl,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                fallbackText = book.title
             )
         }
         Column(modifier = Modifier.weight(1f)) {
@@ -508,7 +606,8 @@ fun HorizontalPodcastSearchItem(podcast: Podcast, onClick: () -> Unit) {
             SmartImage(
                 imageUrl = podcast.imageUrl,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                fallbackText = podcast.name
             )
         }
         Column(modifier = Modifier.weight(1f)) {

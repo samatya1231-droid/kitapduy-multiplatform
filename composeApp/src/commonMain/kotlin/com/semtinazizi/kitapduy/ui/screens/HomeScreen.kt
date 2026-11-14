@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.layout.*
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.*
 import androidx.compose.ui.text.style.*
 import androidx.compose.ui.unit.*
@@ -28,13 +29,14 @@ import com.semtinazizi.kitapduy.platform.BillingManager
 import com.semtinazizi.kitapduy.ui.viewmodel.HomeViewModel
 import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import com.semtinazizi.kitapduy.ui.components.*
+import com.semtinazizi.kitapduy.ui.theme.BrandGold
+import com.semtinazizi.kitapduy.ui.theme.PlayfairDisplayFamily
 import com.semtinazizi.kitapduy.ui.theme.SleekChampagne
 import com.semtinazizi.kitapduy.ui.theme.SleekDarkBackground
 import com.semtinazizi.kitapduy.model.Book
 import com.semtinazizi.kitapduy.model.Podcast
 import com.semtinazizi.kitapduy.model.ScienceArticle
 import com.semtinazizi.kitapduy.model.getMoodList
-import coil3.compose.AsyncImage
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -71,13 +73,16 @@ class HomeScreen : Screen {
         val durationMs by audioController.duration.collectAsState()
         val lastId = playingBook?.id ?: progressManager.getLastPlayedBook()
         val continueListeningBook = books.firstOrNull { it.id == lastId && progressManager.getProgress(it.id) > 0 }
-        val displayBook = continueListeningBook ?: books.firstOrNull()
+        val displayBook = continueListeningBook
+            ?: books.filter { it.id != "local_ci_book" }.maxByOrNull { it.viewCount }
+            ?: books.firstOrNull()
         val savedPosition = continueListeningBook?.let {
             if (playingBook?.id == it.id && durationMs > 0) (positionFraction * durationMs).toLong() else progressManager.getProgress(it.id)
         } ?: 0L
 
         val lazyListState = rememberLazyListState()
-        
+        val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
+
         val searchBarAlpha by remember {
             derivedStateOf {
                 if (lazyListState.firstVisibleItemIndex > 0) 1f
@@ -94,19 +99,20 @@ class HomeScreen : Screen {
             Box(modifier = Modifier.fillMaxSize()) {
                 // Blur background
                 if (books.isNotEmpty() && !isLoading) {
-                    val topBookUrl = books.firstOrNull { it.coverUrl.isNotEmpty() }?.coverUrl
-                    if (topBookUrl != null) {
-                        AsyncImage(
-                            model = topBookUrl,
+                    val topBook = displayBook ?: books.firstOrNull { it.coverUrl.isNotEmpty() }
+                    if (topBook != null && topBook.coverUrl.isNotEmpty()) {
+                        SmartImage(
+                            imageUrl = topBook.coverUrl,
                             contentDescription = null,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(500.dp)
                                 .blur(80.dp)
-                                .graphicsLayer { 
+                                .graphicsLayer {
                                     alpha = (0.15f - (searchBarAlpha * 0.1f)).coerceAtLeast(0.02f)
                                 },
-                            contentScale = ContentScale.Crop
+                            contentScale = ContentScale.Crop,
+                            fallbackText = topBook.title
                         )
                         Box(
                             modifier = Modifier
@@ -120,7 +126,7 @@ class HomeScreen : Screen {
                         )
                     }
                 }
-                
+
                 if (isLoading && books.isEmpty()) {
                     HomeShimmer()
                 } else if (books.isEmpty() && !isLoading) {
@@ -142,16 +148,33 @@ class HomeScreen : Screen {
                             ) { navigator.push(SearchScreen()) }
                         }
                         item {
-                            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                item { FilterChip(selected = true, onClick = {}, label = { Text("Tümü") }) }
-                                item { FilterChip(selected = false, onClick = { tabs.current = com.semtinazizi.kitapduy.ui.screens.tabs.EntertainmentTab }, label = { Text("Eğlence") }) }
-                                item { FilterChip(selected = false, onClick = { tabs.current = com.semtinazizi.kitapduy.ui.screens.tabs.AskidaTab }, label = { Text("Askıda") }) }
-                                items(groupedBooks.keys.toList()) { category ->
-                                    FilterChip(selected = false, onClick = { navigator.push(CategoryDetailScreen(category)) },
-                                        label = { Text(category) })
+                            val visibleCategories = remember(groupedBooks) {
+                                groupedBooks.keys.filter { !it.equals("Podcast", ignoreCase = true) && it.isNotBlank() }
+                            }
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                item {
+                                    FilterChip(selected = true, onClick = {}, label = { Text("Tümü") })
+                                }
+                                items(visibleCategories) { category ->
+                                    FilterChip(
+                                        selected = false,
+                                        onClick = { navigator.push(CategoryDetailScreen(category)) },
+                                        label = { Text(category) }
+                                    )
                                 }
                             }
+                        }
+                        item {
+                            BeyondBooksCardsRow(
+                                onArenaClick = { navigator.push(KitapBilScreen()) },
+                                onAskidaClick = { navigator.push(AskidaKitapScreen()) },
+                                isLight = isLight,
+                                isCompact = true,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                            )
                         }
                         displayBook?.let { book ->
                             item {
@@ -242,24 +265,27 @@ class HomeScreen : Screen {
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 20.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column {
+            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                 Text(
-                    text = greeting,
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
+                    text = "KitapDuy",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontFamily = PlayfairDisplayFamily,
+                        fontWeight = FontWeight.SemiBold
+                    ),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Bugün ruh halin nasıl?",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    text = greeting,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (!isPremium) {
                     PremiumBadge(onClick = onPremiumClick)
                 }
@@ -270,19 +296,68 @@ class HomeScreen : Screen {
 
     @Composable
     private fun PremiumBadge(onClick: () -> Unit) {
+        val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+        val bgBrush = if (isDark) {
+            Brush.horizontalGradient(listOf(Color(0xFF281E10), Color(0xFF1C1309)))
+        } else {
+            Brush.horizontalGradient(listOf(Color(0xFFFFF9EE), Color(0xFFFFF0D4)))
+        }
+        val borderBrush = Brush.horizontalGradient(
+            listOf(Color(0xFFD4A017), Color(0xFFFFE082), Color(0xFFB8860B))
+        )
+        val titleColor = if (isDark) Color(0xFFFFD700) else Color(0xFF6B4800)
+        val subColor = if (isDark) Color(0xFFE6C200) else Color(0xFF805C00)
+
         Surface(
-            modifier = Modifier.clickable { onClick() },
-            shape = RoundedCornerShape(20.dp),
-            color = SleekChampagne,
-            shadowElevation = 4.dp
+            onClick = onClick,
+            shape = CircleShape,
+            color = Color.Transparent,
+            border = BorderStroke(1.dp, borderBrush),
+            shadowElevation = if (isDark) 4.dp else 1.5.dp,
+            modifier = Modifier
+                .heightIn(min = 44.dp)
+                .semantics(mergeDescendants = true) {}
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                modifier = Modifier
+                    .background(bgBrush)
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
             ) {
-                Icon(Icons.Filled.Star, contentDescription = null, tint = Color.Black, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("PREMİUM", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 11.sp, letterSpacing = 0.5.sp)
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .background(
+                            Brush.linearGradient(listOf(Color(0xFF4A3820), Color(0xFF211B16))),
+                            CircleShape
+                        )
+                        .border(0.8.dp, borderBrush, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.WorkspacePremium,
+                        contentDescription = null,
+                        tint = Color(0xFFFFD54F),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Column(verticalArrangement = Arrangement.Center) {
+                    Text(
+                        text = "KitapDuy Premium",
+                        fontWeight = FontWeight.ExtraBold,
+                        color = titleColor,
+                        fontSize = 12.sp,
+                        lineHeight = 13.sp
+                    )
+                    Text(
+                        text = "Avantajları keşfet",
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = subColor,
+                        lineHeight = 11.sp
+                    )
+                }
             }
         }
     }
@@ -330,39 +405,74 @@ class HomeScreen : Screen {
 
     @Composable
     private fun ContinueListeningCard(book: Book, hasHistory: Boolean, positionMs: Long, onClick: () -> Unit) {
-        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
             SpotifySectionHeader(if (hasHistory) "Dinlemeye devam et" else "İlk hikâyeni keşfet")
             Surface(
+                onClick = onClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
-                    .height(100.dp)
-                    .clickable { onClick() },
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                    .semantics(mergeDescendants = true) {},
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(18.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                shadowElevation = 1.dp
             ) {
-                Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                    AsyncImage(
-                        model = book.coverUrl,
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SmartImage(
+                        imageUrl = book.coverUrl,
                         contentDescription = null,
-                        modifier = Modifier.size(100.dp).clip(RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp)),
-                        contentScale = ContentScale.Crop
+                        modifier = Modifier
+                            .width(68.dp)
+                            .aspectRatio(2f / 3f)
+                            .clip(RoundedCornerShape(10.dp)),
+                        contentScale = ContentScale.Crop,
+                        fallbackText = book.title
                     )
                     Spacer(modifier = Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f).padding(vertical = 14.dp)) {
-                        Text("SESLİ KİTAP", color = SleekChampagne, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                        Text(book.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(book.author, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), fontSize = 13.sp, maxLines = 1)
-                        Spacer(modifier = Modifier.weight(1f))
-                        if (hasHistory) Text("${positionMs / 60_000} dakika dinlendi", style = MaterialTheme.typography.labelSmall)
-
-                    }
-                    Box(
-                        modifier = Modifier.padding(end = 16.dp).size(40.dp).background(SleekChampagne, CircleShape),
-                        contentAlignment = Alignment.Center
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Icon(Icons.Filled.PlayArrow, contentDescription = "Oynat", tint = Color.Black, modifier = Modifier.size(24.dp))
+                        Text(
+                            text = book.title,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontFamily = PlayfairDisplayFamily,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = book.author,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = if (hasHistory) "${positionMs / 60_000} dakika dinlendi · Devam et" else "Kitabı keşfet",
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
             }
@@ -479,11 +589,12 @@ class HomeScreen : Screen {
         ) {
             items(podcasts) { podcast ->
                 Column(modifier = Modifier.width(140.dp).clickable { onPodcastClick(podcast) }) {
-                    AsyncImage(
-                        model = podcast.imageUrl,
+                    SmartImage(
+                        imageUrl = podcast.imageUrl,
                         contentDescription = null,
                         modifier = Modifier.size(140.dp).clip(RoundedCornerShape(16.dp)),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Crop,
+                        fallbackText = podcast.name
                     )
                     Spacer(Modifier.height(10.dp))
                     Text(
@@ -520,11 +631,12 @@ class HomeScreen : Screen {
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                 ) {
                     Row(modifier = Modifier.fillMaxSize()) {
-                        AsyncImage(
-                            model = article.imageUrl,
+                        SmartImage(
+                            imageUrl = article.imageUrl,
                             contentDescription = null,
                             modifier = Modifier.width(100.dp).fillMaxHeight(),
-                            contentScale = ContentScale.Crop
+                            contentScale = ContentScale.Crop,
+                            fallbackText = article.title
                         )
                         Column(modifier = Modifier.padding(14.dp)) {
                             Text(article.source.uppercase(), style = MaterialTheme.typography.labelSmall, color = SleekChampagne, fontWeight = FontWeight.Black, letterSpacing = 1.sp)

@@ -30,9 +30,11 @@ fun SpotifySquareCard(book: Book, subtitle: String, onClick: () -> Unit) {
         SmartImage(
             imageUrl = book.coverUrl,
             modifier = Modifier
-                .fillMaxWidth().aspectRatio(2f / 3f)
-                .clip(RoundedCornerShape(8.dp)),
-            contentScale = ContentScale.Fit
+                .fillMaxWidth()
+                .aspectRatio(2f / 3f)
+                .clip(RoundedCornerShape(10.dp)),
+            contentScale = ContentScale.Crop,
+            fallbackText = book.title
         )
         Spacer(modifier = Modifier.height(10.dp))
         Text(

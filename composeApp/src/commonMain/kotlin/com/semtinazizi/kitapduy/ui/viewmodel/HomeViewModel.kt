@@ -82,10 +82,14 @@ class HomeViewModel(
                     try {
                         val fetchedBooks = bookRepository.getBooks()
                         _books.value = fetchedBooks
-                        _weeklyStars.value = fetchedBooks.sortedByDescending { it.viewCount }.take(5)
-                        val grouped = fetchedBooks.groupBy { if (it.category.isBlank()) "Genel" else it.category }
+                        val prioritizedBooks = fetchedBooks.sortedWith(
+                            compareBy<Book> { if (it.id == "local_ci_book") 1 else 0 }
+                                .thenByDescending { it.viewCount }
+                        )
+                        _weeklyStars.value = prioritizedBooks.take(5)
+                        val grouped = prioritizedBooks.groupBy { if (it.category.isBlank()) "Genel" else it.category }
                         _groupedBooks.value = grouped
-                        _recommendedBooks.value = fetchedBooks.shuffled().take(10)
+                        _recommendedBooks.value = prioritizedBooks.take(10)
                     } catch (e: Throwable) { println("HomeVM Books Error: ${e.message}") }
                 }
                 

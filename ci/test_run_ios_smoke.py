@@ -363,32 +363,59 @@ class FixtureTest(unittest.TestCase):
                 self.assertEqual(response.headers["Content-Range"], f"bytes 0-15/{audio_size}")
 
     def test_enriched_catalog_serves_all_categories_with_valid_media_urls(self):
+        app_icon = (
+            Path(__file__).resolve().parents[1]
+            / "iosApp/iosApp/Assets.xcassets/AppIcon.appiconset/icon_1024.png"
+        ).read_bytes()
+        expected_categories = {
+            "Roman",
+            "Dünya Edebiyatı",
+            "Türk Edebiyatı",
+            "Polisiye",
+            "Kişisel Gelişim",
+            "Çocuk Masalları",
+            "İngilizce Kitaplar",
+            "Klasik",
+            "Tarih",
+            "Felsefe",
+        }
         with smoke.serve_fixture() as (url, _):
             books = self.request_json(url + "/rest/v1/books")
-            self.assertEqual(len(books), 7)
+            self.assertGreaterEqual(len(books), 18)
             self.assertEqual(books[0]["id"], "local_ci_book")
             self.assertEqual(books[0]["title"], "KitapDuy Deneme Kitabı")
-            categories = {book["category"] for book in books}
-            self.assertEqual(
-                categories,
-                {
-                    "Roman",
-                    "Dünya Edebiyatı",
-                    "Türk Edebiyatı",
-                    "Polisiye",
-                    "Kişisel Gelişim",
-                    "Çocuk Masalları",
-                    "İngilizce Kitaplar",
-                },
-            )
+            category_counts = {}
             for book in books:
-                self.assertTrue(book["cover_url"].endswith("/cover.png"))
+                category_counts[book["category"]] = category_counts.get(book["category"], 0) + 1
+                self.assertIn("/covers/", book["cover_url"])
+                self.assertTrue(book["cover_url"].endswith(".jpg"))
                 self.assertTrue(book["audio_url"].endswith("/audio.mp3"))
+            self.assertEqual(set(category_counts), expected_categories)
+            for category, count in category_counts.items():
+                self.assertGreaterEqual(count, 2, f"{category} should have multiple books")
             with urlopen(books[1]["cover_url"], timeout=5) as cover_resp:
+                cover_bytes = cover_resp.read()
                 self.assertEqual(cover_resp.status, 200)
-                self.assertEqual(cover_resp.headers["Content-Type"], "image/png")
+                self.assertEqual(cover_resp.headers["Content-Type"], "image/jpeg")
+                self.assertNotEqual(cover_bytes, app_icon)
+                self.assertGreater(len(cover_bytes), 100)
+            podcasts = self.request_json(url + "/rest/v1/podcasts")
+            self.assertGreaterEqual(len(podcasts), 3)
+            for podcast in podcasts:
+                self.assertIn("/covers/", podcast["image_url"])
+                self.assertTrue(podcast["image_url"].endswith(".jpg"))
+                with urlopen(podcast["image_url"], timeout=5) as pod_resp:
+                    self.assertEqual(pod_resp.status, 200)
+                    self.assertEqual(pod_resp.headers["Content-Type"], "image/jpeg")
+                    self.assertNotEqual(pod_resp.read(), app_icon)
+            with self.assertRaises(HTTPError) as rejected_cover:
+                urlopen(url + "/covers/../test_run_ios_smoke.py", timeout=5)
+            self.assertEqual(rejected_cover.exception.code, 404)
+            rejected_cover.exception.close()
             deneme_matches = self.request_json(url + "/rest/v1/books?or=(title.ilike.*Deneme*)")
             self.assertEqual([b["id"] for b in deneme_matches], ["local_ci_book"])
+            podcast_matches = self.request_json(url + "/rest/v1/podcasts?or=(name.ilike.*Deneme%20Podcasti*)")
+            self.assertEqual([p["id"] for p in podcast_matches], ["ci_podcast"])
 
 
 if __name__ == "__main__":
