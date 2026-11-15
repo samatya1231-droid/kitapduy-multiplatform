@@ -1145,7 +1145,7 @@ final class ReaderJourneyTests: XCTestCase {
                     let label = issue.element?.label ?? ""
                     let desc = "\(issue.compactDescription) [\(label)]"
                     findings.append("\(desc)\n\(issue.detailedDescription)")
-                    recordProbe(
+                    self.recordProbe(
                         screen: screen,
                         theme: theme,
                         category: "AppleA11y",
