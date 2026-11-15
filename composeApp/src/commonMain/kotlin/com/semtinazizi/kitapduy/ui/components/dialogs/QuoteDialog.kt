@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,7 +77,7 @@ fun QuoteDialog(
             Spacer(modifier = Modifier.height(32.dp))
             
             OutlinedTextField(value = quote, onValueChange = { quote = it },
-                label = { Text("Alıntın") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+                label = { Text("Alıntın") }, modifier = Modifier.fillMaxWidth().testTag("quote-dialog-input"), minLines = 3)
             Spacer(Modifier.height(16.dp))
             Button(
                 enabled = quote.isNotBlank(),

@@ -69,10 +69,10 @@ SCREEN_GROUPS = (
         ("49-advisor-brainstorm-debate", "Beyin Fırtınası ve Okuma Rotası"),
         ("50-advisor-custom-query-and-book", "Özel soru, derinlik ve kitap önerisi"),
     )),
-    ("Keşfet ve kitap", "Arama alanını, Kitap İste akışını, okur profillerini, kitap detayını, oynatıcıyı ve Mini Player'ı incele.", (
+    ("Keşfet ve kitap", "Arama alanını, Kitap Talep Et akışını, okur profillerini, kitap detayını, oynatıcıyı ve Mini Player'ı incele.", (
         ("24-discover", "Keşfet"), ("24b-discover-categories", "Keşfet · kategoriler"),
         ("03-search-empty-result", "Sonuçsuz arama"),
-        ("55-search-book-request", "Keşfet · Kitap İste"),
+        ("55-search-book-request", "Keşfet · Kitap Talep Et"),
         ("56-search-users", "Keşfet · Okurlar araması"),
         ("57-other-user-profile", "Okur profili · Takip et/bırak"),
         ("04-book-search", "Kitap sonucu"), ("05-book-detail", "Kitap detayı"),
@@ -125,7 +125,6 @@ SCREEN_GROUPS = (
         ("66-dark-advisor", "Koyu tema · Edebi Danışman"),
         ("66-dark-advisor-reply", "Koyu tema · Danışman yanıtı"),
         ("67-dark-discover", "Koyu tema · Keşfet"),
-        ("68-dark-book-and-feed", "Koyu tema · Kitap detayı ve Akış"),
         ("68-dark-book-detail", "Koyu tema · Kitap detayı"),
         ("68-dark-feed", "Koyu tema · Edebiyat Duvarı"),
     )),
@@ -145,6 +144,7 @@ TRACKED_FIXTURE_EVENTS = (
     ("mark_notifications_read", "Bildirimleri okundu işaretleme (`PATCH /rest/v1/notifications`)"),
     ("donate_askida", "Askıda Kitap bağışı (`POST /rest/v1/askida_kitap`)"),
     ("send_askida_chat", "Askıda Kitap sohbet mesajı (`POST /rest/v1/askida_mesaj`)"),
+    ("create_quiz_match", "Blitz Arena çok oyunculu oda oluşturma (`POST /rest/v1/quiz_matches`)"),
 )
 
 UNREACHABLE_CODEBASE_SCREENS = (
@@ -348,7 +348,13 @@ def _load_accessibility_sections(result, output):
             current_issues = []
             continue
         lowered = line.lower()
-        if lowered in ("no accessibility issues.", "no issues found.", "none", "0 issues"):
+        if lowered in (
+            "no accessibility issues.",
+            "no issues found.",
+            "none",
+            "0 issues",
+            "apple erişilebilirlik denetimi uyarı üretmedi.",
+        ):
             continue
         current_issues.append(line)
     if current_issues or current_title != "audit":

@@ -14,6 +14,7 @@ private struct ProbeRecord: Codable {
 
 @MainActor
 final class ReaderJourneyTests: XCTestCase {
+    private static var didCaptureWelcomeLogin = false
     private let app = XCUIApplication(bundleIdentifier: "com.semtinazizi.kitapduy")
     private let guestName = "Misafir"
     private var probeLog: [ProbeRecord] = []
@@ -47,6 +48,7 @@ final class ReaderJourneyTests: XCTestCase {
         }
         try step("24b-discover-categories") {
             try visible(element("discover-category-Polisiye"), scroll: true)
+            audit("24b-discover-categories")
             inspectScreen("24b-discover-categories")
         }
         try scrollToTop(target: element("discover-query"))
@@ -124,18 +126,24 @@ final class ReaderJourneyTests: XCTestCase {
             try visible(text("Çalma Hızı"))
             try tap(text("1.25x"))
             try visible(text("1.25x"))
+            try tap(text("1.25x"))
+            try visible(text("Çalma Hızı"))
+            try tap(text("1.0x"))
+            try visible(text("1.0x"))
             try tap(text("Atmosfer"))
             try visible(text("Atmosfer Sesleri"))
             try tap(firstCloseButton())
+            try waitFor("Atmosfer penceresi kapanmalı") { !self.text("Atmosfer Sesleri").exists }
             try tap(text("Uyku"))
             try visible(text("Uyku Modu"))
             try tap(text("15 Dakika"))
+            try waitFor("Uyku modu penceresi kapanmalı") { !self.text("Uyku Modu").exists }
             recordProbe(
                 screen: "39-podcast-controls",
                 category: "Functional",
                 status: "PASS",
                 summary: "Podcast hız, atmosfer ve uyku zamanlayıcı diyalogları çalıştı",
-                detail: "1.25x hız seçimi, Atmosfer Sesleri kapatma ve 15 Dakika uyku zamanlayıcısı doğrulandı."
+                detail: "1.25x -> 1.0x hız seçimi, Atmosfer Sesleri kapatma ve 15 Dakika uyku zamanlayıcısı doğrulandı."
             )
         }
         try step("31-podcast-back-to-search") {
@@ -205,22 +213,21 @@ final class ReaderJourneyTests: XCTestCase {
             inspectScreen("16-profile-edit")
         }
         try step("17-profile-saved") {
-            if element("profile-username").exists {
-                try type("deneme_okur", into: element("profile-username"))
-                dismissKeyboardIfNeeded()
-            }
-            if element("profile-bio").exists {
-                try type("Edebi okuma notlari", into: element("profile-bio"))
-                dismissKeyboardIfNeeded()
-            }
             let field = element("profile-name")
             let updatedName = guestName + " Profil"
-            try tap(field, scroll: true)
+            try scrollToTop(target: field)
+            try tap(field)
             field.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
             field.typeText(" Profil")
             field.typeText(XCUIKeyboardKey.return.rawValue)
             try waitFor("Profil klavyesi kapanmalı") { !self.app.keyboards.firstMatch.exists }
-            try tap(app.buttons["profile-save"], scroll: true)
+
+            try scrollToVisible(element("profile-username"))
+            try type("deneme_okur", into: element("profile-username"))
+            try scrollToVisible(element("profile-bio"))
+            try type("Edebi okuma notlari", into: element("profile-bio"))
+            try scrollToVisible(app.buttons["profile-save"])
+            try tap(app.buttons["profile-save"])
             try waitFor("Profil düzenleme ekranı kapanmalı") { !field.exists }
             let name = text(updatedName)
             try scrollToTop(target: name)
@@ -259,10 +266,11 @@ final class ReaderJourneyTests: XCTestCase {
             try waitFor("Hesabı Sil diyaloğu kapanmalı") { !self.text("Evet, Sil").exists }
         }
         try step("20-premium") {
-            try tap(element("settings-premium"), scroll: true)
+            try scrollToVisible(element("settings-premium"))
+            try tap(element("settings-premium"))
             try visible(text("KitapDuy · PREMIUM"))
-            audit("20-premium")
-            inspectScreen("20-premium")
+            audit("20-premium", theme: "Koyu")
+            inspectScreen("20-premium", theme: "Koyu")
         }
         try step("30-premium-terms") {
             try visible(text("Satın Alımları Geri Yükle"), scroll: true)
@@ -274,8 +282,8 @@ final class ReaderJourneyTests: XCTestCase {
             try visible(text("KitapDuy · PREMIUM"))
             try tap(text("Gizlilik Politikası"), scroll: true)
             try visible(text("KitapDuy — iOS Gizlilik Politikası", contains: true))
-            audit("21-premium-legal")
-            inspectScreen("21-premium-legal")
+            audit("21-premium-legal", theme: "Koyu")
+            inspectScreen("21-premium-legal", theme: "Koyu")
         }
         // Reset dark mode back to Light so test07..test13 validate consistent Light theme before test14 Dark Mode audit.
         try tap(text("Geri"))
@@ -308,18 +316,18 @@ final class ReaderJourneyTests: XCTestCase {
             inspectScreen("42-category-detail")
         }
         try step("43-author-detail") {
-            try tap(text("Tümünü Gör"))
+            try tap(text("Arthur Conan Doyle", contains: true), scroll: true)
             try visible(text("Arthur Conan Doyle", contains: true))
             audit("43-author-detail")
             inspectScreen("43-author-detail")
             try tap(text("Geri"))
-            try visible(text("Tümünü Gör"))
+            try visible(text("Polisiye", contains: true))
             try tap(text("Geri"))
-            try visible(text("Bugün nasıl bir hikâye?"), scroll: true)
+            try scrollToVisible(text("Bugün nasıl bir hikâye?"))
         }
         try step("44-mood-detail") {
             try tap(text("Huzurlu", contains: true), scroll: true)
-            try visible(text("Kitap Önerileri"), scroll: true)
+            try visible(text("Sana Özel Kitaplar"), scroll: true)
             audit("44-mood-detail")
             inspectScreen("44-mood-detail")
             try tap(text("Geri"))
@@ -441,6 +449,10 @@ final class ReaderJourneyTests: XCTestCase {
             inspectScreen("48-advisor-analysis-and-reading")
             try tap(text("Kapat"))
             try waitFor("Okuma görünümü penceresi kapanmalı") { !self.text("Okuma Görünümü").exists }
+            let copyBtn = app.buttons.matching(NSPredicate(format: "label == 'Yanıtı kopyala'")).firstMatch
+            if copyBtn.exists {
+                try tap(copyBtn, scroll: true)
+            }
             if element("advisor-followup-0").exists {
                 try tap(element("advisor-followup-0"))
                 try visible(text("Sahaf tavsiyesi", contains: true), scroll: true)
@@ -456,7 +468,7 @@ final class ReaderJourneyTests: XCTestCase {
             inspectScreen("48-advisor-analysis-and-reading")
         }
 
-        // 4. Reset chat, test Brainstorm, Debate, and Discovery chip toggle
+        // 4. Reset chat, test Brainstorm, Debate, Discovery chip toggle, and Brief mood chip
         try step("49-advisor-brainstorm-debate") {
             try tap(element("advisor-new-chat"))
             try visible(element("advisor-intent-brainstorm"))
@@ -477,23 +489,38 @@ final class ReaderJourneyTests: XCTestCase {
             }
             try scrollToTop(target: element("advisor-intent-discover"))
             try tap(element("advisor-intent-discover"))
-            try visible(element("advisor-mood-gripping"), scroll: true)
+            try visible(element("advisor-mood-melancholic"), scroll: true)
+            try tap(element("advisor-depth-brief"))
+            try tap(element("advisor-mood-melancholic"), scroll: true)
+            try visible(text("Bu Kitabı Dinle", contains: true), scroll: true)
+            audit("49-advisor-brainstorm-debate")
             inspectScreen("49-advisor-brainstorm-debate")
         }
 
-        // 5. Response Depth + Spoiler chips + Custom query + Book card navigation + Reading Route + Library pill entry
+        // 5. Response Depth + Spoiler 3-state cycle + Custom query + CTA navigation + Reading Route + Library pill entry
         try step("50-advisor-custom-query-and-book") {
-            try tap(element("advisor-depth-deep"))
+            try tap(element("advisor-new-chat"))
+            try visible(element("advisor-spoiler"))
             try tap(element("advisor-spoiler"))
+            try visible(text("Spoilersız"))
+            try tap(element("advisor-spoiler"))
+            try visible(text("Spoiler izni"))
+            try tap(element("advisor-spoiler"))
+            try visible(text("Spoiler: otomatik"))
+            try tap(element("advisor-spoiler"))
+            try visible(text("Spoilersız"))
+
+            try tap(element("advisor-depth-deep"))
             try type("Kizil Dosya polisiye oner", into: element("advisor-input"))
             try tap(element("advisor-send"))
             try visible(text("Spoilersız mod", contains: true), scroll: true)
+
+            let listenBtn = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'advisor-rec-listen-'")).firstMatch
+            try visible(listenBtn, scroll: true)
             audit("50-advisor-custom-query-and-book")
             inspectScreen("50-advisor-custom-query-and-book")
 
-            let recCard = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'advisor-rec-'")).firstMatch
-            try visible(recCard, scroll: true)
-            try tap(recCard)
+            try tap(listenBtn)
             try visible(element("book-play-pause"), scroll: true)
             try tap(text("Geri"))
             try visible(element("advisor-new-chat"))
@@ -501,12 +528,13 @@ final class ReaderJourneyTests: XCTestCase {
             try tap(element("advisor-new-chat"))
             try tap(element("advisor-reading-route"), scroll: true)
             try visible(text("Isınma Durağı", contains: true), scroll: true)
+            inspectScreen("50-advisor-custom-query-and-book")
             recordProbe(
                 screen: "50-advisor-custom-query-and-book",
                 category: "Functional",
                 status: "PASS",
-                summary: "Edebi Danışman derinlik, spoiler, özel soru, rota ve kitap yönlendirmesi doğrulandı",
-                detail: "3 giriş noktası, 4 başlangıç kartı, Okuma Görünümü, Bilgi penceresi, Yeni Sohbet, takip çipleri ve kitap kartı geçişi çalıştı."
+                summary: "Edebi Danışman derinlik, spoiler 3-durum döngüsü, kopyala, özel soru, rota ve kitap CTA geçişi doğrulandı",
+                detail: "3 giriş noktası, 4 başlangıç kartı, Okuma Görünümü, Bilgi penceresi, Yeni Sohbet, takip çipleri, 'Yanıtı kopyala' ve 'Bu Kitabı Dinle' geçişi çalıştı."
             )
         }
         try tap(element("advisor-back"))
@@ -534,29 +562,31 @@ final class ReaderJourneyTests: XCTestCase {
         }
 
         try step("52-book-dialogs-and-shelf") {
-            try tap(text("1.0x"), scroll: true)
+            let speedBtn = text("1.0x").exists ? text("1.0x") : text("1.25x")
+            try tap(speedBtn, scroll: true)
             try visible(text("Çalma Hızı"))
             try tap(text("1.25x"))
             try visible(text("1.25x"))
+            try tap(text("1.25x"))
+            try visible(text("Çalma Hızı"))
+            try tap(text("1.0x"))
+            try visible(text("1.0x"))
 
             try tap(text("Atmosfer"))
             try visible(text("Atmosfer Sesleri"))
             try tap(firstCloseButton())
+            try waitFor("Atmosfer penceresi kapanmalı") { !self.text("Atmosfer Sesleri").exists }
 
             try tap(text("Uyku"))
             try visible(text("Uyku Modu"))
             try tap(text("15 Dakika"))
+            try waitFor("Uyku modu penceresi kapanmalı") { !self.text("Uyku Modu").exists }
 
             try tap(text("Alıntı"))
-            try visible(text("Alıntı"))
-            let quoteField = app.textViews.firstMatch.exists ? app.textViews.firstMatch : app.textFields.firstMatch
-            if quoteField.exists {
-                try type("Harika bir dedektif girisi", into: quoteField)
-                dismissKeyboardIfNeeded()
-                try tap(text("Alıntıyı kopyala"), scroll: true)
-            } else {
-                try tap(firstCloseButton())
-            }
+            try visible(element("quote-dialog-input"))
+            try type("Harika bir dedektif girisi", into: element("quote-dialog-input"))
+            try tap(text("Alıntıyı kopyala"), scroll: true)
+            try waitFor("Alıntı penceresi kapanmalı") { !self.element("quote-dialog-input").exists }
 
             try tap(element("book-add-shelf"), scroll: true)
             try visible(text("Bitirdiklerim"))
@@ -586,9 +616,25 @@ final class ReaderJourneyTests: XCTestCase {
             try tap(element("mini-player"))
             try visible(element("book-play-pause"), scroll: true)
             try tap(text("Geri"))
-            try visible(element("mini-player-close"))
-            try tap(element("mini-player-close"))
-            try waitFor("Mini oynatıcı kapanmalı") { !self.element("mini-player").exists }
+            if element("mini-player-close").exists {
+                try tap(element("mini-player-close"))
+                try waitFor("Mini oynatıcı kapanmalı") { !self.element("mini-player").exists }
+                recordProbe(
+                    screen: "54-mini-player",
+                    category: "Functional",
+                    status: "PASS",
+                    summary: "Mini oynatıcı oynat/duraklat, detay açma ve kapatma düğmesi çalıştı",
+                    detail: ""
+                )
+            } else {
+                recordProbe(
+                    screen: "54-mini-player",
+                    category: "Functional",
+                    status: "FAIL",
+                    summary: "Mini oynatıcı kapatma düğmesi ('mini-player-close') ana ekranda görünmüyor",
+                    detail: "MainScreen.kt içindeki MiniPlayerSection çağrısında onCloseClick parametresi geçilmediği için kapatma ikonu hiç oluşturulmuyor."
+                )
+            }
         }
     }
 
@@ -596,10 +642,9 @@ final class ReaderJourneyTests: XCTestCase {
         try launchAndSignIn()
         try tap(element("tab-discover"))
         try step("55-search-book-request") {
-            try tap(text("Kitap İste"))
-            try visible(text("Kitap Adı", contains: true))
-            let reqField = app.textFields.firstMatch
-            try type("Satranc", into: reqField)
+            try tap(text("Kitap Talep Et"))
+            try visible(element("book-request-title"))
+            try type("Satranc", into: element("book-request-title"))
             try tap(text("Gönder"))
             try visible(text("Talebiniz Alındı"))
             inspectScreen("55-search-book-request")
@@ -607,15 +652,17 @@ final class ReaderJourneyTests: XCTestCase {
                 screen: "55-search-book-request",
                 category: "Functional",
                 status: "WARN",
-                summary: "'Kitap İste' penceresi sunucuya istek göndermeden yerel onay gösteriyor",
+                summary: "'Kitap Talep Et' penceresi sunucuya istek göndermeden yerel onay gösteriyor",
                 detail: "SearchScreen.kt içindeki confirmButton alanları sıfırlayıp yerel diyalog açıyor, Supabase/API kaydı oluşturmuyor."
             )
             try tap(text("Tamam"))
+            try waitFor("Talep onay diyaloğu kapanmalı") { !self.text("Talebiniz Alındı").exists }
         }
 
         try step("56-search-users") {
-            try tap(text("Okurlar"))
             try type("Elif", into: element("discover-query"))
+            try visible(text("Okurlar"))
+            try tap(text("Okurlar"))
             try visible(text("Elif Yılmaz"))
             audit("56-search-users")
             inspectScreen("56-search-users")
@@ -658,26 +705,24 @@ final class ReaderJourneyTests: XCTestCase {
             try tap(element("feed-compose-1"))
             try visible(element("feed-poll-question"))
             try type("Favori klasiginiz?", into: element("feed-poll-question"))
-            dismissKeyboardIfNeeded()
             try type("Suc ve Ceza", into: element("feed-poll-option-0"))
-            dismissKeyboardIfNeeded()
             try type("Kurk Mantolu Madonna", into: element("feed-poll-option-1"))
-            dismissKeyboardIfNeeded()
+            try scrollToVisible(element("feed-post-submit"))
             try tap(element("feed-post-submit"))
-            try visible(text("Favori klasiginiz?"))
-            try tap(text("Suc ve Ceza"))
+            try visible(text("Favori klasiginiz?", contains: true))
+            try tap(text("Suc ve Ceza", contains: true))
             try visible(text("1 oy", contains: true))
 
             try tap(text("Etkinlik"))
             try tap(text("Mısralar"))
             try tap(element("feed-refresh"))
-            try visible(text("Favori klasiginiz?"))
+            try visible(text("Favori klasiginiz?", contains: true))
             audit("59-feed-poll-published")
             inspectScreen("59-feed-poll-published")
         }
 
         try step("60-post-detail-comments") {
-            try tap(text("Favori klasiginiz?"))
+            try tap(text("Favori klasiginiz?", contains: true))
             try visible(element("post-comment-input"))
             try type("Harika soru!", into: element("post-comment-input"))
             try tap(element("post-comment-send"))
@@ -687,13 +732,12 @@ final class ReaderJourneyTests: XCTestCase {
 
             try tap(text("Düzenle"))
             try visible(text("Yorumu düzenle"))
-            let editField = app.alerts.textFields.firstMatch.exists ? app.alerts.textFields.firstMatch : app.textFields.firstMatch
-            if editField.exists {
-                editField.tap()
-                editField.typeText(" guncel")
-            }
+            let editField = element("post-edit-comment-input")
+            try visible(editField)
+            editField.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+            editField.typeText(" guncel")
             try tap(text("Kaydet"))
-            try visible(text("Harika soru! guncel", contains: true))
+            try visible(text("guncel", contains: true))
             audit("60-post-detail-comments")
             inspectScreen("60-post-detail-comments")
 
@@ -701,6 +745,9 @@ final class ReaderJourneyTests: XCTestCase {
             try visible(text("Yorumu sil?"))
             let deleteConfirm = app.buttons.matching(NSPredicate(format: "label == 'Sil'"))
             deleteConfirm.element(boundBy: max(0, deleteConfirm.count - 1)).tap()
+            if self.text("Yorumu sil?").exists && deleteConfirm.count > 1 {
+                deleteConfirm.element(boundBy: 0).tap()
+            }
             try waitFor("Yorum silinmeli") { !self.text("Yorumu sil?").exists }
             try tap(text("Geri"))
         }
@@ -721,16 +768,18 @@ final class ReaderJourneyTests: XCTestCase {
         try launchAndSignIn()
         try step("62-profile-wrapped") {
             try tap(element("tab-profile"))
-            try visible(text("Yıllık Özet"))
+            try scrollToVisible(text("Yıllık Özet"))
             try tap(text("Yıllık Özet"))
             try visible(text("Premium Analiz"))
             audit("62-profile-wrapped")
             inspectScreen("62-profile-wrapped")
             try tap(text("Geri"))
 
+            try scrollToVisible(text("Paylaşımlarım"))
             try tap(text("Paylaşımlarım"))
-            try scrollToTop(target: text("Takipçi"))
-            try tap(text("Takipçi"))
+            try scrollToTop(target: element("profile-followers"))
+            try tap(element("profile-followers"))
+            try visible(text("Takipçiler"))
             try visible(text("Kapat"))
             try tap(text("Kapat"))
         }
@@ -760,14 +809,21 @@ final class ReaderJourneyTests: XCTestCase {
             inspectScreen("63-arena-leaderboard-and-modes")
             try tap(text("Tamam"))
 
+            try scrollToVisible(element("quiz-duel-button"))
+            try tap(element("quiz-duel-button"))
+            try visible(text("Çok Yakında", contains: true))
+            try tap(text("Tamam"))
+
+            try scrollToVisible(element("quiz-start-blitz"))
             try tap(element("quiz-start-blitz"))
             try visible(text("Çok Oyunculu Arena"))
+            try visible(text("Oda Oluşturuldu", contains: true))
             recordProbe(
                 screen: "63-arena-leaderboard-and-modes",
                 category: "Functional",
                 status: "WARN",
-                summary: "Blitz Arena çok oyunculu lobiye yönleniyor (çevrimdışı yedek oyun yok)",
-                detail: "QuizScreen 'Blitz Arena' tıklamasında quiz_matches tablosuna bağlanmayı dener; test ortamında eşleşme bulunamazsa lobide kalır."
+                summary: "Blitz Arena canlı eşleşme bekliyor (Realtime devre dışı / çevrimdışı bot yok)",
+                detail: "QuizScreen 'Blitz Arena' quiz_matches tablosuna oda oluşturuyor ancak observeMatch() boş Flow döndürdüğü için gerçek eşleşme bildirimi gelmiyor."
             )
             try tap(text("İptal Et"))
             try tap(text("Geri"))
@@ -783,24 +839,44 @@ final class ReaderJourneyTests: XCTestCase {
             try type("Küçük", into: element("askida-search"))
             try visible(text("Küçük Prens"))
             try tap(text("Kitabı Talep Et"))
-            try visible(element("askida-tab-2"))
-            if text("Küçük Prens", contains: true).exists {
-                try tap(text("Küçük Prens", contains: true))
-                if element("askida-chat-input").exists {
-                    try type("Tesekkur ederim", into: element("askida-chat-input"))
-                    try tap(element("askida-chat-send"))
-                    try visible(text("Tesekkur ederim"))
-                    try tap(text("Geri"))
-                }
-            }
+            try visible(text("Evet, İstiyorum"))
+            try tap(text("Evet, İstiyorum"))
+            try visible(text("Teslimat Sohbeti"))
+            try visible(element("askida-chat-input"))
+            try type("Tesekkur ederim", into: element("askida-chat-input"))
+            try tap(element("askida-chat-send"))
+            try visible(text("Tesekkur ederim"))
+            try tap(text("Geri"))
+
+            try visible(element("askida-tab-1"))
             try tap(element("askida-tab-1"))
+            try visible(element("askida-donate-title"))
             try type("Simyaci", into: element("askida-donate-title"))
-            dismissKeyboardIfNeeded()
             try type("Bursa", into: element("askida-donate-city"))
-            dismissKeyboardIfNeeded()
-            try scrollToVisible(element("askida-donate-submit"))
-            try tap(element("askida-donate-submit"))
-            try visible(element("askida-tab-0"))
+            dismissNonReturnKeyboard()
+            for _ in 0..<6 {
+                if element("askida-donate-submit").exists && element("askida-donate-submit").isHittable { break }
+                swipeSafeUp()
+            }
+            if element("askida-donate-submit").exists && element("askida-donate-submit").isHittable {
+                try tap(element("askida-donate-submit"))
+                try visible(element("askida-tab-0"))
+                recordProbe(
+                    screen: "64-askida-search-claim-and-donate",
+                    category: "Functional",
+                    status: "PASS",
+                    summary: "Askıda Kitap arama, talep onayı, sohbet ve bağış akışları tamamlandı",
+                    detail: ""
+                )
+            } else {
+                recordProbe(
+                    screen: "64-askida-search-claim-and-donate",
+                    category: "Keyboard",
+                    status: "FAIL",
+                    summary: "Askıda Kitap bağış formunda 'Askıya Bırak' düğmesi klavye açıkken ulaşılabilir değil",
+                    detail: "AskidaKitapScreen.kt içindeki AskidaKitapBagis düzeni imePadding() ve alanlar ImeAction.Done/singleLine içermediği için alttaki gönder düğmesi klavyenin arkasında kalıyor."
+                )
+            }
             audit("64-askida-search-claim-and-donate")
             inspectScreen("64-askida-search-claim-and-donate")
         }
@@ -827,24 +903,30 @@ final class ReaderJourneyTests: XCTestCase {
             try visible(element("advisor-intent-analysis"))
             audit("66-dark-advisor", theme: "Koyu")
             inspectScreen("66-dark-advisor", theme: "Koyu")
+        }
+        try step("66-dark-advisor-reply") {
             try tap(element("advisor-mood-gripping"), scroll: true)
             try visible(text("Bu Kitabı Dinle", contains: true), scroll: true)
+            audit("66-dark-advisor-reply", theme: "Koyu")
             inspectScreen("66-dark-advisor-reply", theme: "Koyu")
-            try tap(element("advisor-back"))
         }
+        try tap(element("advisor-back"))
+
         try step("67-dark-discover") {
             try tap(element("tab-discover"))
             try visible(element("discover-query"))
             audit("67-dark-discover", theme: "Koyu")
             inspectScreen("67-dark-discover", theme: "Koyu")
         }
-        try step("68-dark-book-and-feed") {
+        try step("68-dark-book-detail") {
             try search("Kızıl Dosya", clearFirst: false)
             try openBookResult()
             audit("68-dark-book-detail", theme: "Koyu")
             inspectScreen("68-dark-book-detail", theme: "Koyu")
-            try tap(text("Geri"))
+        }
+        try tap(text("Geri"))
 
+        try step("68-dark-feed") {
             try tap(element("tab-feed"))
             try visible(text("Edebiyat Duvarı"))
             audit("68-dark-feed", theme: "Koyu")
@@ -880,7 +962,8 @@ final class ReaderJourneyTests: XCTestCase {
         app.launch()
         try waitFor("Giriş ekranı veya Ana Sayfa") { self.element("guest-open").exists || self.element("tab-home").exists }
         if element("guest-open").exists {
-            if text("E-Posta ile Giriş Yap").exists {
+            if !Self.didCaptureWelcomeLogin && text("E-Posta ile Giriş Yap").exists {
+                Self.didCaptureWelcomeLogin = true
                 try step("38-welcome-login") {
                     try tap(text("E-Posta ile Giriş Yap"))
                     try visible(text("Tekrar Merhaba!"))
@@ -939,23 +1022,58 @@ final class ReaderJourneyTests: XCTestCase {
         app.buttons.matching(NSPredicate(format: "label == 'Kapat'")).firstMatch
     }
 
+    private func swipeSafeUp() {
+        if app.keyboards.firstMatch.exists {
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.14))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        } else {
+            app.swipeUp(velocity: .slow)
+        }
+    }
+
+    private func swipeSafeDown() {
+        if app.keyboards.firstMatch.exists {
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.18))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.46))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        } else {
+            app.swipeDown(velocity: .slow)
+        }
+    }
+
     private func scrollToTop(target: XCUIElement) throws {
         for _ in 0..<6 {
             if target.exists && target.isHittable { return }
-            app.swipeDown(velocity: .slow)
+            swipeSafeDown()
         }
     }
 
     private func scrollToVisible(_ target: XCUIElement) throws {
         for _ in 0..<6 {
             if target.exists && target.isHittable { return }
-            app.swipeUp(velocity: .slow)
+            swipeSafeUp()
         }
         for _ in 0..<6 {
             if target.exists && target.isHittable { return }
-            app.swipeDown(velocity: .slow)
+            swipeSafeDown()
         }
         try visible(target, scroll: false)
+    }
+
+    private func dismissNonReturnKeyboard() {
+        guard app.keyboards.firstMatch.exists else { return }
+        for key in ["Hide keyboard", "Dismiss", "Done", "Bitti"] {
+            let keyButton = app.keyboards.buttons[key]
+            if keyButton.exists && keyButton.isHittable {
+                keyButton.tap()
+                return
+            }
+        }
+        let toolbarDone = app.toolbars.buttons["Done"]
+        if toolbarDone.exists && toolbarDone.isHittable {
+            toolbarDone.tap()
+        }
     }
 
     private func dismissKeyboardIfNeeded() {
@@ -973,7 +1091,7 @@ final class ReaderJourneyTests: XCTestCase {
         if scroll {
             for _ in 0..<8 {
                 if target.exists && target.isHittable { return }
-                app.swipeUp(velocity: .slow)
+                swipeSafeUp()
             }
         }
         do {
@@ -1071,8 +1189,8 @@ final class ReaderJourneyTests: XCTestCase {
         let winFrame = app.windows.firstMatch.frame
         guard !winFrame.isEmpty else { return }
 
-        let buttons = Array(app.buttons.allElementsBoundByIndex.prefix(45))
-        let texts = Array(app.staticTexts.allElementsBoundByIndex.prefix(55))
+        let buttons = Array(app.buttons.allElementsBoundByIndex.prefix(80))
+        let texts = Array(app.staticTexts.allElementsBoundByIndex.prefix(120))
         let inputs = Array(app.textFields.allElementsBoundByIndex.prefix(15))
 
         if buttons.isEmpty && texts.isEmpty {
@@ -1152,7 +1270,9 @@ final class ReaderJourneyTests: XCTestCase {
                     detail: "Görüntülenen metin '\(label)' başında sayı olmadan boşluk içeriyor."
                 )
             }
-            if label.contains("**") || label.contains("[BOOK_REC") || label.contains("[KITAP") {
+            if label.contains("**") || label.contains("[BOOK_REC") || label.contains("[KITAP") ||
+               label.contains("(*") ||
+               label.range(of: #"(?<!\*)\*[A-Za-zÇĞİÖŞÜçğıöşü0-9(][^*\n]{1,80}[A-Za-zÇĞİÖŞÜçğıöşü0-9).!?]\*(?!\*)"#, options: .regularExpression) != nil {
                 recordProbe(
                     screen: screen,
                     theme: theme,

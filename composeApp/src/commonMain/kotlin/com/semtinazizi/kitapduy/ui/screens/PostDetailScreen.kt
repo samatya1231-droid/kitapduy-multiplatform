@@ -44,7 +44,7 @@ class PostDetailScreen(private val postId: String) : Screen {
         LaunchedEffect(postId) { model.load(postId) }
         editing?.let { comment -> AlertDialog(onDismissRequest = { editing = null }, title = { Text("Yorumu düzenle") },
             text = { Column {
-                OutlinedTextField(editText, { if (it.length <= 2000) editText = it }, label = { Text("Yorum") })
+                OutlinedTextField(editText, { if (it.length <= 2000) editText = it }, label = { Text("Yorum") }, modifier = Modifier.testTag("post-edit-comment-input"))
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             } },
             confirmButton = { TextButton(enabled = editText.isNotBlank(), onClick = { model.edit(comment.id, editText) { editing = null } }) { Text("Kaydet") } },

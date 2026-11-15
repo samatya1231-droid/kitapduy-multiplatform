@@ -402,7 +402,7 @@ class RunnerTest(unittest.TestCase):
         )
         (iphone_dir / "probes.txt").write_text("probelist", encoding="utf-8")
         (iphone_dir / "accessibility.txt").write_text(
-            "audit-Home\nContrast warning on Subtitle\n\naudit-Discover\nNo accessibility issues.\n",
+            "audit-Home\nContrast warning on Subtitle\n\naudit-Discover\nNo accessibility issues.\n\naudit-Advisor\nApple erişilebilirlik denetimi uyarı üretmedi.\n",
             encoding="utf-8",
         )
         (self.output / "observations.txt").write_text("Yazar ekranı Android ile karşılaştırıldı.", encoding="utf-8")
@@ -446,6 +446,8 @@ class RunnerTest(unittest.TestCase):
         self.assertIn("Mini Player kapatma düğmesi 44pt altında", note_md)
         self.assertIn("Contrast warning on Subtitle", note_md)
         self.assertNotIn("No accessibility issues.", note_md)
+        self.assertNotIn("Apple erişilebilirlik denetimi uyarı üretmedi.", note_md)
+        self.assertIn("Erişilebilirlik bulgusu: `1`", note_md)
         self.assertIn("**Doğrulandı** `create_comment`", note_md)
         self.assertIn("EntertainmentTab", note_md)
         self.assertIn("Yazar ekranı Android ile karşılaştırıldı.", note_md)
@@ -656,19 +658,38 @@ class FixtureTest(unittest.TestCase):
             )
             created_comment = self.request_json(
                 url + "/rest/v1/feed_comments?select=*",
-                [{"post_id": post_id, "user_id": USER_ID, "content": "İlk yorum"}],
+                [{"post_id": post_id, "user_id": USER_ID, "comment_text": "İlk yorum"}],
             )[0]
             comment_id = created_comment["id"]
             self.request_json(
                 f"{url}/rest/v1/feed_comments?id=eq.{comment_id}",
-                {"content": "Güncellenen yorum"},
+                {"comment_text": "Güncellenen yorum"},
                 method="PATCH",
             )
             comments = self.request_json(f"{url}/rest/v1/feed_comments?post_id=eq.{post_id}")
-            self.assertEqual(comments[0]["content"], "Güncellenen yorum")
+            self.assertEqual(comments[0]["comment_text"], "Güncellenen yorum")
             self.request_json(f"{url}/rest/v1/feed_comments?id=eq.{comment_id}", method="DELETE")
             self.assertEqual(self.request_json(f"{url}/rest/v1/feed_comments?post_id=eq.{post_id}"), [])
             self.request_json(f"{url}/rest/v1/posts?id=eq.{post_id}", method="DELETE")
+
+            # Quiz Arena multiplayer match room creation, query, update & delete.
+            self.assertEqual(self.request_json(url + "/rest/v1/quiz_matches?status=eq.WAITING&limit=1"), [])
+            created_match = self.request_json(
+                url + "/rest/v1/quiz_matches?select=*",
+                [{"match_id": "", "player1_id": USER_ID, "player1_name": "Deneme Okuru", "status": "WAITING"}],
+                headers={"Accept": "application/vnd.pgrst.object+json"},
+            )
+            match_id = created_match["match_id"]
+            self.assertTrue(match_id)
+            self.request_json(
+                f"{url}/rest/v1/quiz_matches?match_id=eq.{match_id}",
+                {"status": "PLAYING", "player2_id": "community_donor_1"},
+                method="PATCH",
+            )
+            playing = self.request_json(f"{url}/rest/v1/quiz_matches?match_id=eq.{match_id}")
+            self.assertEqual(playing[0]["status"], "PLAYING")
+            self.request_json(f"{url}/rest/v1/quiz_matches?match_id=eq.{match_id}", method="DELETE")
+            self.assertEqual(self.request_json(f"{url}/rest/v1/quiz_matches?match_id=eq.{match_id}"), [])
 
             self.request_json(
                 url + "/rest/v1/followers",
@@ -692,9 +713,18 @@ class FixtureTest(unittest.TestCase):
             for expected_event in (
                 "add_shelf", "create_post", "update_post", "create_comment",
                 "delete_comment", "delete_post", "follow_user", "unfollow_user",
-                "mark_notifications_read",
+                "mark_notifications_read", "create_quiz_match",
             ):
                 self.assertIn(expected_event, events)
+
+    def test_xcuitest_steps_and_journeys_match_screen_groups(self):
+        swift_path = Path(__file__).resolve().parents[1] / "iosApp/KitapDuyUITests/ReaderJourneyTests.swift"
+        swift_text = swift_path.read_text(encoding="utf-8")
+        for journey_name in smoke.JOURNEYS:
+            self.assertIn(f"func {journey_name}()", swift_text)
+        for _, _, screens in smoke.SCREEN_GROUPS:
+            for step_name, _ in screens:
+                self.assertIn(f'step("{step_name}")', swift_text)
 
 
 if __name__ == "__main__":

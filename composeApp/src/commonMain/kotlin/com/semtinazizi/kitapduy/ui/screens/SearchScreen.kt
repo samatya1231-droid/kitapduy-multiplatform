@@ -80,7 +80,7 @@ class SearchScreen : Screen {
                             onValueChange = { requestedBookTitle = it },
                             label = { Text("Kitap Adı") },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth().testTag("book-request-title")
                         )
                         OutlinedTextField(
                             value = requestedAuthor,

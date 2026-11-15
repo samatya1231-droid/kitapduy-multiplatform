@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -52,7 +53,7 @@ fun ProfileBentoStats(
                 value = followersCount,
                 icon = Icons.Default.Group,
                 color = BrandGold,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).testTag("profile-followers"),
                 onClick = onFollowersClick
             )
             BentoStatItem(
@@ -60,7 +61,7 @@ fun ProfileBentoStats(
                 value = followingCount,
                 icon = Icons.Default.PersonAdd,
                 color = BrandGold,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).testTag("profile-following"),
                 onClick = onFollowingClick
             )
         }

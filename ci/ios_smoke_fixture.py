@@ -207,6 +207,7 @@ def serve_fixture():
         {"user_id": "seed_4", "user_name": "Murat Şahin", "total_score": 2150, "updated_at": None},
         {"user_id": "seed_5", "user_name": "Selin Aydın", "total_score": 1600, "updated_at": None},
     ]
+    quiz_matches = []
     requests = []
     state_lock = Lock()
     now = datetime.now(timezone.utc).isoformat()
@@ -221,6 +222,7 @@ def serve_fixture():
         "favorites": 0,
         "notifications": 1,
         "reports": 0,
+        "quiz_matches": 0,
     }
 
     control_params = {"select", "order", "limit", "offset", "columns", "on_conflict", "or"}
@@ -424,6 +426,8 @@ def serve_fixture():
                         key=lambda entry: entry.get("total_score", 0),
                         reverse=True,
                     )
+                elif table == "quiz_matches":
+                    rows = [dict(match) for match in quiz_matches]
                 elif table == "users":
                     rows = [dict(profile), *(dict(u) for u in community_users)]
                 elif table == "posts":
@@ -522,6 +526,7 @@ def serve_fixture():
                 "/rest/v1/askida_kitap",
                 "/rest/v1/askida_mesaj",
                 "/rest/v1/quiz_leaderboard",
+                "/rest/v1/quiz_matches",
             )
             if path not in allowed:
                 self.send_data(404, {"message": "Unknown fixture write"})
@@ -627,6 +632,21 @@ def serve_fixture():
                             stored = dict(row)
                             quiz_leaderboard.append(stored)
                             created.append(dict(stored))
+                elif path == "/rest/v1/quiz_matches":
+                    for row in rows:
+                        stored = {
+                            "player1_score": 0,
+                            "player2_score": 0,
+                            "player1_progress": 0,
+                            "player2_progress": 0,
+                            "match_questions": [],
+                            **row,
+                            "match_id": row.get("match_id") or f"match_{next_id('quiz_matches')}",
+                            "created_at": now,
+                        }
+                        quiz_matches.append(stored)
+                        created.append(dict(stored))
+                    requests.append("create_quiz_match")
             self.send_write_response(201, 201, created, query)
 
         def do_PATCH(self):
@@ -638,6 +658,7 @@ def serve_fixture():
                 "/rest/v1/notifications",
                 "/rest/v1/askida_kitap",
                 "/rest/v1/quiz_leaderboard",
+                "/rest/v1/quiz_matches",
             )
             if parsed.path not in allowed:
                 self.send_data(404, {"message": "Unknown fixture update"})
@@ -683,6 +704,11 @@ def serve_fixture():
                         if matches_filters(entry, query):
                             entry.update(body)
                             updated.append(dict(entry))
+                elif parsed.path == "/rest/v1/quiz_matches":
+                    for match in quiz_matches:
+                        if matches_filters(match, query):
+                            match.update(body)
+                            updated.append(dict(match))
             self.send_write_response(204, 200, updated, query)
 
         def do_DELETE(self):
@@ -693,6 +719,7 @@ def serve_fixture():
                 "/rest/v1/followers": followers,
                 "/rest/v1/user_bookshelves": user_bookshelves,
                 "/rest/v1/favorites": favorites,
+                "/rest/v1/quiz_matches": quiz_matches,
             }
             if parsed.path not in table_map:
                 self.send_data(404, {"message": "Unknown fixture delete"})
