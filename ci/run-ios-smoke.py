@@ -1,6 +1,7 @@
 """Launch the real simulator app on fresh iPhone/iPad devices and retain evidence."""
 
 import argparse
+from collections import Counter
 import html
 import json
 import os
@@ -38,6 +39,12 @@ JOURNEYS = {
     "test06ThemeAndPremium": "Koyu tema, Premium ve yasal metinler",
     "test07HomePodcasts": "Ana Sayfa podcast bölümü",
     "test08AdvisorArenaAndAskida": "Edebi Danışman, KitapDuy Arena ve Askıda Kitap",
+    "test09LiteraryAdvisorDeep": "Edebi Danışman · kapsamlı inceleme",
+    "test10BookDetailFeaturesAndMiniPlayer": "Kitap detayı kontrolleri ve Mini Player",
+    "test11SearchUsersAndPopulatedLibrary": "Kitap iste, okur profilleri ve dolu kitaplık",
+    "test12FeedDeepNotificationsAndPostDetail": "Akış anketi, bildirimler ve gönderi yorumları",
+    "test13ProfileWrappedArenaAndAskidaDeep": "Yıllık Özet, Arena ve Askıda Kitap derin tarama",
+    "test14DarkModeFullAudit": "Koyu tema · tüm ana ekranlar denetimi",
 }
 
 LEGACY_JOURNEYS = {
@@ -48,43 +55,113 @@ LEGACY_JOURNEYS = {
 }
 
 SCREEN_GROUPS = (
-    ("Giriş ve Ana Sayfa", "Önerilen kitaplara, duygu kartlarına ve podcast sırasına bak.", (
-        ("01-guest-entry", "Misafir girişi"), ("02-guest-home", "Ana Sayfa · giriş sonrası"),
-        ("22-home-catalog", "Önerilen kitaplar"), ("23-home-podcasts", "Podcast dünyası"),
+    ("Giriş ve Ana Sayfa", "Giriş ekranını, önerilen kitapları, kategori/yazar/ruh hali detaylarını ve podcast sırasını incele.", (
+        ("01-guest-entry", "Misafir girişi"), ("38-welcome-login", "Karşılama ve E-posta girişi doğrulama"),
+        ("02-guest-home", "Ana Sayfa · giriş sonrası"), ("22-home-catalog", "Önerilen kitaplar"),
+        ("23-home-podcasts", "Podcast dünyası"), ("42-category-detail", "Kategori detayı (Polisiye)"),
+        ("43-author-detail", "Yazar detayı"), ("44-mood-detail", "Ruh hali detayı (Huzurlu)"),
+        ("45-home-articles-check", "Ana Sayfa makale kontrolü"),
     )),
-    ("Keşfet ve kitap", "Arama alanını, boş sonucu, kapak yerleşimini ve oynatıcı kontrollerini karşılaştır.", (
+    ("Edebi Danışman · Derin İnceleme", "Tüm giriş noktalarını, modları, derinlik/spoiler ayarlarını, diyalogları ve kitap önerisi geçişlerini incele.", (
+        ("46-advisor-welcome", "Edebi Danışman · karşılama ve modlar"),
+        ("47-advisor-info-dialog", "Edebi Danışman · Hakkında diyaloğu"),
+        ("48-advisor-analysis-and-reading", "Eser Analizi ve Okuma Görünümü"),
+        ("49-advisor-brainstorm-debate", "Beyin Fırtınası ve Okuma Rotası"),
+        ("50-advisor-custom-query-and-book", "Özel soru, derinlik ve kitap önerisi"),
+    )),
+    ("Keşfet ve kitap", "Arama alanını, Kitap İste akışını, okur profillerini, kitap detayını, oynatıcıyı ve Mini Player'ı incele.", (
         ("24-discover", "Keşfet"), ("24b-discover-categories", "Keşfet · kategoriler"),
         ("03-search-empty-result", "Sonuçsuz arama"),
+        ("55-search-book-request", "Keşfet · Kitap İste"),
+        ("56-search-users", "Keşfet · Okurlar araması"),
+        ("57-other-user-profile", "Okur profili · Takip et/bırak"),
         ("04-book-search", "Kitap sonucu"), ("05-book-detail", "Kitap detayı"),
+        ("51-book-summary-and-like", "1 Dakikada Eser Özeti ve beğeni"),
+        ("52-book-dialogs-and-shelf", "Hız, uyku, alıntı ve rafa ekle"),
+        ("53-book-comment-posted", "Kitap yorumu gönderimi"),
         ("25-book-player", "Kitap oynatıcı"), ("06-book-playing", "Kitap oynatma"),
-        ("07-book-pause-and-skip", "Duraklatma ve 15 saniye atlama"), ("08-book-back-to-search", "Aramaya dönüş"),
+        ("07-book-pause-and-skip", "Duraklatma ve 15 saniye atlama"),
+        ("54-mini-player", "Mini Player denetimi"),
+        ("08-book-back-to-search", "Aramaya dönüş"),
     )),
-    ("Danışman, Arena ve Askıda", "Ana Sayfa ve Keşfet’ten Edebi Danışman’a, KitapDuy Arena’ya ve Askıda Kitap akışına bak.", (
+    ("Danışman, Arena ve Askıda", "Ana Sayfa ve Keşfet’ten Edebi Danışman’a, KitapDuy Arena modlarına ve Askıda Kitap akışlarına bak.", (
         ("32-home-advisor", "Edebi Danışman · Ana Sayfa"),
         ("33-discover-advisor", "Edebi Danışman · Keşfet"),
         ("34-arena-menu", "KitapDuy Arena · Menü"),
         ("35-arena-playing", "KitapDuy Arena · Soru"),
+        ("63-arena-leaderboard-and-modes", "Arena · Liderlik, Turnuva ve Blitz"),
         ("36-askida-list", "Askıda Kitap · Liste"),
         ("37-askida-donate", "Askıda Kitap · Bağış"),
+        ("64-askida-search-claim-and-donate", "Askıda · arama, talep, sohbet ve bağış"),
     )),
-    ("Podcast", "Bölüm listesini, oynatıcıyı, süreyi ve geri dönüşü incele.", (
+    ("Podcast", "Bölüm listesini, oynatıcı kontrollerini, süreyi ve geri dönüşü incele.", (
         ("09-podcast-episodes", "Podcast bölümleri"), ("26-podcast-player", "Podcast oynatıcı"),
-        ("10-podcast-playing", "Podcast oynatma"), ("31-podcast-back-to-search", "Podcastten aramaya dönüş"),
+        ("10-podcast-playing", "Podcast oynatma"), ("39-podcast-controls", "Podcast kontrolleri"),
+        ("31-podcast-back-to-search", "Podcastten aramaya dönüş"),
     )),
     ("Kitaplık", "KitapDuy3’teki Favoriler, İndirilenler, Geçmiş ve raf akışlarıyla karşılaştır.", (
         ("27-library-favorites", "Favoriler"), ("11-library-downloads-empty", "İndirilenler · boş durum"),
         ("28-library-history", "Geçmiş"), ("12-library-shelves", "Bitirdiklerim rafı"),
+        ("58-library-populated", "Dolu kitaplık ve övünç rafı"),
     )),
-    ("Akış ve Profil", "Gönderi yazma, yayınlama, profil ve düzenleme akışlarını kontrol et.", (
+    ("Akış ve Profil", "Gönderi/anket yazma, yorum CRUD, bildirimler, Yıllık Özet ve profil düzenleme akışlarını kontrol et.", (
         ("13-feed", "Edebiyat Duvarı"), ("14-feed-compose", "Gönderi düzenleyici"),
-        ("15-feed-published", "Yayınlanan gönderi"), ("29-profile", "Okur köşem"),
+        ("15-feed-published", "Yayınlanan gönderi"),
+        ("59-feed-poll-published", "Akış · anket paylaşımı ve oylama"),
+        ("60-post-detail-comments", "Gönderi detayı ve yorum CRUD"),
+        ("61-notifications", "Bildirimler · tümünü okundu işaretle"),
+        ("29-profile", "Okur köşem"), ("62-profile-wrapped", "Okur köşem · Yıllık Özet ve paylaşımlar"),
         ("16-profile-edit", "Profili düzenle"), ("17-profile-saved", "Kaydedilen profil"),
     )),
-    ("Ayarlar ve Premium", "Açık ve koyu temayı, planları, geri yüklemeyi ve yasal metinleri incele.", (
+    ("Ayarlar ve Premium", "Açık/koyu tema, istatistikler, hesap silme diyaloğu, planlar ve yasal metinleri incele.", (
         ("18-settings-light", "Ayarlar · açık tema"), ("19-settings-dark", "Ayarlar · koyu tema"),
+        ("40-settings-statistics", "Ayarlar · İstatistikler"),
+        ("41-settings-delete-dialog", "Ayarlar · Hesabı Sil diyaloğu"),
         ("20-premium", "Premium planları"), ("30-premium-terms", "Kullanım koşulları"),
         ("21-premium-legal", "Gizlilik politikası"),
     )),
+    ("Koyu Tema · Tam Denetim", "Ana ekranların, Edebi Danışmanın, kitap detayının ve akışın koyu tema kontrast ve yerleşimini incele.", (
+        ("65-dark-home", "Koyu tema · Ana Sayfa"),
+        ("66-dark-advisor", "Koyu tema · Edebi Danışman"),
+        ("66-dark-advisor-reply", "Koyu tema · Danışman yanıtı"),
+        ("67-dark-discover", "Koyu tema · Keşfet"),
+        ("68-dark-book-and-feed", "Koyu tema · Kitap detayı ve Akış"),
+        ("68-dark-book-detail", "Koyu tema · Kitap detayı"),
+        ("68-dark-feed", "Koyu tema · Edebiyat Duvarı"),
+    )),
+)
+
+TRACKED_FIXTURE_EVENTS = (
+    ("guest_signup", "Misafir oturumu açılışı (`POST /auth/v1/signup`)"),
+    ("update_profile", "Profil bilgisi güncellemesi (`PATCH/POST /rest/v1/users`)"),
+    ("create_post", "Akışta gönderi/anket oluşturma (`POST /rest/v1/posts`)"),
+    ("update_post", "Gönderi güncellemesi, beğeni veya anket oyu (`PATCH /rest/v1/posts`)"),
+    ("delete_post", "Gönderi silme (`DELETE /rest/v1/posts`)"),
+    ("create_comment", "Yorum ekleme (`POST /rest/v1/feed_comments`)"),
+    ("delete_comment", "Yorum silme (`DELETE /rest/v1/feed_comments`)"),
+    ("add_shelf", "Rafa kitap ekleme (`POST /rest/v1/user_bookshelves`)"),
+    ("follow_user", "Okur takip etme (`POST /rest/v1/followers`)"),
+    ("unfollow_user", "Okur takibi bırakma (`DELETE /rest/v1/followers`)"),
+    ("mark_notifications_read", "Bildirimleri okundu işaretleme (`PATCH /rest/v1/notifications`)"),
+    ("donate_askida", "Askıda Kitap bağışı (`POST /rest/v1/askida_kitap`)"),
+    ("send_askida_chat", "Askıda Kitap sohbet mesajı (`POST /rest/v1/askida_mesaj`)"),
+)
+
+UNREACHABLE_CODEBASE_SCREENS = (
+    "EntertainmentTab",
+    "AskidaTab",
+    "KitapBilScreen",
+    "MindLibraryScreen",
+    "ScienceArticlesScreen",
+    "GuessAuthorScreen",
+    "IndependentPensScreen",
+    "PodcastListScreen",
+    "FocusScreen",
+    "ClubsScreen",
+    "ClubDetailScreen",
+    "ChatScreen",
+    "DownloadsScreen",
+    "OnboardingScreen",
 )
 
 
@@ -143,6 +220,42 @@ def read_test_summary(bundle):
     return {key: summary[key] for key in ("totalTestCount", "passedTests", "failedTests", "skippedTests")}
 
 
+def _normalize_probe_record(item, fallback_journey="unknown"):
+    if not isinstance(item, dict):
+        return {
+            "journey": fallback_journey,
+            "screen": "",
+            "theme": "?",
+            "category": "Probe",
+            "status": "INFO",
+            "summary": str(item),
+            "detail": "",
+        }
+    status = str(item.get("status", "INFO")).upper()
+    if status not in ("FAIL", "WARN", "INFO", "PASS"):
+        status = "INFO"
+    return {
+        "journey": str(item.get("journey") or fallback_journey),
+        "screen": str(item.get("screen") or ""),
+        "theme": str(item.get("theme") or "?"),
+        "category": str(item.get("category") or "Genel"),
+        "status": status,
+        "summary": str(item.get("summary") or ""),
+        "detail": str(item.get("detail") or ""),
+    }
+
+
+def _format_probes_text(probes):
+    lines = []
+    for item in probes:
+        line = (f"[{item['status']}] [{item['theme']}] {item['screen']} "
+                f"({item['journey']} · {item['category']}) — {item['summary']}")
+        lines.append(line)
+        if item.get("detail"):
+            lines.append(f"    Detay: {item['detail']}")
+    return "\n".join(lines)
+
+
 def export_evidence(bundle, directory):
     exported = directory / "xcode-attachments"
     subprocess.run(["xcrun", "xcresulttool", "export", "attachments", "--path", str(bundle),
@@ -150,6 +263,7 @@ def export_evidence(bundle, directory):
     manifest = json.loads((exported / "manifest.json").read_text(encoding="utf-8"))
     screenshots = []
     audits = []
+    probes = []
     for test in manifest:
         for attachment in test.get("attachments", []):
             source = exported / Path(attachment["exportedFileName"]).name
@@ -161,7 +275,26 @@ def export_evidence(bundle, directory):
             if stem.startswith("audit-"):
                 audits.append(f"{stem}\n{source.read_text(encoding='utf-8', errors='replace')}")
                 continue
-            if source.suffix.lower() != ".png" or not re.match(r"^(failure-)?\d{2}-", stem):
+            if stem.startswith("probe-"):
+                raw = source.read_text(encoding="utf-8", errors="replace")
+                fallback_journey = stem[len("probe-"):] or stem
+                try:
+                    payload = json.loads(raw)
+                except json.JSONDecodeError:
+                    probes.append({
+                        "journey": fallback_journey,
+                        "screen": stem,
+                        "theme": "?",
+                        "category": "ProbeParse",
+                        "status": "WARN",
+                        "summary": f"{stem} JSON ayrıştırılamadı",
+                        "detail": raw[:400],
+                    })
+                else:
+                    items = payload if isinstance(payload, list) else [payload]
+                    probes.extend(_normalize_probe_record(item, fallback_journey) for item in items)
+                continue
+            if source.suffix.lower() != ".png" or not re.match(r"^(failure-)?\d{2}[a-z0-9]*-", stem):
                 continue
             filename = f"{stem}.png"
             if (directory / filename).exists():
@@ -170,13 +303,334 @@ def export_evidence(bundle, directory):
             screenshots.append(filename)
     if audits:
         (directory / "accessibility.txt").write_text("\n\n".join(audits), encoding="utf-8")
+    if probes:
+        (directory / "probes.json").write_text(json.dumps(probes, ensure_ascii=False, indent=2), encoding="utf-8")
+        (directory / "probes.txt").write_text(_format_probes_text(probes), encoding="utf-8")
     return screenshots
+
+
+def _load_device_probes(result, output):
+    if isinstance(result.get("probes"), list):
+        return [_normalize_probe_record(item) for item in result["probes"]]
+    family = result.get("family")
+    if not family:
+        return []
+    probes_path = output / family / "probes.json"
+    if not probes_path.is_file():
+        return []
+    try:
+        payload = json.loads(probes_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    items = payload if isinstance(payload, list) else [payload]
+    return [_normalize_probe_record(item) for item in items]
+
+
+def _load_accessibility_sections(result, output):
+    text = result.get("accessibility_text")
+    if text is None and result.get("family"):
+        audit_path = output / result["family"] / "accessibility.txt"
+        if audit_path.is_file():
+            text = audit_path.read_text(encoding="utf-8", errors="replace")
+    if not text:
+        return []
+    sections = []
+    current_title = "audit"
+    current_issues = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith("audit-"):
+            if current_issues or current_title != "audit":
+                sections.append((current_title, current_issues))
+            current_title = line
+            current_issues = []
+            continue
+        lowered = line.lower()
+        if lowered in ("no accessibility issues.", "no issues found.", "none", "0 issues"):
+            continue
+        current_issues.append(line)
+    if current_issues or current_title != "audit":
+        sections.append((current_title, current_issues))
+    return sections
+
+
+def _is_advisor_probe(probe):
+    journey = probe.get("journey", "").lower()
+    screen = probe.get("screen", "").lower()
+    category = probe.get("category", "").lower()
+    summary = probe.get("summary", "").lower()
+    return (
+        "literaryadvisor" in journey
+        or "danışman" in screen
+        or "advisor" in screen
+        or "danışman" in category
+        or "edebi danışman" in summary
+    )
+
+
+def _group_probes(tagged_probes):
+    """Aggregate identical findings across devices/themes so reviewers see concise items."""
+    grouped = {}
+    for device_label, probe in tagged_probes:
+        key = (probe["status"], probe["category"], probe["screen"], probe["summary"], probe["detail"])
+        entry = grouped.setdefault(key, {
+            "status": probe["status"],
+            "category": probe["category"],
+            "screen": probe["screen"],
+            "summary": probe["summary"],
+            "detail": probe["detail"],
+            "scopes": [],
+        })
+        scope = f"{device_label} · {probe['theme']}"
+        if scope not in entry["scopes"]:
+            entry["scopes"].append(scope)
+    return list(grouped.values())
+
+
+def _format_grouped_probe_lines(grouped_items):
+    lines = []
+    for item in grouped_items:
+        location = " / ".join(part for part in (item["screen"], item["category"]) if part)
+        scopes = ", ".join(item["scopes"])
+        lines.append(f"- **[{item['status']}] {location}** ({scopes}): {item['summary']}")
+        if item["detail"]:
+            lines.append(f"  - Detay: {item['detail']}")
+    return lines
+
+
+def build_review_note(results, output):
+    status_order = ("FAIL", "WARN", "INFO", "PASS")
+    device_probes = [(result, _load_device_probes(result, output)) for result in results]
+    all_tagged = [
+        (result.get("family") or result.get("name", "Cihaz"), probe)
+        for result, probes in device_probes
+        for probe in probes
+    ]
+    total_counts = Counter(probe["status"] for _, probe in all_tagged)
+
+    lines = [
+        "# KitapDuy iOS QA — Detaylı İnceleme Notu",
+        "",
+        "Bu inceleme notu simülatör koşusundaki XCUITest senaryoları, çalışma zamanı denetim probları (`probes.json`), "
+        "Apple erişilebilirlik denetimleri (`accessibility.txt`) ve yerel test sunucusu istek kayıtlarından (`fixture_requests`) üretilmiştir.",
+        "",
+        "## 1. Çalıştırma ve Cihaz Özeti",
+        "",
+    ]
+
+    if not results:
+        lines.append("- Hiçbir simülatör sonucu üretilmedi.")
+    for result, probes in device_probes:
+        name = result.get("name", "Cihaz")
+        family = result.get("family") or name
+        runtime = result.get("runtime", "")
+        state = "Geçti" if result.get("passed") else "Başarısız"
+        seconds = result.get("seconds", "-")
+        xc = result.get("xcuitest")
+        xc_text = f"{xc['passedTests']}/{xc['totalTestCount']}" if xc else "yok"
+        counts = Counter(p["status"] for p in probes)
+        audit_sections = _load_accessibility_sections(result, output)
+        audit_issue_count = sum(len(issues) for _, issues in audit_sections)
+        shots = len([s for s in result.get("screenshots", []) if s != "failure-screen.png"])
+        video_state = "Var" if result.get("video") else "Yok"
+        probe_text = ", ".join(f"{k}: {counts.get(k, 0)}" for k in status_order)
+        runtime_note = f" ({runtime})" if runtime else ""
+        lines.append(
+            f"- **{family} — {name}{runtime_note}**: **{state}** | Süre: `{seconds}s` | XCUITest: `{xc_text}` | "
+            f"Ekran görüntüsü: `{shots}` | Video: `{video_state}` | Problar: `{probe_text}` | Erişilebilirlik bulgusu: `{audit_issue_count}`"
+        )
+        for warn_key in ("error", "video_warning", "screenshot_warning", "collection_warning"):
+            if result.get(warn_key):
+                lines.append(f"  - Hata/Uyarı (`{warn_key}`): {result[warn_key]}")
+
+    # Journey outcomes across devices
+    outcome_labels = {"passed": "Geçti", "failed": "Hata", "skipped": "Atlandı"}
+    combined_outcomes = {}
+    for result in results:
+        combined_outcomes.update(result.get("journeys", {}))
+    if combined_outcomes:
+        lines.extend(["", "### Senaryo Matrisi", ""])
+        titles = journey_titles(combined_outcomes)
+        for test_name, title in titles.items():
+            per_dev = []
+            for result in results:
+                if not result.get("family") and not result.get("journeys"):
+                    continue
+                fam = result.get("family") or result.get("name", "Cihaz")
+                raw_outcome = result.get("journeys", {}).get(test_name)
+                per_dev.append(f"{fam}: {outcome_labels.get(raw_outcome, 'Çalıştırılmadı')}")
+            lines.append(f"- **{title}** (`{test_name}`): {' | '.join(per_dev)}")
+
+    lines.extend(["", "## 2. Backend / Yerel Test Sunucusu Yazma Doğrulaması (`fixture_requests`)", ""])
+    tracked_keys = {key for key, _ in TRACKED_FIXTURE_EVENTS}
+    extra_events = sorted({
+        event
+        for result in results
+        for event in result.get("fixture_requests", [])
+        if event not in tracked_keys
+    })
+    for key, description in TRACKED_FIXTURE_EVENTS:
+        per_dev = []
+        any_hit = False
+        for result in results:
+            if not result.get("family") and "fixture_requests" not in result:
+                continue
+            fam = result.get("family") or result.get("name", "Cihaz")
+            count = Counter(result.get("fixture_requests", [])).get(key, 0)
+            if count > 0:
+                any_hit = True
+            per_dev.append(f"{fam}: {count}x" if count else f"{fam}: 0")
+        mark = "Doğrulandı" if any_hit else "İzlenmedi"
+        lines.append(f"- **{mark}** `{key}` — {description} ({' | '.join(per_dev) or 'cihaz verisi yok'})")
+    for key in extra_events:
+        per_dev = [
+            f"{result.get('family') or result.get('name', 'Cihaz')}: {Counter(result.get('fixture_requests', [])).get(key, 0)}x"
+            for result in results
+        ]
+        lines.append(f"- **Ek kayıt** `{key}` ({' | '.join(per_dev)})")
+
+    lines.extend(["", "## 3. Edebi Danışman (`LiteraryAdvisorScreen`) Özel İnceleme Bölümü", ""])
+    advisor_tagged = [(dev, probe) for dev, probe in all_tagged if _is_advisor_probe(probe)]
+    if not advisor_tagged:
+        lines.append(
+            "- Bu çalıştırmada Edebi Danışman için çalışma zamanı probu (`probe-*`) kaydedilmedi "
+            "(test çalıştırmadan önce hata oluşmuş veya yalnızca özet testler çalışmış olabilir)."
+        )
+    else:
+        advisor_counts = Counter(probe["status"] for _, probe in advisor_tagged)
+        lines.append(
+            "- Kapsam özeti: " + ", ".join(f"**{k}: {advisor_counts.get(k, 0)}**" for k in status_order)
+        )
+        lines.append("")
+        for bucket, heading in (("FAIL", "### Danışman Hataları (`FAIL`)"),
+                                ("WARN", "### Danışman Uyarıları (`WARN`)"),
+                                ("INFO", "### Danışman Bilgilendirmeleri (`INFO`)"),
+                                ("PASS", "### Danışman Doğrulanan Akışlar (`PASS`)")):
+            subset = [(dev, p) for dev, p in advisor_tagged if p["status"] == bucket]
+            if subset:
+                lines.append(heading)
+                lines.extend(_format_grouped_probe_lines(_group_probes(subset)))
+                lines.append("")
+
+    lines.extend(["## 4. Öncelikli Bulgular (`FAIL` ve `WARN` — Kod & Arayüz Düzeltme Listesi)", ""])
+    fail_tagged = [(dev, p) for dev, p in all_tagged if p["status"] == "FAIL"]
+    warn_tagged = [(dev, p) for dev, p in all_tagged if p["status"] == "WARN"]
+    if not fail_tagged and not warn_tagged:
+        if all_tagged:
+            lines.append("- Çalışma zamanı denetim problarında `FAIL` veya `WARN` kaydı üretilmedi.")
+        elif any(not r.get("passed") for r in results):
+            lines.append("- Çalışma zamanı denetim probları toplanamadı; yukarıdaki test hatalarına ve `uitest.log` günlüklerine bakın.")
+        else:
+            lines.append("- Çalışma zamanı probları henüz üretilmedi (`probe-*` eklentisi bulunmadı).")
+    else:
+        if fail_tagged:
+            lines.extend(["### Kritik / Kırık Davranışlar (`FAIL`)", ""])
+            lines.extend(_format_grouped_probe_lines(_group_probes(fail_tagged)))
+            lines.append("")
+        if warn_tagged:
+            lines.extend(["### Eksikler, Küçük Hedefler ve Uyarılar (`WARN`)", ""])
+            lines.extend(_format_grouped_probe_lines(_group_probes(warn_tagged)))
+            lines.append("")
+
+    obs_path = output / "observations.txt"
+    if obs_path.is_file():
+        obs_lines = [line.strip() for line in obs_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if obs_lines:
+            lines.extend(["### Karşılaştırma Gözlemleri (`observations.txt`)", ""])
+            lines.extend(f"- {line}" for line in obs_lines)
+            lines.append("")
+
+    lines.extend(["## 5. Apple Erişilebilirlik Denetimi (`accessibility.txt`) Özeti", ""])
+    any_audit_text = False
+    for result in results:
+        sections = _load_accessibility_sections(result, output)
+        fam = result.get("family") or result.get("name", "Cihaz")
+        if not sections:
+            lines.append(f"- **{fam}**: Erişilebilirlik denetim çıktısı bulunmadı.")
+            continue
+        any_audit_text = True
+        unique_issues = []
+        seen = set()
+        total_issues = 0
+        for _, issues in sections:
+            total_issues += len(issues)
+            for issue in issues:
+                if issue not in seen:
+                    seen.add(issue)
+                    unique_issues.append(issue)
+        lines.append(
+            f"- **{fam}**: `{len(sections)}` ekran denetimi, toplam `{total_issues}` satır bulgu "
+            f"(`{len(unique_issues)}` benzersiz). Tam döküm: `{fam}/accessibility.txt`."
+        )
+        for issue in unique_issues[:25]:
+            lines.append(f"  - {issue}")
+        if len(unique_issues) > 25:
+            lines.append(f"  - ... ve `{len(unique_issues) - 25}` ek benzersiz bulgu (`{fam}/accessibility.txt`).")
+    if not any_audit_text and not results:
+        lines.append("- Denetim verisi yok.")
+
+    lines.extend(["", "## 6. Doğrulanan Akışlar ve Bilgilendirmeler (`INFO` ve `PASS`)", ""])
+    info_tagged = [(dev, p) for dev, p in all_tagged if p["status"] == "INFO"]
+    pass_tagged = [(dev, p) for dev, p in all_tagged if p["status"] == "PASS"]
+    if info_tagged:
+        lines.extend(["### Bilgilendirmeler (`INFO`)", ""])
+        lines.extend(_format_grouped_probe_lines(_group_probes(info_tagged)))
+        lines.append("")
+    if pass_tagged:
+        lines.extend([f"### Başarılı Denetimler (`PASS` — {len(_group_probes(pass_tagged))} benzersiz kontrol)", ""])
+        lines.extend(_format_grouped_probe_lines(_group_probes(pass_tagged)))
+        lines.append("")
+    if not info_tagged and not pass_tagged:
+        lines.append("- Kaydedilmiş `INFO` veya `PASS` probu yok.")
+        lines.append("")
+
+    lines.extend([
+        "## 7. Simülatör Kapsam Sınırları ve Kod Tabanında Navigasyondan Erişilemeyen Ekranlar",
+        "",
+        "- **Yerel test sunucusu kapsamı**: Canlı Supabase oturum açma / Google-Apple OAuth, gerçek StoreKit abonelik satın alma, "
+        "anlık bildirim (push) izinleri, fiziksel cihaz ses kesintileri/arka plan davranışı ve canlı üretken yapay zeka yanıtları "
+        "bu yerel fixture koşusunda doğrulanmaz.",
+        "- **Navigasyonda bağlantısı olmayan (erişilemeyen) Compose ekranları**: Kod tabanında tanımlı olduğu halde "
+        "`MainScreen` ve ana gezinme yollarından doğrudan açılamayan ekranlar XCUITest ile gezilemez:",
+        "  - " + ", ".join(f"`{screen}`" for screen in UNREACHABLE_CODEBASE_SCREENS),
+    ])
+    return "\n".join(lines).strip() + "\n"
+
+
+def _markdown_to_plain_text(md_text):
+    out = []
+    for line in md_text.splitlines():
+        if line.startswith("# "):
+            title = line[2:].strip()
+            out.append(title)
+            out.append("=" * len(title))
+        elif line.startswith("## "):
+            title = line[3:].strip()
+            out.append(f"\n[ {title} ]")
+            out.append("-" * (len(title) + 4))
+        elif line.startswith("### "):
+            out.append(f"\n* {line[4:].strip()}")
+        else:
+            cleaned = re.sub(r"\*\*(.*?)\*\*", r"\1", line).replace("`", "")
+            out.append(cleaned)
+    return "\n".join(out).strip() + "\n"
+
+
+def write_review_note(results, output):
+    output.mkdir(parents=True, exist_ok=True)
+    note_md = build_review_note(results, output)
+    (output / "inceleme-notu.md").write_text(note_md, encoding="utf-8")
+    (output / "inceleme-notu.txt").write_text(_markdown_to_plain_text(note_md), encoding="utf-8")
+    return note_md
 
 
 def write_reports(results, output):
     output.mkdir(parents=True, exist_ok=True)
     (output / "summary.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
-    write_gallery(results, output)
+    review_note = write_review_note(results, output)
+    write_gallery(results, output, review_note=review_note)
     suite = ET.Element("testsuite", name="iOS user journeys")
     for result in results:
         outcomes = result.get("journeys", {})
@@ -211,7 +665,7 @@ def journey_titles(outcomes):
     return LEGACY_JOURNEYS if outcomes.keys() & LEGACY_JOURNEYS.keys() else JOURNEYS
 
 
-def write_gallery(results, output):
+def write_gallery(results, output, review_note=None):
     sections = []
     devices = {result["family"]: set(result.get("screenshots", [])) for result in results if result.get("family")}
     reference = output / "Android"
@@ -229,7 +683,8 @@ def write_gallery(results, output):
         if family and "failure-screen.png" in devices[family]:
             links.append(f'<a href="{family}/failure-screen.png">Hata sonundaki ekran</a>')
         for filename, label in (("uitest.log", "XCUITest günlüğü"), ("console.log", "Başlangıç günlüğü"),
-                                ("accessibility.txt", "Erişilebilirlik bulguları")):
+                                ("accessibility.txt", "Erişilebilirlik bulguları"),
+                                ("probes.txt", "Çalışma zamanı denetim notları")):
             if family and (output / family / filename).exists():
                 links.append(f'<a href="{family}/{filename}">{label}</a>')
         tests = result.get("xcuitest")
@@ -270,9 +725,12 @@ def write_gallery(results, output):
                       f'<thead><tr><th scope="col">Ekran</th><th scope="col">iPhone</th><th scope="col">iPad</th>{android_header}</tr></thead>'
                       f'<tbody>{"".join(rows)}</tbody></table></section>')
 
-    navigation = " · ".join([f'<a href="#{family}">{family} sonuçları</a>' for family in devices] +
-                             [f'<a href="#screens-{index}">{title}</a>'
-                              for index, (title, _, _) in enumerate(SCREEN_GROUPS, start=1)])
+    navigation = " · ".join(
+        ['<a href="#review-note">Detaylı İnceleme Notu</a>']
+        + [f'<a href="#{family}">{family} sonuçları</a>' for family in devices]
+        + [f'<a href="#screens-{index}">{title}</a>'
+           for index, (title, _, _) in enumerate(SCREEN_GROUPS, start=1)]
+    )
     page = """<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>KitapDuy iOS kullanıcı deneyimi</title><style>
 body{font:16px system-ui;max-width:1080px;margin:32px auto;padding:0 16px;color:#29251f;background:#faf7f1}
@@ -280,6 +738,10 @@ a{color:#704527}nav{line-height:2}section{padding:16px 0}li{padding-block:3px}li
 video{width:min(100%,680px);max-height:460px;background:#221d18}pre{white-space:pre-wrap;overflow-wrap:anywhere}
 table{width:100%;table-layout:fixed;border-collapse:collapse;background:#fff}th,td{padding:8px;border:1px solid #dfd6cb;text-align:left}
 th:first-child{width:24%}td a{display:block;margin:6px 0}img{display:block;width:100%;height:clamp(110px,36vw,320px);object-fit:contain}
+.review-note-panel{background:#fff;border:1px solid #dfd6cb;border-radius:10px;padding:16px;margin:16px 0}
+.note-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.copy-btn{background:#704527;color:#fff;border:0;border-radius:6px;padding:8px 14px;font:600 14px system-ui;cursor:pointer}
+.review-note{max-height:440px;overflow:auto;background:#faf7f1;border:1px solid #dfd6cb;border-radius:6px;padding:12px;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}
 </style><h1>KitapDuy iOS kullanıcı deneyimi</h1>
 <p>Gerçek iPhone ve iPad simülatörü görüntülerini KitapDuy3 ile karşılaştırmak için ekranlara tıkla.</p>
 <p>Senaryolar yerel örnek veriyle çalışır. Canlı hesap girişi, mağaza işlemleri ve fiziksel cihaz davranışı ayrı doğrulama gerektirir.</p>"""
@@ -287,6 +749,46 @@ th:first-child{width:24%}td a{display:block;margin:6px 0}img{display:block;width
     provenance = ""
     if has_android and reference_info.is_file():
         provenance = f'<p>{html.escape(reference_info.read_text(encoding="utf-8", errors="replace").strip())}</p>'
+    if review_note is None:
+        note_md_path = output / "inceleme-notu.md"
+        review_note = note_md_path.read_text(encoding="utf-8") if note_md_path.is_file() else build_review_note(results, output)
+    review_section = (
+        '<section id="review-note" class="review-note-panel">'
+        '<h2>Detaylı İnceleme Notu</h2>'
+        '<p>Simülatör çalıştırmasındaki bulgular, Edebi Danışman denetimi ve backend yazma kontrolleri tek raporda toplandı. '
+        'Notu panoya kopyalayıp düzeltme turu için doğrudan paylaşabilirsiniz.</p>'
+        '<p class="note-actions">'
+        '<button type="button" class="copy-btn" id="copy-review-note">Notu Panoya Kopyala</button>'
+        '<a href="inceleme-notu.md">inceleme-notu.md</a>'
+        '<a href="inceleme-notu.txt">inceleme-notu.txt</a>'
+        '<span id="copy-review-status" aria-live="polite"></span>'
+        '</p>'
+        f'<pre id="review-note-text" class="review-note">{html.escape(review_note)}</pre>'
+        '</section>'
+    )
+    copy_script = """<script>
+(function(){
+  var btn=document.getElementById('copy-review-note');
+  var status=document.getElementById('copy-review-status');
+  var source=document.getElementById('review-note-text');
+  if(!btn||!source){return;}
+  btn.addEventListener('click',function(){
+    var text=source.textContent||'';
+    function done(ok){if(status){status.textContent=ok?'Panoya kopyalandı.':'Kopyalama başarısız; metni elle seçin.';}}
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){done(true);},function(){fallback();});
+    }else{fallback();}
+    function fallback(){
+      try{
+        var ta=document.createElement('textarea');
+        ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+        document.body.appendChild(ta);ta.select();
+        done(document.execCommand('copy'));document.body.removeChild(ta);
+      }catch(_){done(false);}
+    }
+  });
+})();
+</script>"""
     findings_path = output / "observations.txt"
     findings = ""
     if findings_path.is_file():
@@ -294,8 +796,11 @@ th:first-child{width:24%}td a{display:block;margin:6px 0}img{display:block;width
         findings = '<section><h2>Karşılaştırma bulguları</h2><ul>' + "".join(
             f'<li>{html.escape(line)}</li>' for line in observations if line.strip()
         ) + '</ul></section>'
-    (output / "index.html").write_text(page + provenance + f'<nav aria-label="Rapor bölümleri">{navigation}</nav>' +
-                                       findings + "".join(sections + groups) + "</html>", encoding="utf-8")
+    (output / "index.html").write_text(
+        page + provenance + f'<nav aria-label="Rapor bölümleri">{navigation}</nav>' +
+        review_section + findings + "".join(sections + groups) + copy_script + "</html>",
+        encoding="utf-8",
+    )
 
 
 class SimulatorRunner:
@@ -484,7 +989,7 @@ class SimulatorRunner:
                         ["xcodebuild", "test-without-building", "-xctestrun", str(self.test_run),
                          "-destination", f"platform=iOS Simulator,id={udid}",
                          "-parallel-testing-enabled", "NO", "-resultBundlePath", str(bundle)],
-                        env=environment, stdout=log, stderr=subprocess.STDOUT, timeout=900,
+                        env=environment, stdout=log, stderr=subprocess.STDOUT, timeout=1500,
                     )
                 result["fixture_requests"] = list(requests)
                 log_text = test_log.read_text(encoding="utf-8", errors="replace")
@@ -530,6 +1035,12 @@ class SimulatorRunner:
                         result.setdefault("collection_warning", str(failure))
                 try:
                     result["screenshots"].extend(export_evidence(bundle, directory))
+                    probes_file = directory / "probes.json"
+                    if probes_file.is_file():
+                        loaded_probes = json.loads(probes_file.read_text(encoding="utf-8"))
+                        result["probe_counts"] = dict(Counter(
+                            _normalize_probe_record(p)["status"] for p in loaded_probes
+                        ))
                 except Exception as failure:
                     result["screenshot_warning"] = str(failure)
                 try:

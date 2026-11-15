@@ -248,7 +248,7 @@ fun AskidaKitaplarList(viewModel: AskidaViewModel, onClaimSuccess: () -> Unit, o
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("askida-search"),
                 placeholder = { Text("Kitap veya şehir ara...", color = Color.Gray, fontSize = 14.sp) },
                 leadingIcon = { Icon(Icons.Default.Search, null, tint = Color.Gray) },
                 shape = RoundedCornerShape(12.dp),

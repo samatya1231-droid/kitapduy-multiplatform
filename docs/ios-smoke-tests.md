@@ -6,19 +6,21 @@ Bitrise’ta özel GitHub deposunu projeye bağlayın. **Workflows → Change st
 
 Her akış Release simülatör uygulamasını ve XCUITest hedefini derler. İki cihaz ailesini de destekleyen en yeni kurulu iOS çalışma ortamında bir iPhone ve bir iPad oluşturur. Cihaz ve iOS sürümü raporda gösterilir.
 
-Çalıştırmanın **Artifacts** bölümündeki **`kitapduy-ios-qa`** arşivini indirin, tamamını çıkarın ve **`index.html`** dosyasını tarayıcıda açın. Videolar sayfanın içinden izlenebilir. Aynı ekranın iPhone ve iPad görüntüleri yan yana gelir ve tıklandığında tam boy açılır. Senaryo sonuçları, hata anları ve Apple erişilebilirlik bulguları aynı raporda yer alır. `summary.json` cihaz başına senaryo sonuçlarını ve alınan kanıtları listeler. Codemagic ayrıca Xcode ile açılabilen `journey.xcresult.zip` arşivlerini saklar. Derleme simülatör testlerinden önce durursa GitHub ve Bitrise artifact’inde varsa derleme günlükleri yer alır.
+Çalıştırmanın **Artifacts** bölümündeki **`kitapduy-ios-qa`** arşivini indirin, tamamını çıkarın ve **`index.html`** dosyasını tarayıcıda açın. Videolar sayfanın içinden izlenebilir. Sayfanın üst bölümündeki **Detaylı İnceleme Notu** panelinden (**Notu Panoya Kopyala** düğmesi veya **`inceleme-notu.md`** / **`inceleme-notu.txt`** dosyaları üzerinden) çalıştırma bulgularını doğrudan kopyalayıp paylaşabilirsiniz. Aynı ekranın iPhone ve iPad görüntüleri yan yana gelir ve tıklandığında tam boy açılır. Senaryo sonuçları, hata anları, çalışma zamanı denetim notları (`probes.txt` / `probes.json`) ve Apple erişilebilirlik bulguları (`accessibility.txt`) aynı raporda yer alır. `summary.json` cihaz başına senaryo sonuçlarını ve alınan kanıtları listeler. Codemagic ayrıca Xcode ile açılabilen `journey.xcresult.zip` arşivlerini saklar. Derleme simülatör testlerinden önce durursa GitHub ve Bitrise artifact’inde varsa derleme günlükleri yer alır.
 
-## Kapsam
+## Kapsam (`test01` – `test14`)
 
 | Senaryo | Beklenen davranış |
 |---|---|
-| İlk açılış ve misafir girişi | Uygulama açılır. Misafir düğmesiyle Ana Sayfa’ya girilir ve kitaplar görünür. Ktor Darwin, ayrı bir HTTPS isteğinde başlıkları ve gövdeyi okuyabilir. |
-| Ana Sayfa, Keşfet ve kitap detayı | Önerilen kitaplar ve podcast alanı görüntülenir. Boş ve dolu arama sonuçları, kitap detayı ve aramaya dönüş doğrulanır. |
-| Kitap ve podcast oynatma | Gerçek AVPlayer ilerlemesi, kitapta duraklatma ve 15 saniye ileri/geri kontrolleri doğrulanır. Podcast bölüm listesi ve oynatıcı görünümü de kaydedilir. |
-| Kitaplık | Favoriler, İndirilenler, Geçmiş ve Bitirdiklerim rafı oynatma testinden bağımsız açılır. |
-| Akış ve Profil | Örnek gönderi yazılır ve Akış’ta görünür. Profil adı düzenlenir ve kaydedilen ad görünür. Gönderi ve profil güncellemesi yerel test sunucusunda da doğrulanır. |
-| Ayarlar ve Premium | Koyu tema anahtarı değişir. Premium açılır. Geri yükleme düğmesi ve iki yasal ekran erişilebilir. |
-| Erişilebilirlik | Apple denetimi seçili ekranlarda kontrast, kesilen yazı, dokunma alanı ve erişilebilirlik açıklaması bulgularını `accessibility.txt` dosyasına yazar. Bulgular inceleme için kaydedilir. |
+| İlk açılış ve misafir girişi (`test01`) | Uygulama açılır. Misafir düğmesiyle Ana Sayfa’ya girilir ve kitaplar görünür. Ktor Darwin, ayrı bir HTTPS isteğinde başlıkları ve gövdeyi okuyabilir. |
+| Ana Sayfa, Keşfet ve kitap detayı (`test01`, `test07`) | Önerilen kitaplar, podcast sırası, kategori/yazar/ruh hali detayları ve makale görünümü kontrol edilir. Boş ve dolu arama sonuçları, kitap detayı ve aramaya dönüş doğrulanır. |
+| Kitap ve podcast oynatma (`test02`, `test03`, `test10`) | Gerçek AVPlayer ilerlemesi, kitapta duraklatma ve 15 saniye ileri/geri kontrolleri, 1 Dakikada Eser Özeti, beğeni, hız/uyku/alıntı diyalogları, rafa ekleme, yorum gönderimi, Mini Player ve podcast oynatıcı kontrolleri denetlenir. |
+| Edebi Danışman · derin inceleme (`test08`, `test09`) | Ana Sayfa FAB, Keşfet ve Kitaplık giriş noktaları; Hakkında ve Okuma Görünümü diyalogları; ruh hali chipleri, öneri/analiz/beyin fırtınası/münazara/okuma rotası akışları; derinlik ve spoiler ayarları; serbest soru, takip sorusu yönlendirmesi ve önerilen kitaptan `BookDetailScreen` geçişi denetlenir. |
+| Kitap İste, okur profilleri ve dolu Kitaplık (`test04`, `test11`) | Boş/dolu Kitaplık (Favoriler, İndirilenler, Geçmiş, raflar, Övünç Rafı), Kitap İste formu, okur araması ve başka okur profilinde Takip et/Takipten çık akışları kontrol edilir. |
+| Akış, anket, yorum CRUD ve bildirimler (`test05`, `test12`) | Gönderi/anket yazma, anket oylama, `PostDetailScreen` yorum ekleme/düzenleme/silme, bildirimlerde tümünü okundu işaretleme ve yerel test sunucusunda backend yazmaları doğrulanır. |
+| Profil, Yıllık Özet, Arena ve Askıda Kitap (`test08`, `test13`) | Okur köşem, Yıllık Özet (`PremiumWrappedScreen`), Paylaşımlarım, profil düzenleme, KitapDuy Arena modları (Quiz, Turnuva, Blitz Arena, Liderlik) ve Askıda Kitap (arama, talep, sohbet, bağış) incelenir. |
+| Koyu tema tam denetim ve Premium (`test06`, `test14`) | Koyu tema anahtarı, tüm ana ekranlarda (Ana Sayfa, Edebi Danışman, Keşfet, Kitap Detayı, Akış) koyu tema kontrast/yerleşim denetimi, Premium planları, geri yükleme ve iki yasal ekran doğrulanır. |
+| Erişilebilirlik ve İnceleme Notu | Apple denetimi bulgularını `accessibility.txt` dosyasına, çalışma zamanı prob kontrollerini `probes.json` / `probes.txt` dosyalarına yazar; tümü **`inceleme-notu.md`**, **`inceleme-notu.txt`** ve `index.html` içinde özetlenir. |
 
 Her cihaz kendi yerel test sunucusuyla başlar. Örnek kitap, podcast, hesap ve gönderiler simülatör senaryosuna aittir. HTTPS kontrolü varsayılan olarak `https://example.com/` kullanır. `IOS_SMOKE_HTTPS_URL` ile kimlik bilgisi içermeyen başka bir genel HTTPS uç noktası seçilebilir. Canlı Supabase yetkileri, Google/Apple girişi, StoreKit satın alma ve fiziksel cihaz davranışı ayrı doğrulama gerektirir. Galeri `kitapduy3` ile ekranları elle karşılaştırmak için kullanılabilir.
 

@@ -177,7 +177,7 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                                 value = pollQuestion,
                                 onValueChange = { if (it.length <= 100) pollQuestion = it },
                                 label = { Text("Tartışma Konusu") },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth().testTag("feed-poll-question"),
                                 shape = RoundedCornerShape(16.dp)
                             )
                             Spacer(Modifier.height(8.dp))
@@ -186,7 +186,7 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                                     value = option,
                                     onValueChange = { pollOptions[index] = it },
                                     label = { Text("Seçenek ${index + 1}") },
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("feed-poll-option-$index"),
                                     shape = RoundedCornerShape(12.dp)
                                 )
                             }
@@ -302,6 +302,7 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                                 .size(48.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                                .testTag("feed-refresh")
                         ) {
                             Icon(
                                 Icons.Filled.Refresh,
@@ -316,6 +317,7 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                                 .size(48.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                                .testTag("feed-notifications")
                         ) {
                             Icon(
                                 Icons.Filled.Notifications,

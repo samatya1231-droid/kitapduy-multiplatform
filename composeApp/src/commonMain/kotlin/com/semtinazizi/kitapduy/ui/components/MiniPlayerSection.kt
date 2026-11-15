@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,6 +50,7 @@ fun MiniPlayerSection(
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 6.dp)
             .height(72.dp)
+            .testTag("mini-player")
             .clickable { onClick() },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -125,6 +127,7 @@ fun MiniPlayerSection(
                         .padding(end = if (onCloseClick != null) 6.dp else 12.dp)
                         .size(44.dp)
                         .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f), CircleShape)
+                        .testTag("mini-player-play-pause")
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
@@ -144,6 +147,7 @@ fun MiniPlayerSection(
                         modifier = Modifier
                             .padding(end = 8.dp)
                             .size(36.dp)
+                            .testTag("mini-player-close")
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,

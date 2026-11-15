@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -310,7 +311,10 @@ class LiteraryAdvisorScreen(
                                 Icon(Icons.Filled.Refresh, contentDescription = "Yeni sohbet")
                             }
                         }
-                        IconButton(onClick = { showInformation = true }) {
+                        IconButton(
+                            onClick = { showInformation = true },
+                            modifier = Modifier.testTag("advisor-info-button")
+                        ) {
                             Icon(Icons.Filled.Info, contentDescription = "Bilgi")
                         }
                     },
@@ -563,7 +567,8 @@ private fun AdvisorWelcomeSection(
 
         TextButton(
             onClick = onInformation,
-            contentPadding = PaddingValues(vertical = 8.dp)
+            contentPadding = PaddingValues(vertical = 8.dp),
+            modifier = Modifier.testTag("advisor-archive-about")
         ) {
             Icon(Icons.Filled.Info, contentDescription = null, modifier = Modifier.size(15.dp))
             Spacer(Modifier.width(7.dp))
@@ -754,7 +759,10 @@ private fun AdvisorMessageBubble(
         }
 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            TextButton(onClick = onRead) {
+            TextButton(
+                onClick = onRead,
+                modifier = Modifier.testTag("advisor-reading-view")
+            ) {
                 Icon(Icons.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("Okuma görünümü", style = MaterialTheme.typography.labelMedium)
@@ -786,11 +794,12 @@ private fun AdvisorMessageBubble(
 
         if (followUps.isNotEmpty()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(followUps, key = { it.first }) { (label, prompt) ->
+                itemsIndexed(followUps, key = { _, item -> item.first }) { index, (label, prompt) ->
                     SuggestionChip(
                         onClick = { onFollowUp(prompt) },
                         label = { Text(label, style = MaterialTheme.typography.labelMedium) },
-                        shape = RoundedCornerShape(18.dp)
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier.testTag("advisor-followup-$index")
                     )
                 }
             }

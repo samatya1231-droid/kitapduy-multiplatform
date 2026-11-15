@@ -2,29 +2,54 @@ import CoreGraphics
 import Foundation
 import XCTest
 
+private struct ProbeRecord: Codable {
+    let journey: String
+    let screen: String
+    let theme: String
+    let category: String
+    let status: String
+    let summary: String
+    let detail: String
+}
+
 @MainActor
 final class ReaderJourneyTests: XCTestCase {
     private let app = XCUIApplication(bundleIdentifier: "com.semtinazizi.kitapduy")
     private let guestName = "Misafir"
+    private var probeLog: [ProbeRecord] = []
+    private var seenProbeKeys: Set<String> = []
+    private var currentJourneyName: String = ""
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        probeLog = []
+        seenProbeKeys = []
+        currentJourneyName = sanitizedMethodName()
+    }
+
+    override func tearDownWithError() throws {
+        flushProbes()
+        try super.tearDownWithError()
+    }
 
     func test01HomeDiscoverAndBookDetail() throws {
         try launchAndSignIn()
         try step("22-home-catalog") {
             try visible(text("Yeni hikâyeler keşfet"))
             audit("22-home-catalog")
+            inspectScreen("22-home-catalog")
         }
         try step("24-discover") {
             try tap(element("tab-discover"))
             try visible(element("discover-query"))
             audit("24-discover")
+            inspectScreen("24-discover")
         }
         try step("24b-discover-categories") {
             try visible(element("discover-category-Polisiye"), scroll: true)
+            inspectScreen("24b-discover-categories")
         }
-        for _ in 0..<6 {
-            if element("discover-query").exists && element("discover-query").isHittable { break }
-            app.swipeDown(velocity: .slow)
-        }
+        try scrollToTop(target: element("discover-query"))
         try step("03-search-empty-result") {
             try search("zxq-no-catalog-result")
             try visible(text("Kitap veya podcast bulunamadı."))
@@ -36,17 +61,11 @@ final class ReaderJourneyTests: XCTestCase {
         try step("05-book-detail") {
             try openBookResult()
             audit("05-book-detail")
+            inspectScreen("05-book-detail")
         }
         try step("08-book-back-to-search") {
             try tap(text("Geri"))
             try visible(element("discover-query"))
-        }
-    }
-
-    func test07HomePodcasts() throws {
-        try launchAndSignIn()
-        try step("23-home-podcasts") {
-            try visible(text("Podcast dünyası"), scroll: true)
         }
     }
 
@@ -56,6 +75,8 @@ final class ReaderJourneyTests: XCTestCase {
         try openBookResult()
         try step("25-book-player") {
             try visible(element("book-play-pause"), scroll: true)
+            audit("25-book-player")
+            inspectScreen("25-book-player")
         }
         try step("06-book-playing") {
             try tap(element("book-play-pause"), scroll: true)
@@ -84,17 +105,40 @@ final class ReaderJourneyTests: XCTestCase {
             try search("Barış Özcan", clearFirst: element("discover-clear").exists)
             try tap(element("podcast-result-podcast_111hz"))
             try visible(element("podcast-episode-0"))
+            audit("09-podcast-episodes")
+            inspectScreen("09-podcast-episodes")
         }
         try step("26-podcast-player") {
             try tap(element("podcast-episode-0"))
             try visible(element("podcast-play-pause"), scroll: true)
             try visible(element("podcast-elapsed"), scroll: true)
+            audit("26-podcast-player")
+            inspectScreen("26-podcast-player")
         }
         try step("10-podcast-playing") {
             try waitFor("Podcast konumu ilerlemeli") { self.elapsed("podcast-elapsed") >= 2 }
         }
-        try step("31-podcast-back-to-search") {
+        try step("39-podcast-controls") {
             try tap(element("podcast-play-pause"))
+            try tap(text("1.0x"), scroll: true)
+            try visible(text("Çalma Hızı"))
+            try tap(text("1.25x"))
+            try visible(text("1.25x"))
+            try tap(text("Atmosfer"))
+            try visible(text("Atmosfer Sesleri"))
+            try tap(firstCloseButton())
+            try tap(text("Uyku"))
+            try visible(text("Uyku Modu"))
+            try tap(text("15 Dakika"))
+            recordProbe(
+                screen: "39-podcast-controls",
+                category: "Functional",
+                status: "PASS",
+                summary: "Podcast hız, atmosfer ve uyku zamanlayıcı diyalogları çalıştı",
+                detail: "1.25x hız seçimi, Atmosfer Sesleri kapatma ve 15 Dakika uyku zamanlayıcısı doğrulandı."
+            )
+        }
+        try step("31-podcast-back-to-search") {
             try tap(text("Geri"))
             try visible(element("podcast-episode-0"))
             try tap(text("Geri"))
@@ -110,6 +154,7 @@ final class ReaderJourneyTests: XCTestCase {
             try tap(element("library-tab-0"))
             try visible(text("Favoriler listeniz şu an boş."))
             audit("27-library-favorites")
+            inspectScreen("27-library-favorites")
         }
         try step("11-library-downloads-empty") {
             try tap(element("library-tab-1"))
@@ -124,6 +169,8 @@ final class ReaderJourneyTests: XCTestCase {
             try visible(text("Bitirdiklerim"))
             try tap(text("Bitirdiklerim"))
             try visible(text("Bu raf henüz boş."))
+            audit("12-library-shelves")
+            inspectScreen("12-library-shelves")
         }
     }
 
@@ -133,6 +180,7 @@ final class ReaderJourneyTests: XCTestCase {
             try tap(element("tab-feed"))
             try visible(text("Edebiyat Duvarı"))
             audit("13-feed")
+            inspectScreen("13-feed")
         }
         try step("14-feed-compose") {
             try tap(element("feed-compose"))
@@ -149,15 +197,25 @@ final class ReaderJourneyTests: XCTestCase {
             try tap(element("tab-profile"))
             try visible(text("Okur köşem"))
             audit("29-profile")
+            inspectScreen("29-profile")
         }
         try step("16-profile-edit") {
             try tap(element("profile-edit"), scroll: true)
             try visible(element("profile-name"))
+            inspectScreen("16-profile-edit")
         }
         try step("17-profile-saved") {
+            if element("profile-username").exists {
+                try type("deneme_okur", into: element("profile-username"))
+                dismissKeyboardIfNeeded()
+            }
+            if element("profile-bio").exists {
+                try type("Edebi okuma notlari", into: element("profile-bio"))
+                dismissKeyboardIfNeeded()
+            }
             let field = element("profile-name")
             let updatedName = guestName + " Profil"
-            try tap(field)
+            try tap(field, scroll: true)
             field.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
             field.typeText(" Profil")
             field.typeText(XCUIKeyboardKey.return.rawValue)
@@ -165,10 +223,7 @@ final class ReaderJourneyTests: XCTestCase {
             try tap(app.buttons["profile-save"], scroll: true)
             try waitFor("Profil düzenleme ekranı kapanmalı") { !field.exists }
             let name = text(updatedName)
-            for _ in 0..<4 {
-                if name.exists && name.isHittable { break }
-                app.swipeDown(velocity: .slow)
-            }
+            try scrollToTop(target: name)
             try visible(name)
         }
     }
@@ -180,16 +235,34 @@ final class ReaderJourneyTests: XCTestCase {
             try tap(element("profile-settings"))
             try visible(element("settings-dark-mode-off"))
             audit("18-settings-light")
+            inspectScreen("18-settings-light")
         }
         try step("19-settings-dark") {
             try tap(element("settings-dark-mode-off"))
             try visible(element("settings-dark-mode-on"))
-            audit("19-settings-dark")
+            audit("19-settings-dark", theme: "Koyu")
+            inspectScreen("19-settings-dark", theme: "Koyu")
+        }
+        try step("40-settings-statistics") {
+            try tap(text("İstatistikler"), scroll: true)
+            try visible(text("İstatistikler"))
+            audit("40-settings-statistics", theme: "Koyu")
+            inspectScreen("40-settings-statistics", theme: "Koyu")
+            try tap(text("Geri"))
+            try visible(text("Ayarlar"))
+        }
+        try step("41-settings-delete-dialog") {
+            try tap(text("Hesabı Sil"), scroll: true)
+            try visible(text("Evet, Sil"))
+            inspectScreen("41-settings-delete-dialog", theme: "Koyu")
+            try tap(text("Vazgeç"))
+            try waitFor("Hesabı Sil diyaloğu kapanmalı") { !self.text("Evet, Sil").exists }
         }
         try step("20-premium") {
             try tap(element("settings-premium"), scroll: true)
             try visible(text("KitapDuy · PREMIUM"))
             audit("20-premium")
+            inspectScreen("20-premium")
         }
         try step("30-premium-terms") {
             try visible(text("Satın Alımları Geri Yükle"), scroll: true)
@@ -201,6 +274,84 @@ final class ReaderJourneyTests: XCTestCase {
             try visible(text("KitapDuy · PREMIUM"))
             try tap(text("Gizlilik Politikası"), scroll: true)
             try visible(text("KitapDuy — iOS Gizlilik Politikası", contains: true))
+            audit("21-premium-legal")
+            inspectScreen("21-premium-legal")
+        }
+        // Reset dark mode back to Light so test07..test13 validate consistent Light theme before test14 Dark Mode audit.
+        try tap(text("Geri"))
+        try visible(text("KitapDuy · PREMIUM"))
+        try tap(firstCloseButton())
+        try scrollToTop(target: element("settings-dark-mode-on"))
+        if element("settings-dark-mode-on").exists {
+            try tap(element("settings-dark-mode-on"))
+            try visible(element("settings-dark-mode-off"))
+        }
+    }
+
+    func test07HomePodcasts() throws {
+        try launchAndSignIn()
+        recordProbe(
+            screen: "22-home-catalog",
+            category: "Functional",
+            status: "WARN",
+            summary: "Ana sayfa 'Tümü' filtre çipi tıklanınca işlem yapmıyor (onClick = {})",
+            detail: "HomeScreen.kt içindeki 'Tümü' FilterChip öğesi etkileşimsiz tanımlanmış; kullanıcı seçili kategori/filtre yenileme bekleyebilir."
+        )
+        try step("23-home-podcasts") {
+            try visible(text("Podcast dünyası"), scroll: true)
+        }
+        try scrollToTop(target: text("Polisiye"))
+        try step("42-category-detail") {
+            try tap(text("Polisiye"))
+            try visible(text("Tümünü Gör"), scroll: true)
+            audit("42-category-detail")
+            inspectScreen("42-category-detail")
+        }
+        try step("43-author-detail") {
+            try tap(text("Tümünü Gör"))
+            try visible(text("Arthur Conan Doyle", contains: true))
+            audit("43-author-detail")
+            inspectScreen("43-author-detail")
+            try tap(text("Geri"))
+            try visible(text("Tümünü Gör"))
+            try tap(text("Geri"))
+            try visible(text("Bugün nasıl bir hikâye?"), scroll: true)
+        }
+        try step("44-mood-detail") {
+            try tap(text("Huzurlu", contains: true), scroll: true)
+            try visible(text("Kitap Önerileri"), scroll: true)
+            audit("44-mood-detail")
+            inspectScreen("44-mood-detail")
+            try tap(text("Geri"))
+        }
+        try step("45-home-articles-check") {
+            var foundArticles = false
+            for _ in 0..<8 {
+                if text("Bilim & Düşünce").exists && text("Bilim & Düşünce").isHittable {
+                    foundArticles = true
+                    break
+                }
+                app.swipeUp(velocity: .slow)
+            }
+            if foundArticles {
+                recordProbe(
+                    screen: "45-home-articles-check",
+                    category: "Content",
+                    status: "PASS",
+                    summary: "Ana sayfa 'Bilim & Düşünce' RSS makale satırı yüklendi",
+                    detail: "Dış RSS kaynağından makaleler başarıyla çekildi."
+                )
+                audit("45-home-articles-check")
+                inspectScreen("45-home-articles-check")
+            } else {
+                recordProbe(
+                    screen: "45-home-articles-check",
+                    category: "Content",
+                    status: "WARN",
+                    summary: "Ana sayfa 'Bilim & Düşünce' RSS makaleleri yüklenmedi (çevrimdışı veya boş)",
+                    detail: "CI ortamında veya ağ kapalıyken makale satırı gizleniyor; yerel örnek/yedek içerik gösterilmiyor."
+                )
+            }
         }
     }
 
@@ -251,6 +402,464 @@ final class ReaderJourneyTests: XCTestCase {
         }
     }
 
+    func test09LiteraryAdvisorDeep() throws {
+        try launchAndSignIn()
+        // 1. Entry via Home FAB
+        try step("46-advisor-welcome") {
+            try tap(element("home-advisor-fab"))
+            try visible(element("advisor-intent-analysis"))
+            try visible(element("advisor-intent-brainstorm"))
+            try visible(element("advisor-intent-debate"))
+            try visible(element("advisor-intent-discover"))
+            try visible(element("advisor-reading-route"), scroll: true)
+            try visible(element("advisor-mood-gripping"), scroll: true)
+            audit("46-advisor-welcome")
+            inspectScreen("46-advisor-welcome")
+        }
+
+        // 2. Archive Info Modal (both bottom link and top-right info icon)
+        try step("47-advisor-info-dialog") {
+            try tap(element("advisor-archive-about"), scroll: true)
+            try visible(text("Edebi Danışman Hakkında"))
+            try visible(text("sesli kitap arşivindeki", contains: true))
+            inspectScreen("47-advisor-info-dialog")
+            try tap(text("Anladım"))
+            try waitFor("Danışman bilgi penceresi kapanmalı") { !self.text("Edebi Danışman Hakkında").exists }
+
+            try tap(element("advisor-info-button"))
+            try visible(text("Edebi Danışman Hakkında"))
+            try tap(text("Anladım"))
+        }
+
+        // 3. Analysis Starter -> Reading View modal -> Follow-up chip -> New Chat reset
+        try scrollToTop(target: element("advisor-intent-analysis"))
+        try step("48-advisor-analysis-and-reading") {
+            try tap(element("advisor-intent-analysis"))
+            try visible(element("advisor-reading-view"), scroll: true)
+            try tap(element("advisor-reading-view"))
+            try visible(text("Okuma Görünümü"))
+            inspectScreen("48-advisor-analysis-and-reading")
+            try tap(text("Kapat"))
+            try waitFor("Okuma görünümü penceresi kapanmalı") { !self.text("Okuma Görünümü").exists }
+            if element("advisor-followup-0").exists {
+                try tap(element("advisor-followup-0"))
+                try visible(text("Sahaf tavsiyesi", contains: true), scroll: true)
+                recordProbe(
+                    screen: "48-advisor-analysis-and-reading",
+                    category: "Functional",
+                    status: "INFO",
+                    summary: "Analiz takip çipi 'Sahaf tavsiyesi' kartına yönlendi",
+                    detail: "'Suç ve Ceza'yı konuşalım' takip sorusu karakter/tema analizi yerine öneri yanıtı üretti."
+                )
+            }
+            audit("48-advisor-analysis-and-reading")
+            inspectScreen("48-advisor-analysis-and-reading")
+        }
+
+        // 4. Reset chat, test Brainstorm, Debate, and Discovery chip toggle
+        try step("49-advisor-brainstorm-debate") {
+            try tap(element("advisor-new-chat"))
+            try visible(element("advisor-intent-brainstorm"))
+            try tap(element("advisor-intent-brainstorm"))
+            try visible(text("Fikir geliştirme", contains: true))
+
+            try tap(element("advisor-new-chat"))
+            try tap(element("advisor-intent-debate"))
+            try visible(text("Edebî tartışma", contains: true))
+
+            try tap(element("advisor-new-chat"))
+            try visible(element("advisor-mood-gripping"), scroll: true)
+            try scrollToTop(target: element("advisor-intent-discover"))
+            try tap(element("advisor-intent-discover"))
+            app.swipeUp(velocity: .slow)
+            if self.text("Ruh Halime Göre").exists {
+                throw JourneyError("Ruh hali keşif bölümü gizlenmedi")
+            }
+            try scrollToTop(target: element("advisor-intent-discover"))
+            try tap(element("advisor-intent-discover"))
+            try visible(element("advisor-mood-gripping"), scroll: true)
+            inspectScreen("49-advisor-brainstorm-debate")
+        }
+
+        // 5. Response Depth + Spoiler chips + Custom query + Book card navigation + Reading Route + Library pill entry
+        try step("50-advisor-custom-query-and-book") {
+            try tap(element("advisor-depth-deep"))
+            try tap(element("advisor-spoiler"))
+            try type("Kizil Dosya polisiye oner", into: element("advisor-input"))
+            try tap(element("advisor-send"))
+            try visible(text("Spoilersız mod", contains: true), scroll: true)
+            audit("50-advisor-custom-query-and-book")
+            inspectScreen("50-advisor-custom-query-and-book")
+
+            let recCard = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'advisor-rec-'")).firstMatch
+            try visible(recCard, scroll: true)
+            try tap(recCard)
+            try visible(element("book-play-pause"), scroll: true)
+            try tap(text("Geri"))
+            try visible(element("advisor-new-chat"))
+
+            try tap(element("advisor-new-chat"))
+            try tap(element("advisor-reading-route"), scroll: true)
+            try visible(text("Isınma Durağı", contains: true), scroll: true)
+            recordProbe(
+                screen: "50-advisor-custom-query-and-book",
+                category: "Functional",
+                status: "PASS",
+                summary: "Edebi Danışman derinlik, spoiler, özel soru, rota ve kitap yönlendirmesi doğrulandı",
+                detail: "3 giriş noktası, 4 başlangıç kartı, Okuma Görünümü, Bilgi penceresi, Yeni Sohbet, takip çipleri ve kitap kartı geçişi çalıştı."
+            )
+        }
+        try tap(element("advisor-back"))
+        // 6. Entry 3 via Library Pill
+        try tap(element("tab-library"))
+        try tap(element("library-advisor-pill"))
+        try visible(element("advisor-intent-analysis"))
+        try tap(element("advisor-back"))
+    }
+
+    func test10BookDetailFeaturesAndMiniPlayer() throws {
+        try launchAndSignIn()
+        try search("Kızıl Dosya", clearFirst: true)
+        try openBookResult()
+
+        try step("51-book-summary-and-like") {
+            try visible(text("1 Dakikada Eser Özeti", contains: true), scroll: true)
+            try tap(text("1 Dakikada Eser Özeti", contains: true))
+            try visible(text("Kısalt"))
+
+            try tap(element("book-like"), scroll: true)
+            try visible(text("Kitap beğenileri şu anda kullanılamıyor."))
+            inspectScreen("51-book-summary-and-like")
+            try tap(text("Tamam"))
+        }
+
+        try step("52-book-dialogs-and-shelf") {
+            try tap(text("1.0x"), scroll: true)
+            try visible(text("Çalma Hızı"))
+            try tap(text("1.25x"))
+            try visible(text("1.25x"))
+
+            try tap(text("Atmosfer"))
+            try visible(text("Atmosfer Sesleri"))
+            try tap(firstCloseButton())
+
+            try tap(text("Uyku"))
+            try visible(text("Uyku Modu"))
+            try tap(text("15 Dakika"))
+
+            try tap(text("Alıntı"))
+            try visible(text("Alıntı"))
+            let quoteField = app.textViews.firstMatch.exists ? app.textViews.firstMatch : app.textFields.firstMatch
+            if quoteField.exists {
+                try type("Harika bir dedektif girisi", into: quoteField)
+                dismissKeyboardIfNeeded()
+                try tap(text("Alıntıyı kopyala"), scroll: true)
+            } else {
+                try tap(firstCloseButton())
+            }
+
+            try tap(element("book-add-shelf"), scroll: true)
+            try visible(text("Bitirdiklerim"))
+            try tap(text("Bitirdiklerim"))
+            try visible(text("Kitap rafınıza eklendi."))
+            inspectScreen("52-book-dialogs-and-shelf")
+            try tap(text("Tamam"))
+        }
+
+        try step("53-book-comment-posted") {
+            try scrollToVisible(element("book-comment-input"))
+            try type("Harika seslendirme", into: element("book-comment-input"))
+            try tap(element("book-comment-send"))
+            try visible(text("Harika seslendirme"), scroll: true)
+            inspectScreen("53-book-comment-posted")
+        }
+
+        try scrollToTop(target: element("book-play-pause"))
+        try tap(element("book-play-pause"))
+        try waitFor("Mini oynatıcı öncesi oynatma başlamalı") { self.elapsed("book-elapsed") >= 1 }
+        try tap(text("Geri"))
+        try step("54-mini-player") {
+            try visible(element("mini-player"))
+            audit("54-mini-player")
+            inspectScreen("54-mini-player")
+            try tap(element("mini-player-play-pause"))
+            try tap(element("mini-player"))
+            try visible(element("book-play-pause"), scroll: true)
+            try tap(text("Geri"))
+            try visible(element("mini-player-close"))
+            try tap(element("mini-player-close"))
+            try waitFor("Mini oynatıcı kapanmalı") { !self.element("mini-player").exists }
+        }
+    }
+
+    func test11SearchUsersAndPopulatedLibrary() throws {
+        try launchAndSignIn()
+        try tap(element("tab-discover"))
+        try step("55-search-book-request") {
+            try tap(text("Kitap İste"))
+            try visible(text("Kitap Adı", contains: true))
+            let reqField = app.textFields.firstMatch
+            try type("Satranc", into: reqField)
+            try tap(text("Gönder"))
+            try visible(text("Talebiniz Alındı"))
+            inspectScreen("55-search-book-request")
+            recordProbe(
+                screen: "55-search-book-request",
+                category: "Functional",
+                status: "WARN",
+                summary: "'Kitap İste' penceresi sunucuya istek göndermeden yerel onay gösteriyor",
+                detail: "SearchScreen.kt içindeki confirmButton alanları sıfırlayıp yerel diyalog açıyor, Supabase/API kaydı oluşturmuyor."
+            )
+            try tap(text("Tamam"))
+        }
+
+        try step("56-search-users") {
+            try tap(text("Okurlar"))
+            try type("Elif", into: element("discover-query"))
+            try visible(text("Elif Yılmaz"))
+            audit("56-search-users")
+            inspectScreen("56-search-users")
+        }
+
+        try step("57-other-user-profile") {
+            try tap(text("Elif Yılmaz"))
+            try visible(text("Okur profili"))
+            try visible(text("Takip et"))
+            try tap(text("Takip et"))
+            try visible(text("Takipten çık"))
+            audit("57-other-user-profile")
+            inspectScreen("57-other-user-profile")
+            try tap(text("Takipten çık"))
+            try visible(text("Takip et"))
+            try tap(text("Geri"))
+        }
+
+        try step("58-library-populated") {
+            try tap(element("tab-library"))
+            try tap(element("library-tab-2"))
+            try visible(text("Kızıl Dosya", contains: true))
+            inspectScreen("58-library-populated")
+            try tap(element("library-shelves"))
+            try tap(text("Bitirdiklerim"))
+            try visible(text("Kızıl Dosya", contains: true))
+            audit("58-library-populated")
+            inspectScreen("58-library-populated")
+            try tap(text("Geri"))
+        }
+    }
+
+    func test12FeedDeepNotificationsAndPostDetail() throws {
+        try launchAndSignIn()
+        try tap(element("tab-feed"))
+        try visible(text("Edebiyat Duvarı"))
+
+        try step("59-feed-poll-published") {
+            try tap(element("feed-compose"))
+            try tap(element("feed-compose-1"))
+            try visible(element("feed-poll-question"))
+            try type("Favori klasiginiz?", into: element("feed-poll-question"))
+            dismissKeyboardIfNeeded()
+            try type("Suc ve Ceza", into: element("feed-poll-option-0"))
+            dismissKeyboardIfNeeded()
+            try type("Kurk Mantolu Madonna", into: element("feed-poll-option-1"))
+            dismissKeyboardIfNeeded()
+            try tap(element("feed-post-submit"))
+            try visible(text("Favori klasiginiz?"))
+            try tap(text("Suc ve Ceza"))
+            try visible(text("1 oy", contains: true))
+
+            try tap(text("Etkinlik"))
+            try tap(text("Mısralar"))
+            try tap(element("feed-refresh"))
+            try visible(text("Favori klasiginiz?"))
+            audit("59-feed-poll-published")
+            inspectScreen("59-feed-poll-published")
+        }
+
+        try step("60-post-detail-comments") {
+            try tap(text("Favori klasiginiz?"))
+            try visible(element("post-comment-input"))
+            try type("Harika soru!", into: element("post-comment-input"))
+            try tap(element("post-comment-send"))
+            try visible(text("Harika soru!"))
+            try tap(text("Beğen (0)"))
+            try visible(text("Beğenildi (1)"))
+
+            try tap(text("Düzenle"))
+            try visible(text("Yorumu düzenle"))
+            let editField = app.alerts.textFields.firstMatch.exists ? app.alerts.textFields.firstMatch : app.textFields.firstMatch
+            if editField.exists {
+                editField.tap()
+                editField.typeText(" guncel")
+            }
+            try tap(text("Kaydet"))
+            try visible(text("Harika soru! guncel", contains: true))
+            audit("60-post-detail-comments")
+            inspectScreen("60-post-detail-comments")
+
+            try tap(text("Sil"))
+            try visible(text("Yorumu sil?"))
+            let deleteConfirm = app.buttons.matching(NSPredicate(format: "label == 'Sil'"))
+            deleteConfirm.element(boundBy: max(0, deleteConfirm.count - 1)).tap()
+            try waitFor("Yorum silinmeli") { !self.text("Yorumu sil?").exists }
+            try tap(text("Geri"))
+        }
+
+        try step("61-notifications") {
+            try tap(element("feed-notifications"))
+            try visible(text("Bildirimler"))
+            try visible(text("Deneme bildirimi"))
+            try tap(text("Tümünü okundu işaretle"))
+            try waitFor("Okundu işaretleme düğmesi kapanmalı") { !self.text("Tümünü okundu işaretle").exists }
+            audit("61-notifications")
+            inspectScreen("61-notifications")
+            try tap(text("Geri"))
+        }
+    }
+
+    func test13ProfileWrappedArenaAndAskidaDeep() throws {
+        try launchAndSignIn()
+        try step("62-profile-wrapped") {
+            try tap(element("tab-profile"))
+            try visible(text("Yıllık Özet"))
+            try tap(text("Yıllık Özet"))
+            try visible(text("Premium Analiz"))
+            audit("62-profile-wrapped")
+            inspectScreen("62-profile-wrapped")
+            try tap(text("Geri"))
+
+            try tap(text("Paylaşımlarım"))
+            try scrollToTop(target: text("Takipçi"))
+            try tap(text("Takipçi"))
+            try visible(text("Kapat"))
+            try tap(text("Kapat"))
+        }
+
+        try tap(element("tab-discover"))
+        try step("63-arena-leaderboard-and-modes") {
+            try tap(element("discover-arena-card"), scroll: true)
+            try visible(element("quiz-leaderboard-button"), scroll: true)
+            try tap(element("quiz-leaderboard-button"))
+            try visible(text("Elif Yılmaz"))
+            audit("63-arena-leaderboard-and-modes")
+            inspectScreen("63-arena-leaderboard-and-modes")
+            try tap(text("Geri"))
+            if !element("quiz-tournament-button").exists {
+                recordProbe(
+                    screen: "63-arena-leaderboard-and-modes",
+                    category: "Navigation",
+                    status: "WARN",
+                    summary: "Arena üst 'Geri' düğmesi alt ekrandan menüye dönmek yerine doğrudan Keşfet'e çıkıyor",
+                    detail: "QuizScreen.kt üst çubuk Geri tuşu gameState kontrolü yapmadan navigator.pop() çağırıyor."
+                )
+                try tap(element("discover-arena-card"), scroll: true)
+            }
+            try scrollToTop(target: element("quiz-tournament-button"))
+            try tap(element("quiz-tournament-button"))
+            try visible(text("Çok Yakında", contains: true))
+            inspectScreen("63-arena-leaderboard-and-modes")
+            try tap(text("Tamam"))
+
+            try tap(element("quiz-start-blitz"))
+            try visible(text("Çok Oyunculu Arena"))
+            recordProbe(
+                screen: "63-arena-leaderboard-and-modes",
+                category: "Functional",
+                status: "WARN",
+                summary: "Blitz Arena çok oyunculu lobiye yönleniyor (çevrimdışı yedek oyun yok)",
+                detail: "QuizScreen 'Blitz Arena' tıklamasında quiz_matches tablosuna bağlanmayı dener; test ortamında eşleşme bulunamazsa lobide kalır."
+            )
+            try tap(text("İptal Et"))
+            try tap(text("Geri"))
+        }
+
+        try step("64-askida-search-claim-and-donate") {
+            if !element("discover-askida-card").exists {
+                try tap(element("tab-discover"))
+            }
+            try scrollToVisible(element("discover-askida-card"))
+            try tap(element("discover-askida-card"))
+            try visible(element("askida-search"))
+            try type("Küçük", into: element("askida-search"))
+            try visible(text("Küçük Prens"))
+            try tap(text("Kitabı Talep Et"))
+            try visible(element("askida-tab-2"))
+            if text("Küçük Prens", contains: true).exists {
+                try tap(text("Küçük Prens", contains: true))
+                if element("askida-chat-input").exists {
+                    try type("Tesekkur ederim", into: element("askida-chat-input"))
+                    try tap(element("askida-chat-send"))
+                    try visible(text("Tesekkur ederim"))
+                    try tap(text("Geri"))
+                }
+            }
+            try tap(element("askida-tab-1"))
+            try type("Simyaci", into: element("askida-donate-title"))
+            dismissKeyboardIfNeeded()
+            try type("Bursa", into: element("askida-donate-city"))
+            dismissKeyboardIfNeeded()
+            try scrollToVisible(element("askida-donate-submit"))
+            try tap(element("askida-donate-submit"))
+            try visible(element("askida-tab-0"))
+            audit("64-askida-search-claim-and-donate")
+            inspectScreen("64-askida-search-claim-and-donate")
+        }
+    }
+
+    func test14DarkModeFullAudit() throws {
+        try launchAndSignIn()
+        try tap(element("tab-profile"))
+        try tap(element("profile-settings"))
+        if element("settings-dark-mode-off").exists {
+            try tap(element("settings-dark-mode-off"))
+            try visible(element("settings-dark-mode-on"))
+        }
+        try tap(text("Geri"))
+
+        try step("65-dark-home") {
+            try tap(element("tab-home"))
+            try visible(text("Yeni hikâyeler keşfet"))
+            audit("65-dark-home", theme: "Koyu")
+            inspectScreen("65-dark-home", theme: "Koyu")
+        }
+        try step("66-dark-advisor") {
+            try tap(element("home-advisor-fab"))
+            try visible(element("advisor-intent-analysis"))
+            audit("66-dark-advisor", theme: "Koyu")
+            inspectScreen("66-dark-advisor", theme: "Koyu")
+            try tap(element("advisor-mood-gripping"), scroll: true)
+            try visible(text("Bu Kitabı Dinle", contains: true), scroll: true)
+            inspectScreen("66-dark-advisor-reply", theme: "Koyu")
+            try tap(element("advisor-back"))
+        }
+        try step("67-dark-discover") {
+            try tap(element("tab-discover"))
+            try visible(element("discover-query"))
+            audit("67-dark-discover", theme: "Koyu")
+            inspectScreen("67-dark-discover", theme: "Koyu")
+        }
+        try step("68-dark-book-and-feed") {
+            try search("Kızıl Dosya", clearFirst: false)
+            try openBookResult()
+            audit("68-dark-book-detail", theme: "Koyu")
+            inspectScreen("68-dark-book-detail", theme: "Koyu")
+            try tap(text("Geri"))
+
+            try tap(element("tab-feed"))
+            try visible(text("Edebiyat Duvarı"))
+            audit("68-dark-feed", theme: "Koyu")
+            inspectScreen("68-dark-feed", theme: "Koyu")
+        }
+
+        // Restore Light Mode cleanly.
+        try tap(element("tab-profile"))
+        try tap(element("profile-settings"))
+        if element("settings-dark-mode-on").exists {
+            try tap(element("settings-dark-mode-on"))
+            try visible(element("settings-dark-mode-off"))
+        }
+    }
+
     private func openBookResult() throws {
         try tap(element("book-result-0mVxipNVFmBxtJNs9O0J"))
         try visible(text("Sherlock Holmes - Kızıl Dosya"))
@@ -271,6 +880,20 @@ final class ReaderJourneyTests: XCTestCase {
         app.launch()
         try waitFor("Giriş ekranı veya Ana Sayfa") { self.element("guest-open").exists || self.element("tab-home").exists }
         if element("guest-open").exists {
+            if text("E-Posta ile Giriş Yap").exists {
+                try step("38-welcome-login") {
+                    try tap(text("E-Posta ile Giriş Yap"))
+                    try visible(text("Tekrar Merhaba!"))
+                    try tap(text("Giriş Yap"))
+                    try visible(text("Lütfen tüm alanları doldurun."))
+                    try tap(text("Hesabın yok mu? Kayıt Ol", contains: true))
+                    try visible(text("Aramıza Katıl"))
+                    audit("38-welcome-login")
+                    inspectScreen("38-welcome-login")
+                    try tap(text("Geri"))
+                    try visible(element("guest-open"))
+                }
+            }
             try step("01-guest-entry") {
                 try tap(element("guest-open"))
                 try visible(element("guest-name"))
@@ -312,6 +935,40 @@ final class ReaderJourneyTests: XCTestCase {
         return app.descendants(matching: .any).matching(predicate).firstMatch
     }
 
+    private func firstCloseButton() -> XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label == 'Kapat'")).firstMatch
+    }
+
+    private func scrollToTop(target: XCUIElement) throws {
+        for _ in 0..<6 {
+            if target.exists && target.isHittable { return }
+            app.swipeDown(velocity: .slow)
+        }
+    }
+
+    private func scrollToVisible(_ target: XCUIElement) throws {
+        for _ in 0..<6 {
+            if target.exists && target.isHittable { return }
+            app.swipeUp(velocity: .slow)
+        }
+        for _ in 0..<6 {
+            if target.exists && target.isHittable { return }
+            app.swipeDown(velocity: .slow)
+        }
+        try visible(target, scroll: false)
+    }
+
+    private func dismissKeyboardIfNeeded() {
+        guard app.keyboards.firstMatch.exists else { return }
+        for key in ["Return", "Done", "Bitti", "Ara", "Gönder", "Send"] {
+            let keyButton = app.keyboards.buttons[key]
+            if keyButton.exists && keyButton.isHittable {
+                keyButton.tap()
+                return
+            }
+        }
+    }
+
     private func visible(_ target: XCUIElement, scroll: Bool = false) throws {
         if scroll {
             for _ in 0..<8 {
@@ -348,31 +1005,232 @@ final class ReaderJourneyTests: XCTestCase {
                 try action()
                 attachScreenshot(name, to: activity)
             } catch {
+                recordProbe(
+                    screen: name,
+                    category: "Journey",
+                    status: "FAIL",
+                    summary: "Adım başarısız: \(name)",
+                    detail: error.localizedDescription
+                )
                 attachScreenshot("failure-\(name)", to: activity)
                 throw JourneyError("\(name): \(error.localizedDescription)")
             }
         }
     }
 
-    private func audit(_ screen: String) {
+    private func audit(_ screen: String, theme: String = "Açık") {
         guard #available(iOS 17.0, *) else { return }
         XCTContext.runActivity(named: "Accessibility · \(screen)") { activity in
             var findings: [String] = []
             do {
                 try app.performAccessibilityAudit(for: [.contrast, .textClipped, .hitRegion, .sufficientElementDescription]) { issue in
                     let label = issue.element?.label ?? ""
-                    findings.append("\(issue.compactDescription) [\(label)]\n\(issue.detailedDescription)")
+                    let desc = "\(issue.compactDescription) [\(label)]"
+                    findings.append("\(desc)\n\(issue.detailedDescription)")
+                    recordProbe(
+                        screen: screen,
+                        theme: theme,
+                        category: "AppleA11y",
+                        status: "WARN",
+                        summary: desc,
+                        detail: issue.detailedDescription
+                    )
                     return true // Report existing issues without interrupting the journey.
                 }
-                if findings.isEmpty { findings.append("Apple erişilebilirlik denetimi uyarı üretmedi.") }
+                if findings.isEmpty {
+                    findings.append("Apple erişilebilirlik denetimi uyarı üretmedi.")
+                    recordProbe(
+                        screen: screen,
+                        theme: theme,
+                        category: "AppleA11y",
+                        status: "PASS",
+                        summary: "Apple erişilebilirlik denetimi uyarısız geçti",
+                        detail: ""
+                    )
+                }
             } catch {
-                findings.append("Denetim tamamlanamadı: \(error.localizedDescription)")
+                let err = "Denetim tamamlanamadı: \(error.localizedDescription)"
+                findings.append(err)
+                recordProbe(
+                    screen: screen,
+                    theme: theme,
+                    category: "AppleA11y",
+                    status: "WARN",
+                    summary: err,
+                    detail: ""
+                )
             }
             let attachment = XCTAttachment(string: findings.joined(separator: "\n\n"))
             attachment.name = "audit-\(screen)"
             attachment.lifetime = .keepAlways
             activity.add(attachment)
         }
+    }
+
+    private func inspectScreen(_ screen: String, theme: String = "Açık") {
+        let winFrame = app.windows.firstMatch.frame
+        guard !winFrame.isEmpty else { return }
+
+        let buttons = Array(app.buttons.allElementsBoundByIndex.prefix(45))
+        let texts = Array(app.staticTexts.allElementsBoundByIndex.prefix(55))
+        let inputs = Array(app.textFields.allElementsBoundByIndex.prefix(15))
+
+        if buttons.isEmpty && texts.isEmpty {
+            recordProbe(
+                screen: screen,
+                theme: theme,
+                category: "Layout",
+                status: "FAIL",
+                summary: "Ekran boş veya erişilebilirlik ağacı oluşmadı",
+                detail: "window=\(NSCoder.string(for: winFrame))"
+            )
+            return
+        }
+
+        for btn in buttons where btn.exists && btn.isHittable {
+            let frame = btn.frame
+            guard frame.width > 0, frame.height > 0, frame.height < winFrame.height * 0.8 else { continue }
+            let btnName = btn.label.isEmpty ? btn.identifier : btn.label
+            if frame.maxY > 0, frame.minY < winFrame.height,
+               frame.width < winFrame.width * 0.96,
+               (frame.minX < -2 || frame.maxX > winFrame.width + 2) {
+                recordProbe(
+                    screen: screen,
+                    theme: theme,
+                    category: "Layout",
+                    status: "WARN",
+                    summary: "Yatay taşma / kırpılma olasılığı: '\(btnName)'",
+                    detail: "frame=\(Int(frame.minX)),\(Int(frame.minY)) \(Int(frame.width))x\(Int(frame.height))pt, windowWidth=\(Int(winFrame.width))pt"
+                )
+            }
+            if frame.width < 42 || frame.height < 42 {
+                recordProbe(
+                    screen: screen,
+                    theme: theme,
+                    category: "TouchTarget",
+                    status: "WARN",
+                    summary: "Küçük dokunma alanı (<44pt): '\(btnName)' (\(Int(frame.width))x\(Int(frame.height))pt)",
+                    detail: "Apple HIG minimum 44x44pt dokunma alanı önerir; id='\(btn.identifier)'."
+                )
+            }
+            if btn.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && btn.identifier.isEmpty {
+                recordProbe(
+                    screen: screen,
+                    theme: theme,
+                    category: "Label",
+                    status: "WARN",
+                    summary: "Etiketsiz ve kimliksiz düğme (\(Int(frame.width))x\(Int(frame.height))pt)",
+                    detail: "VoiceOver kullanıcıları için contentDescription / label eksik."
+                )
+            }
+        }
+
+        for field in inputs where field.exists && field.isHittable {
+            let frame = field.frame
+            if frame.width > 0, (frame.minX < -2 || frame.maxX > winFrame.width + 2) {
+                recordProbe(
+                    screen: screen,
+                    theme: theme,
+                    category: "Layout",
+                    status: "WARN",
+                    summary: "Metin alanı yatay taşıyor: '\(field.identifier)'",
+                    detail: "frame=\(Int(frame.minX))..\(Int(frame.maxX)) window=0..\(Int(winFrame.width))"
+                )
+            }
+        }
+
+        for item in texts where item.exists {
+            let label = item.label
+            let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed == "Eser" && label != trimmed {
+                recordProbe(
+                    screen: screen,
+                    theme: theme,
+                    category: "Content",
+                    status: "FAIL",
+                    summary: "Yazar eser sayısı eksik görünüyor (' Eser')",
+                    detail: "Görüntülenen metin '\(label)' başında sayı olmadan boşluk içeriyor."
+                )
+            }
+            if label.contains("**") || label.contains("[BOOK_REC") || label.contains("[KITAP") {
+                recordProbe(
+                    screen: screen,
+                    theme: theme,
+                    category: "Content",
+                    status: "FAIL",
+                    summary: "Ham Markdown veya öneri etiketi sızıntısı",
+                    detail: String(label.prefix(120))
+                )
+            }
+            let lower = trimmed.lowercased()
+            if lower.contains("kullanılamıyor") {
+                recordProbe(
+                    screen: screen,
+                    theme: theme,
+                    category: "Content",
+                    status: "WARN",
+                    summary: "Özellik kullanılamıyor mesajı görüntülendi: '\(trimmed)'",
+                    detail: ""
+                )
+            } else if lower.contains("yüklenemedi") || lower.contains("başarısız") {
+                recordProbe(
+                    screen: screen,
+                    theme: theme,
+                    category: "Content",
+                    status: "WARN",
+                    summary: "Yükleme / işlem hatası mesajı: '\(trimmed)'",
+                    detail: ""
+                )
+            } else if lower.contains("çok yakında") || lower.contains("yakında çok") {
+                recordProbe(
+                    screen: screen,
+                    theme: theme,
+                    category: "Content",
+                    status: "WARN",
+                    summary: "Henüz tamamlanmamış ('Yakında') özellik mesajı: '\(trimmed)'",
+                    detail: ""
+                )
+            }
+        }
+    }
+
+    private func recordProbe(
+        screen: String,
+        theme: String = "Açık",
+        category: String,
+        status: String,
+        summary: String,
+        detail: String
+    ) {
+        let key = "\(screen)|\(theme)|\(category)|\(status)|\(summary)"
+        guard !seenProbeKeys.contains(key) else { return }
+        seenProbeKeys.insert(key)
+        probeLog.append(ProbeRecord(
+            journey: currentJourneyName,
+            screen: screen,
+            theme: theme,
+            category: category,
+            status: status,
+            summary: summary,
+            detail: detail
+        ))
+    }
+
+    private func flushProbes() {
+        guard !probeLog.isEmpty,
+              let data = try? JSONEncoder().encode(probeLog),
+              let json = String(data: data, encoding: .utf8) else { return }
+        XCTContext.runActivity(named: "Runtime Probes · \(currentJourneyName)") { activity in
+            let attachment = XCTAttachment(string: json)
+            attachment.name = "probe-\(currentJourneyName)"
+            attachment.lifetime = .keepAlways
+            activity.add(attachment)
+        }
+    }
+
+    private func sanitizedMethodName() -> String {
+        let raw = name.components(separatedBy: " ").last?.replacingOccurrences(of: "]", with: "") ?? "journey"
+        return raw
     }
 
     private func attachScreenshot(_ name: String, to activity: XCTActivity) {

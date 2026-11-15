@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
@@ -90,9 +91,9 @@ class PostDetailScreen(private val postId: String) : Screen {
                 }
                 if (auth.currentUserUid == null) Text("Yorum yazmak için giriş yapın.", Modifier.padding(16.dp))
                 else Row(Modifier.fillMaxWidth().padding(12.dp).navigationBarsPadding(), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(draft, { if (it.length <= 2000) model.draft.value = it }, Modifier.weight(1f),
+                    OutlinedTextField(draft, { if (it.length <= 2000) model.draft.value = it }, Modifier.weight(1f).testTag("post-comment-input"),
                         label = { Text("Yorum yaz…") }, maxLines = 4, enabled = !sending)
-                    TextButton(onClick = model::send, enabled = !sending && draft.isNotBlank() && post != null) {
+                    TextButton(onClick = model::send, modifier = Modifier.testTag("post-comment-send"), enabled = !sending && draft.isNotBlank() && post != null) {
                         if (sending) CircularProgressIndicator(Modifier.size(20.dp)) else Text("Gönder")
                     }
                 }

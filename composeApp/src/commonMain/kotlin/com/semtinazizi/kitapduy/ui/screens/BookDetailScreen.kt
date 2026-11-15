@@ -240,7 +240,7 @@ data class BookDetailScreen(val book: Book) : Screen {
                         Spacer(Modifier.height(32.dp))
 
                         OutlinedButton(onClick = { showShelfDialog = true },
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).testTag("book-add-shelf")) {
                             Text("Kitaplığıma ekle")
                         }
                         Spacer(Modifier.height(16.dp))
@@ -642,6 +642,7 @@ private fun BookActionBar(
             icon = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
             label = "$likeCount",
             tint = if (isLiked) Color.Red else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.testTag("book-like"),
             onClick = onToggleLike
         )
         BookActionBarItem(
@@ -682,12 +683,13 @@ private fun BookActionBarItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     tint: Color,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
-        modifier = Modifier
+        modifier = modifier
             .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
@@ -810,7 +812,7 @@ private fun BookCommentsSection(
         OutlinedTextField(
             value = commentText,
             onValueChange = onCommentTextChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("book-comment-input"),
             placeholder = { Text("Ne düşünüyorsun?") },
             shape = RoundedCornerShape(24.dp),
             colors = OutlinedTextFieldDefaults.colors(
@@ -820,7 +822,7 @@ private fun BookCommentsSection(
             trailingIcon = {
                 IconButton(
                     onClick = onSendComment,
-                    modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).testTag("book-comment-send")
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Gönder", tint = BrandGold)
                 }

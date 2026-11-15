@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -78,7 +79,8 @@ data class AskidaSohbetScreen(val bookId: String) : Screen {
                             placeholder = { Text("Mesaj yazın...") },
                             modifier = Modifier
                                 .weight(1f)
-                                .padding(end = 8.dp),
+                                .padding(end = 8.dp)
+                                .testTag("askida-chat-input"),
                             shape = RoundedCornerShape(24.dp),
                             maxLines = 3
                         )
@@ -93,6 +95,7 @@ data class AskidaSohbetScreen(val bookId: String) : Screen {
                                 .size(48.dp)
                                 .clip(RoundedCornerShape(24.dp))
                                 .background(MaterialTheme.colorScheme.primary)
+                                .testTag("askida-chat-send")
                         ) {
                             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Gönder", tint = Color.White)
                         }

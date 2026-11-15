@@ -171,7 +171,7 @@ class ProfileEditScreen : Screen {
                     value = username,
                     onValueChange = { username = it },
                     label = { Text("Kullanıcı Adı") },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().testTag("profile-username"),
                     singleLine = true
                 )
 
@@ -179,7 +179,7 @@ class ProfileEditScreen : Screen {
                     value = bio,
                     onValueChange = { bio = it },
                     label = { Text("Hakkımda (Biyografi)") },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().testTag("profile-bio"),
                     minLines = 3,
                     maxLines = 5
                 )

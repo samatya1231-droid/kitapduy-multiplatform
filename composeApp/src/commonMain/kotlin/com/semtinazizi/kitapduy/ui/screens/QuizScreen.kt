@@ -152,7 +152,7 @@ fun QuizMainMenu(onStartSinglePlayer: () -> Unit, onStartMultiplayer: () -> Unit
 
         // Haftalık Turnuva
         GlassCard(
-            modifier = Modifier.fillMaxWidth().height(90.dp),
+            modifier = Modifier.fillMaxWidth().height(90.dp).testTag("quiz-tournament-button"),
             onClick = { showComingSoon = true }
         ) {
             Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
@@ -186,7 +186,7 @@ fun QuizMainMenu(onStartSinglePlayer: () -> Unit, onStartMultiplayer: () -> Unit
 
         // Blitz Arena
         GlassCard(
-            modifier = Modifier.fillMaxWidth().height(90.dp),
+            modifier = Modifier.fillMaxWidth().height(90.dp).testTag("quiz-start-blitz"),
             onClick = onStartMultiplayer
         ) {
             Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
@@ -203,7 +203,7 @@ fun QuizMainMenu(onStartSinglePlayer: () -> Unit, onStartMultiplayer: () -> Unit
 
         // Çok Oyunculu Mod
         GlassCard(
-            modifier = Modifier.fillMaxWidth().height(90.dp),
+            modifier = Modifier.fillMaxWidth().height(90.dp).testTag("quiz-duel-button"),
             onClick = { showComingSoon = true }
         ) {
             Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {

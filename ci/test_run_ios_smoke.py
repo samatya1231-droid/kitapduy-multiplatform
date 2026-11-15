@@ -309,6 +309,153 @@ class RunnerTest(unittest.TestCase):
         root = ET.parse(self.output / "junit.xml").getroot()
         self.assertEqual(root.attrib["failures"], "1")
 
+    def test_export_evidence_exports_alphanumeric_steps_audits_and_probes(self):
+        device_dir = self.output / "iPhone"
+        exported = device_dir / "xcode-attachments"
+        exported.mkdir(parents=True)
+        (exported / "a1.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+        (exported / "a2.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+        (exported / "audit1.txt").write_text("Kontrast uyarisi: metin soluk", encoding="utf-8")
+        (exported / "probe1.json").write_text(
+            json.dumps([
+                {
+                    "journey": "test09LiteraryAdvisorDeep",
+                    "screen": "48-advisor-analysis-and-reading",
+                    "theme": "Light",
+                    "category": "Danisman",
+                    "status": "INFO",
+                    "summary": "Takip sorusu Sahaf tavsiyesi cevabina dustu",
+                    "detail": "buildAdvisorReply icinde eslesme",
+                },
+                {
+                    "journey": "test09LiteraryAdvisorDeep",
+                    "screen": "50-advisor-custom-query-and-book",
+                    "theme": "Light",
+                    "category": "Danisman",
+                    "status": "PASS",
+                    "summary": "Onerilen kitap karta basinca BookDetail acildi",
+                    "detail": "",
+                },
+            ]),
+            encoding="utf-8",
+        )
+        manifest = [
+            {
+                "attachments": [
+                    {"exportedFileName": "a1.png", "suggestedHumanReadableName": "24b-discover-categories_0_11111111-1111-1111-1111-111111111111.png"},
+                    {"exportedFileName": "a2.png", "suggestedHumanReadableName": "46-advisor-welcome_0_22222222-2222-2222-2222-222222222222.png"},
+                    {"exportedFileName": "audit1.txt", "suggestedHumanReadableName": "audit-Advisor_0_33333333-3333-3333-3333-333333333333.txt"},
+                    {"exportedFileName": "probe1.json", "suggestedHumanReadableName": "probe-test09LiteraryAdvisorDeep_0_44444444-4444-4444-4444-444444444444.json"},
+                ]
+            }
+        ]
+        (exported / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+        with patch.object(smoke.subprocess, "run"):
+            screenshots = smoke.export_evidence(device_dir / "journey.xcresult", device_dir)
+
+        self.assertEqual(screenshots, ["24b-discover-categories.png", "46-advisor-welcome.png"])
+        self.assertTrue((device_dir / "24b-discover-categories.png").is_file())
+        self.assertTrue((device_dir / "46-advisor-welcome.png").is_file())
+        self.assertIn("Kontrast uyarisi", (device_dir / "accessibility.txt").read_text(encoding="utf-8"))
+        probes = json.loads((device_dir / "probes.json").read_text(encoding="utf-8"))
+        self.assertEqual(len(probes), 2)
+        self.assertEqual(probes[0]["status"], "INFO")
+        self.assertIn("Onerilen kitap karta basinca BookDetail acildi", (device_dir / "probes.txt").read_text(encoding="utf-8"))
+
+    def test_write_reports_builds_inceleme_notu_and_copyable_panel(self):
+        iphone_dir = self.output / "iPhone"
+        ipad_dir = self.output / "iPad"
+        iphone_dir.mkdir(parents=True)
+        ipad_dir.mkdir(parents=True)
+        (iphone_dir / "probes.json").write_text(
+            json.dumps([
+                {
+                    "journey": "test09LiteraryAdvisorDeep",
+                    "screen": "47-advisor-info-dialog",
+                    "theme": "Light",
+                    "category": "Danışman",
+                    "status": "PASS",
+                    "summary": "Hakkında diyaloğu tüm 3 giriş noktasından açıldı",
+                    "detail": "",
+                },
+                {
+                    "journey": "test04HomeCheck",
+                    "screen": "43-author-detail",
+                    "theme": "Light",
+                    "category": "Metin",
+                    "status": "FAIL",
+                    "summary": "Eser sayısı boş görünüyor (' Eser')",
+                    "detail": "AuthorDetailScreen satır 93",
+                },
+                {
+                    "journey": "test10BookDetailFeaturesAndMiniPlayer",
+                    "screen": "54-mini-player",
+                    "theme": "Dark",
+                    "category": "Dokunma Alanı",
+                    "status": "WARN",
+                    "summary": "Mini Player kapatma düğmesi 44pt altında",
+                    "detail": "36x36",
+                },
+            ]),
+            encoding="utf-8",
+        )
+        (iphone_dir / "probes.txt").write_text("probelist", encoding="utf-8")
+        (iphone_dir / "accessibility.txt").write_text(
+            "audit-Home\nContrast warning on Subtitle\n\naudit-Discover\nNo accessibility issues.\n",
+            encoding="utf-8",
+        )
+        (self.output / "observations.txt").write_text("Yazar ekranı Android ile karşılaştırıldı.", encoding="utf-8")
+
+        results = [
+            {
+                "name": "iPhone 17 Pro Max",
+                "family": "iPhone",
+                "runtime": "iOS 26.2",
+                "passed": True,
+                "error": "",
+                "seconds": 120.5,
+                "xcuitest": {"totalTestCount": 14, "passedTests": 14, "failedTests": 0, "skippedTests": 0},
+                "screenshots": ["01-guest-entry.png", "46-advisor-welcome.png"],
+                "video": "recording.mp4",
+                "journeys": {test: "passed" for test in smoke.JOURNEYS},
+                "fixture_requests": ["guest_signup", "create_comment", "follow_user", "donate_askida"],
+            },
+            {
+                "name": "iPad Air 11-inch (M3)",
+                "family": "iPad",
+                "runtime": "iOS 26.2",
+                "passed": True,
+                "error": "",
+                "seconds": 130.0,
+                "xcuitest": {"totalTestCount": 14, "passedTests": 14, "failedTests": 0, "skippedTests": 0},
+                "screenshots": ["01-guest-entry.png", "46-advisor-welcome.png"],
+                "video": "recording.mp4",
+                "journeys": {test: "passed" for test in smoke.JOURNEYS},
+                "fixture_requests": ["guest_signup", "create_post"],
+            },
+        ]
+
+        smoke.write_reports(results, self.output)
+
+        note_md = (self.output / "inceleme-notu.md").read_text(encoding="utf-8")
+        note_txt = (self.output / "inceleme-notu.txt").read_text(encoding="utf-8")
+        gallery = (self.output / "index.html").read_text(encoding="utf-8")
+        self.assertIn("Edebi Danışman (`LiteraryAdvisorScreen`) Özel İnceleme Bölümü", note_md)
+        self.assertIn("Eser sayısı boş görünüyor", note_md)
+        self.assertIn("Mini Player kapatma düğmesi 44pt altında", note_md)
+        self.assertIn("Contrast warning on Subtitle", note_md)
+        self.assertNotIn("No accessibility issues.", note_md)
+        self.assertIn("**Doğrulandı** `create_comment`", note_md)
+        self.assertIn("EntertainmentTab", note_md)
+        self.assertIn("Yazar ekranı Android ile karşılaştırıldı.", note_md)
+        self.assertIn("DETAYLI", note_txt.upper())
+        self.assertIn("Notu Panoya Kopyala", gallery)
+        self.assertIn("inceleme-notu.md", gallery)
+        self.assertIn("inceleme-notu.txt", gallery)
+        self.assertIn("iPhone/probes.txt", gallery)
+        self.assertIn("navigator.clipboard", gallery)
+
 
 class FixtureTest(unittest.TestCase):
     def request_json(self, url, body=None, method=None, headers=None):
@@ -455,6 +602,99 @@ class FixtureTest(unittest.TestCase):
             updated_board = self.request_json(url + "/rest/v1/quiz_leaderboard")
             self.assertEqual(updated_board[0]["user_id"], USER_ID)
             self.assertEqual(updated_board[0]["total_score"], 5000)
+
+    def test_extended_social_library_notifications_and_filters(self):
+        with smoke.serve_fixture() as (url, events):
+            # users[0] must remain current profile, while community_users are searchable.
+            all_users = self.request_json(url + "/rest/v1/users")
+            self.assertEqual(all_users[0]["uid"], USER_ID)
+            elif_hits = self.request_json(url + "/rest/v1/users?or=(name.ilike.*Elif*,username.ilike.*Elif*)&limit=10")
+            self.assertEqual([u["uid"] for u in elif_hits], ["community_donor_1"])
+            self.assertEqual(elif_hits[0]["username"], "elif_okur")
+
+            # HEAD count=exact + Prefer: return=representation + DELETE on user_bookshelves and favorites.
+            head_req = Request(
+                f"{url}/rest/v1/user_bookshelves?user_id=eq.{USER_ID}",
+                method="HEAD",
+                headers={"Prefer": "count=exact"},
+            )
+            with urlopen(head_req, timeout=5) as head_resp:
+                self.assertEqual(head_resp.headers["Content-Range"], "*/0")
+            created_shelf = self.request_json(
+                url + "/rest/v1/user_bookshelves",
+                [{"user_id": USER_ID, "book_id": "local_ci_book", "shelf_type": "READ"}],
+                headers={"Prefer": "return=representation"},
+            )
+            self.assertEqual(len(created_shelf), 1)
+            with urlopen(head_req, timeout=5) as head_after:
+                self.assertEqual(head_after.headers["Content-Range"], "0-0/1")
+            self.request_json(
+                f"{url}/rest/v1/user_bookshelves?user_id=eq.{USER_ID}&book_id=eq.local_ci_book",
+                method="DELETE",
+            )
+            self.assertEqual(self.request_json(f"{url}/rest/v1/user_bookshelves?user_id=eq.{USER_ID}"), [])
+
+            fav_rows = self.request_json(
+                url + "/rest/v1/favorites?select=*",
+                [{"user_id": USER_ID, "book_id": "local_ci_book"}],
+            )
+            self.assertEqual(len(fav_rows), 1)
+            self.request_json(f"{url}/rest/v1/favorites?user_id=eq.{USER_ID}&book_id=eq.local_ci_book", method="DELETE")
+            self.assertEqual(self.request_json(f"{url}/rest/v1/favorites?user_id=eq.{USER_ID}"), [])
+
+            # Posts & comments CRUD + poll PATCH + followers + notifications mark-read.
+            created_post = self.request_json(
+                url + "/rest/v1/posts",
+                [{"user_id": USER_ID, "content": "Anket", "category": "Sohbet", "poll_options": ["A", "B"]}],
+                headers={"Prefer": "return=representation"},
+            )[0]
+            post_id = created_post["id"]
+            self.request_json(
+                f"{url}/rest/v1/posts?id=eq.{post_id}",
+                {"poll_votes": {"0": 1}, "poll_voters": [USER_ID]},
+                method="PATCH",
+            )
+            created_comment = self.request_json(
+                url + "/rest/v1/feed_comments?select=*",
+                [{"post_id": post_id, "user_id": USER_ID, "content": "İlk yorum"}],
+            )[0]
+            comment_id = created_comment["id"]
+            self.request_json(
+                f"{url}/rest/v1/feed_comments?id=eq.{comment_id}",
+                {"content": "Güncellenen yorum"},
+                method="PATCH",
+            )
+            comments = self.request_json(f"{url}/rest/v1/feed_comments?post_id=eq.{post_id}")
+            self.assertEqual(comments[0]["content"], "Güncellenen yorum")
+            self.request_json(f"{url}/rest/v1/feed_comments?id=eq.{comment_id}", method="DELETE")
+            self.assertEqual(self.request_json(f"{url}/rest/v1/feed_comments?post_id=eq.{post_id}"), [])
+            self.request_json(f"{url}/rest/v1/posts?id=eq.{post_id}", method="DELETE")
+
+            self.request_json(
+                url + "/rest/v1/followers",
+                [{"follower_id": USER_ID, "following_id": "community_donor_1"}],
+            )
+            self.request_json(
+                f"{url}/rest/v1/followers?follower_id=eq.{USER_ID}&following_id=eq.community_donor_1",
+                method="DELETE",
+            )
+
+            unread = self.request_json(url + "/rest/v1/notifications?is_read=eq.false")
+            self.assertGreaterEqual(len(unread), 1)
+            ids_csv = ",".join(str(item["id"]) for item in unread)
+            self.request_json(
+                f"{url}/rest/v1/notifications?id=in.({ids_csv})",
+                {"is_read": True},
+                method="PATCH",
+            )
+            self.assertEqual(self.request_json(url + "/rest/v1/notifications?is_read=eq.false"), [])
+
+            for expected_event in (
+                "add_shelf", "create_post", "update_post", "create_comment",
+                "delete_comment", "delete_post", "follow_user", "unfollow_user",
+                "mark_notifications_read",
+            ):
+                self.assertIn(expected_event, events)
 
 
 if __name__ == "__main__":
