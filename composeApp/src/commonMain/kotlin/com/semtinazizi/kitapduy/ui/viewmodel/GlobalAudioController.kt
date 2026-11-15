@@ -17,7 +17,8 @@ class GlobalAudioController(
     private val audioPlayer: AudioPlayer,
     private val fileDownloader: FileDownloader,
     private val progressManager: com.semtinazizi.kitapduy.util.KmpBookProgressManager,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main + kotlinx.coroutines.SupervisorJob())
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main + kotlinx.coroutines.SupervisorJob()),
+    private val isCiSmokeTest: () -> Boolean = { com.semtinazizi.kitapduy.platform.AppConfig.isCiSmokeTest }
 ) {
     private var sleepTimerJob: Job? = null
     
@@ -96,7 +97,7 @@ class GlobalAudioController(
         val localPath = fileDownloader.getDownloadedFilePath(book.id + ".mp3")
         val playUrl = localPath ?: book.audioUrl
 
-        if (!isPremium && localPath == null && !book.id.startsWith("local_")) {
+        if (!isPremium && localPath == null && !book.id.startsWith("local_") && !isCiSmokeTest()) {
             val preRollAd = AudioMediaItem(
                 id = "kitapduy_preroll_ad",
                 url = "https://ancient-shape-df97.samatya231.workers.dev/kitapd%C4%B1ytan%C4%B1t%C4%B1m.wav",

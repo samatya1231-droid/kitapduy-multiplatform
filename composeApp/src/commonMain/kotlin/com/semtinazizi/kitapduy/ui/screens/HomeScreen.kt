@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.layout.*
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.*
 import androidx.compose.ui.text.style.*
@@ -187,6 +188,7 @@ class HomeScreen : Screen {
                                     FilterChip(
                                         selected = false,
                                         onClick = { navigator.push(CategoryDetailScreen(category)) },
+                                        modifier = Modifier.testTag("home-category-$category"),
                                         label = { Text(category) },
                                         colors = FilterChipDefaults.filterChipColors(
                                             containerColor = if (isLight) Color(0xFFF3EEE7) else Color(0xFF262629),

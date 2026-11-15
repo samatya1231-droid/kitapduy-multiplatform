@@ -24,6 +24,7 @@ actual object AppConfig {
     actual val cfUploadToken: String = BuildConfig.CF_UPLOAD_TOKEN
     actual val cfAccessKey: String = BuildConfig.CF_ACCESS_KEY
     actual val cfSecretKey: String = BuildConfig.CF_SECRET_KEY
+    actual val isCiSmokeTest: Boolean = false
 
     actual fun generatePresignedUrl(url: String): String {
         if (!url.contains("r2.cloudflarestorage.com")) return url

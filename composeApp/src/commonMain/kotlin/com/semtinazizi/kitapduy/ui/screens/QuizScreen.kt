@@ -66,9 +66,7 @@ class QuizScreen : Screen {
                     IconButton(
                         onClick = { 
                             if (gameState != QuizGameState.STARTING) {
-                                // Geri dönünce ana menüye geç (bunun için ViewModel'a reset fonksiyonu eklenebilir, 
-                                // şimdilik doğrudan navigator'dan çıkıyoruz)
-                                navigator.pop()
+                                screenModel.resetGame()
                             } else {
                                 navigator.pop() 
                             }
@@ -430,10 +428,6 @@ fun getRankInfo(score: Long): Pair<String, String> {
 @Composable
 fun QuizLeaderboardScreen(screenModel: QuizScreenModel, onBackClick: () -> Unit) {
     val leaderboard by screenModel.leaderboard.collectAsState()
-
-    LaunchedEffect(Unit) {
-        screenModel.loadLeaderboard()
-    }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {

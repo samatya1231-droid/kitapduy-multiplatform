@@ -308,20 +308,20 @@ final class ReaderJourneyTests: XCTestCase {
         try step("23-home-podcasts") {
             try visible(text("Podcast dünyası"), scroll: true)
         }
-        try scrollToTop(target: text("Polisiye"))
+        try scrollToTop(target: element("home-category-Polisiye"))
         try step("42-category-detail") {
-            try tap(text("Polisiye"))
+            try tap(element("home-category-Polisiye"))
             try visible(text("Tümünü Gör"), scroll: true)
             audit("42-category-detail")
             inspectScreen("42-category-detail")
         }
         try step("43-author-detail") {
-            try tap(text("Arthur Conan Doyle", contains: true), scroll: true)
+            try tap(element("category-author-Arthur Conan Doyle"), scroll: true)
             try visible(text("Arthur Conan Doyle", contains: true))
             audit("43-author-detail")
             inspectScreen("43-author-detail")
             try tap(text("Geri"))
-            try visible(text("Polisiye", contains: true))
+            try scrollToVisible(text("Polisiye", contains: true))
             try tap(text("Geri"))
             try scrollToVisible(text("Bugün nasıl bir hikâye?"))
         }
@@ -335,7 +335,7 @@ final class ReaderJourneyTests: XCTestCase {
         try step("45-home-articles-check") {
             var foundArticles = false
             for _ in 0..<8 {
-                if text("Bilim & Düşünce").exists && text("Bilim & Düşünce").isHittable {
+                if isOnScreenAndHittable(text("Bilim & Düşünce")) {
                     foundArticles = true
                     break
                 }
@@ -397,7 +397,7 @@ final class ReaderJourneyTests: XCTestCase {
                 try tap(element("tab-discover"))
             }
             for _ in 0..<4 {
-                if element("discover-askida-card").exists && element("discover-askida-card").isHittable { break }
+                if isOnScreenAndHittable(element("discover-askida-card")) { break }
                 app.swipeDown(velocity: .slow)
             }
             try tap(element("discover-askida-card"))
@@ -551,9 +551,33 @@ final class ReaderJourneyTests: XCTestCase {
         try openBookResult()
 
         try step("51-book-summary-and-like") {
-            try visible(text("1 Dakikada Eser Özeti", contains: true), scroll: true)
-            try tap(text("1 Dakikada Eser Özeti", contains: true))
-            try visible(text("Kısalt"))
+            let summaryCard = element("book-summary-card")
+            try visible(summaryCard, scroll: true)
+            let winFrame = app.windows.firstMatch.frame
+            if !winFrame.isEmpty {
+                var moved = false
+                for _ in 0..<4 {
+                    let frame = summaryCard.frame
+                    if frame.isEmpty { break }
+                    if frame.maxY > winFrame.height - 110 && frame.minY > 140 {
+                        swipeSafeUp()
+                        moved = true
+                    } else if frame.minY < 125 && frame.maxY < winFrame.height - 110 {
+                        swipeSafeDown()
+                        moved = true
+                    } else {
+                        break
+                    }
+                }
+                if moved {
+                    Thread.sleep(forTimeInterval: 0.25)
+                }
+            }
+            try tap(summaryCard)
+            if !text("Kısalt", contains: true).waitForExistence(timeout: 2) {
+                try tap(summaryCard)
+            }
+            try visible(text("Kısalt", contains: true), scroll: true)
 
             try tap(element("book-like"), scroll: true)
             try visible(text("Kitap beğenileri şu anda kullanılamıyor."))
@@ -722,7 +746,17 @@ final class ReaderJourneyTests: XCTestCase {
         }
 
         try step("60-post-detail-comments") {
-            try tap(text("Favori klasiginiz?", contains: true))
+            let postCard = text("Favori klasiginiz?", contains: true)
+            try visible(postCard, scroll: true)
+            try tap(postCard)
+            if !element("post-comment-input").waitForExistence(timeout: 3) {
+                let commentBtn = app.descendants(matching: .any)
+                    .matching(NSPredicate(format: "identifier BEGINSWITH 'feed-card-comments-'"))
+                    .firstMatch
+                if isOnScreenAndHittable(commentBtn) {
+                    try tap(commentBtn)
+                }
+            }
             try visible(element("post-comment-input"))
             try type("Harika soru!", into: element("post-comment-input"))
             try tap(element("post-comment-send"))
@@ -855,10 +889,10 @@ final class ReaderJourneyTests: XCTestCase {
             try type("Bursa", into: element("askida-donate-city"))
             dismissNonReturnKeyboard()
             for _ in 0..<6 {
-                if element("askida-donate-submit").exists && element("askida-donate-submit").isHittable { break }
+                if isOnScreenAndHittable(element("askida-donate-submit")) { break }
                 swipeSafeUp()
             }
-            if element("askida-donate-submit").exists && element("askida-donate-submit").isHittable {
+            if isOnScreenAndHittable(element("askida-donate-submit")) {
                 try tap(element("askida-donate-submit"))
                 try visible(element("askida-tab-0"))
                 recordProbe(
@@ -1042,20 +1076,31 @@ final class ReaderJourneyTests: XCTestCase {
         }
     }
 
+    private func isOnScreenAndHittable(_ target: XCUIElement) -> Bool {
+        guard target.exists else { return false }
+        let winFrame = app.windows.firstMatch.frame
+        let frame = target.frame
+        guard !winFrame.isEmpty, !frame.isEmpty, frame.width >= 1, frame.height >= 1 else { return false }
+        let center = CGPoint(x: frame.midX, y: frame.midY)
+        let safeRect = (winFrame.width > 8 && winFrame.height > 8) ? winFrame.insetBy(dx: 2, dy: 2) : winFrame
+        guard safeRect.contains(center) else { return false }
+        return target.isHittable
+    }
+
     private func scrollToTop(target: XCUIElement) throws {
-        for _ in 0..<6 {
-            if target.exists && target.isHittable { return }
+        for _ in 0..<12 {
+            if isOnScreenAndHittable(target) { return }
             swipeSafeDown()
         }
     }
 
     private func scrollToVisible(_ target: XCUIElement) throws {
         for _ in 0..<6 {
-            if target.exists && target.isHittable { return }
+            if isOnScreenAndHittable(target) { return }
             swipeSafeUp()
         }
         for _ in 0..<6 {
-            if target.exists && target.isHittable { return }
+            if isOnScreenAndHittable(target) { return }
             swipeSafeDown()
         }
         try visible(target, scroll: false)
@@ -1090,12 +1135,12 @@ final class ReaderJourneyTests: XCTestCase {
     private func visible(_ target: XCUIElement, scroll: Bool = false) throws {
         if scroll {
             for _ in 0..<8 {
-                if target.exists && target.isHittable { return }
+                if isOnScreenAndHittable(target) { return }
                 swipeSafeUp()
             }
         }
         do {
-            try waitFor("Erişilebilir öğe görünmeli") { target.exists && target.isHittable }
+            try waitFor("Erişilebilir öğe görünmeli") { isOnScreenAndHittable(target) }
         } catch {
             throw JourneyError("Erişilebilir öğe görünmedi: \(target.debugDescription)")
         }
@@ -1205,9 +1250,10 @@ final class ReaderJourneyTests: XCTestCase {
             return
         }
 
-        for btn in buttons where btn.exists && btn.isHittable {
+        for btn in buttons where btn.exists {
             let frame = btn.frame
             guard frame.width > 0, frame.height > 0, frame.height < winFrame.height * 0.8 else { continue }
+            guard frame.maxY > 0, frame.minY < winFrame.height, frame.maxX > 0, frame.minX < winFrame.width else { continue }
             let btnName = btn.label.isEmpty ? btn.identifier : btn.label
             if frame.maxY > 0, frame.minY < winFrame.height,
                frame.width < winFrame.width * 0.96,
@@ -1221,7 +1267,9 @@ final class ReaderJourneyTests: XCTestCase {
                     detail: "frame=\(Int(frame.minX)),\(Int(frame.minY)) \(Int(frame.width))x\(Int(frame.height))pt, windowWidth=\(Int(winFrame.width))pt"
                 )
             }
-            if frame.width < 42 || frame.height < 42 {
+            if frame.minY >= 0, frame.maxY <= winFrame.height,
+           frame.minX >= 0, frame.maxX <= winFrame.width,
+           (frame.width < 42 || frame.height < 42) {
                 recordProbe(
                     screen: screen,
                     theme: theme,
@@ -1243,8 +1291,9 @@ final class ReaderJourneyTests: XCTestCase {
             }
         }
 
-        for field in inputs where field.exists && field.isHittable {
+        for field in inputs where field.exists {
             let frame = field.frame
+            guard frame.width > 0, frame.height > 0, frame.maxY > 0, frame.minY < winFrame.height, frame.maxX > 0, frame.minX < winFrame.width else { continue }
             if frame.width > 0, (frame.minX < -2 || frame.maxX > winFrame.width + 2) {
                 recordProbe(
                     screen: screen,

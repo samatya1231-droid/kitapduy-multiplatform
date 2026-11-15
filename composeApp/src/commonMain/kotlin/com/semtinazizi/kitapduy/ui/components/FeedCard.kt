@@ -30,6 +30,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -286,7 +287,7 @@ fun FeedCard(
                                 .height(40.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-                                .clickable { if (!hasVoted) onVotePoll(item.id, item.pollOptions.indexOf(option)) }
+                                .then(if (!hasVoted) Modifier.clickable { onVotePoll(item.id, optionIndex) } else Modifier)
                         ) {
                             if (hasVoted) {
                                 Box(
@@ -390,7 +391,7 @@ fun FeedCard(
                 if (showCommentSection) {
                     Row(
                         modifier = Modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.onSurface.copy(0.05f))
-                            .clickable { onClick() }.padding(horizontal = 16.dp, vertical = 8.dp),
+                            .clickable { onClick() }.padding(horizontal = 16.dp, vertical = 8.dp).testTag("feed-card-comments-${item.id}"),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {

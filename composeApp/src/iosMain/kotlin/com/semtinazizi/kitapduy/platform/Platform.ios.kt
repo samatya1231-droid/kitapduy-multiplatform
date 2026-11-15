@@ -15,6 +15,7 @@ actual object AppConfig {
     actual val cfUploadToken: String get() = IOSBuildConfig.CF_UPLOAD_TOKEN
     actual val cfAccessKey: String = "" // iOS'ta ileride eklenebilir
     actual val cfSecretKey: String = ""
+    actual val isCiSmokeTest: Boolean get() = IOSBuildConfig.isCiSmokeTest
 
     actual fun generatePresignedUrl(url: String): String {
         return url // iOS için ileride Swift CommonCrypto ile implement edilecek

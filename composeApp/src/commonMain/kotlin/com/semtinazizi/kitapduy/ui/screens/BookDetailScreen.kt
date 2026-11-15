@@ -713,7 +713,7 @@ private fun OneMinuteSummaryBentoCard(book: Book) {
 
     Surface(
         onClick = { expanded = !expanded },
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).testTag("book-summary-card"),
         shape = RoundedCornerShape(18.dp),
         color = SleekChampagne.copy(alpha = 0.08f),
         border = BorderStroke(1.dp, SleekChampagne.copy(alpha = 0.28f))
@@ -736,7 +736,8 @@ private fun OneMinuteSummaryBentoCard(book: Book) {
                     text = if (expanded) "Kısalt" else "Tamamı",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.testTag("book-summary-toggle")
                 )
             }
             Spacer(Modifier.height(8.dp))

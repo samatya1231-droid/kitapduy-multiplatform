@@ -93,7 +93,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.core.screen.ScreenKey
+import cafe.adriel.voyager.core.screen.uniqueScreenKey
+import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.semtinazizi.kitapduy.model.Book
@@ -111,12 +115,12 @@ private data class AdvisorMoodChip(
     val prompt: String
 )
 
-private enum class AdvisorSender {
+enum class AdvisorSender {
     USER,
     ADVISOR
 }
 
-private data class AdvisorMessage(
+data class AdvisorMessage(
     val id: String,
     val sender: AdvisorSender,
     val content: String,
@@ -125,6 +129,50 @@ private data class AdvisorMessage(
     val recommendedBooks: List<Book> = emptyList(),
     val followUps: List<Pair<String, String>> = emptyList()
 )
+
+class LiteraryAdvisorScreenModel : ScreenModel {
+    val messages = mutableStateListOf<AdvisorMessage>()
+    var currentInput by mutableStateOf("")
+    var showDiscovery by mutableStateOf(true)
+    var responseDepth by mutableStateOf("auto")
+    var spoilerOverride by mutableStateOf<Boolean?>(null)
+    var readingMessage by mutableStateOf<AdvisorMessage?>(null)
+    var showInformation by mutableStateOf(false)
+    var initialPromptHandled by mutableStateOf(false)
+    var messageSeq by mutableStateOf(0)
+        private set
+
+    fun submitPrompt(rawPrompt: String, explicitIntent: String?, catalog: List<Book>): Boolean {
+        val cleanPrompt = rawPrompt.trim()
+        if (cleanPrompt.isEmpty()) return false
+        showDiscovery = false
+        messageSeq += 1
+        messages.add(
+            AdvisorMessage(
+                id = "u_$messageSeq",
+                sender = AdvisorSender.USER,
+                content = cleanPrompt,
+                intent = explicitIntent
+            )
+        )
+        val reply = buildAdvisorReply(
+            prompt = cleanPrompt,
+            explicitIntent = explicitIntent,
+            catalog = catalog,
+            depth = responseDepth,
+            spoilerOverride = spoilerOverride
+        )
+        messageSeq += 1
+        messages.add(reply.copy(id = "a_$messageSeq"))
+        return true
+    }
+
+    fun startNewChat() {
+        messages.clear()
+        showDiscovery = true
+        readingMessage = null
+    }
+}
 
 private object KmpLiteraryAdvisorPolicy {
     val CONVERSATION_STARTERS = mapOf(
@@ -200,10 +248,13 @@ private object KmpLiteraryAdvisorPolicy {
 class LiteraryAdvisorScreen(
     private val initialPrompt: String? = null
 ) : Screen {
+    override val key: ScreenKey = uniqueScreenKey
+
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        val advisorModel = koinScreenModel<LiteraryAdvisorScreenModel>()
         val homeViewModel = koinViewModel<HomeViewModel>()
         val authViewModel = koinViewModel<AuthViewModel>()
         val books by homeViewModel.books.collectAsState()
@@ -213,14 +264,7 @@ class LiteraryAdvisorScreen(
         val keyboardController = LocalSoftwareKeyboardController.current
         val listState = rememberLazyListState()
 
-        val messages = remember { mutableStateListOf<AdvisorMessage>() }
-        var currentInput by remember { mutableStateOf("") }
-        var showDiscovery by remember { mutableStateOf(true) }
-        var responseDepth by remember { mutableStateOf("auto") }
-        var spoilerOverride by remember { mutableStateOf<Boolean?>(null) }
-        var readingMessage by remember { mutableStateOf<AdvisorMessage?>(null) }
-        var showInformation by remember { mutableStateOf(false) }
-        var messageSeq by remember { mutableStateOf(0) }
+        val messages = advisorModel.messages
 
         val notebookColor = lerp(
             MaterialTheme.colorScheme.background,
@@ -229,34 +273,16 @@ class LiteraryAdvisorScreen(
         )
 
         val submitPrompt: (String, String?) -> Unit = { rawPrompt, explicitIntent ->
-            val cleanPrompt = rawPrompt.trim()
-            if (cleanPrompt.isNotEmpty()) {
+            if (rawPrompt.trim().isNotEmpty()) {
                 keyboardController?.hide()
-                showDiscovery = false
-                messageSeq += 1
-                messages.add(
-                    AdvisorMessage(
-                        id = "u_$messageSeq",
-                        sender = AdvisorSender.USER,
-                        content = cleanPrompt,
-                        intent = explicitIntent
-                    )
-                )
-                val reply = buildAdvisorReply(
-                    prompt = cleanPrompt,
-                    explicitIntent = explicitIntent,
-                    catalog = books,
-                    depth = responseDepth,
-                    spoilerOverride = spoilerOverride
-                )
-                messageSeq += 1
-                messages.add(reply.copy(id = "a_$messageSeq"))
+                advisorModel.submitPrompt(rawPrompt, explicitIntent, books)
             }
         }
 
         LaunchedEffect(initialPrompt) {
             val seedPrompt = initialPrompt?.trim().orEmpty()
-            if (seedPrompt.isNotEmpty() && messages.isEmpty()) {
+            if (!advisorModel.initialPromptHandled && seedPrompt.isNotEmpty() && messages.isEmpty()) {
+                advisorModel.initialPromptHandled = true
                 submitPrompt(seedPrompt, "recommendation")
             }
         }
@@ -302,17 +328,14 @@ class LiteraryAdvisorScreen(
                     actions = {
                         if (messages.isNotEmpty()) {
                             IconButton(
-                                onClick = {
-                                    messages.clear()
-                                    showDiscovery = true
-                                },
+                                onClick = { advisorModel.startNewChat() },
                                 modifier = Modifier.testTag("advisor-new-chat")
                             ) {
                                 Icon(Icons.Filled.Refresh, contentDescription = "Yeni sohbet")
                             }
                         }
                         IconButton(
-                            onClick = { showInformation = true },
+                            onClick = { advisorModel.showInformation = true },
                             modifier = Modifier.testTag("advisor-info-button")
                         ) {
                             Icon(Icons.Filled.Info, contentDescription = "Bilgi")
@@ -330,17 +353,17 @@ class LiteraryAdvisorScreen(
                         .navigationBarsPadding()
                 ) {
                     AdvisorResponsePreferences(
-                        depth = responseDepth,
-                        spoilerOverride = spoilerOverride,
-                        onDepth = { responseDepth = it },
-                        onSpoiler = { spoilerOverride = it }
+                        depth = advisorModel.responseDepth,
+                        spoilerOverride = advisorModel.spoilerOverride,
+                        onDepth = { advisorModel.responseDepth = it },
+                        onSpoiler = { advisorModel.spoilerOverride = it }
                     )
                     AdvisorInputBar(
-                        text = currentInput,
-                        onTextChange = { currentInput = it.take(600) },
+                        text = advisorModel.currentInput,
+                        onTextChange = { advisorModel.currentInput = it.take(600) },
                         onSend = {
-                            val toSend = currentInput
-                            currentInput = ""
+                            val toSend = advisorModel.currentInput
+                            advisorModel.currentInput = ""
                             submitPrompt(toSend, null)
                         }
                     )
@@ -364,7 +387,7 @@ class LiteraryAdvisorScreen(
                                 submitPrompt(chip.prompt, chip.id)
                             },
                             onDiscovery = {
-                                showDiscovery = !showDiscovery
+                                advisorModel.showDiscovery = !advisorModel.showDiscovery
                             },
                             onReadingRoute = {
                                 submitPrompt(
@@ -372,10 +395,10 @@ class LiteraryAdvisorScreen(
                                     "reading_route"
                                 )
                             },
-                            onInformation = { showInformation = true }
+                            onInformation = { advisorModel.showInformation = true }
                         )
                     }
-                    if (showDiscovery) {
+                    if (advisorModel.showDiscovery) {
                         item(key = "mood-discovery") {
                             MoodQuickChipsSection(
                                 onChipClick = { chip ->
@@ -392,7 +415,7 @@ class LiteraryAdvisorScreen(
                             AdvisorMessageBubble(
                                 message = message,
                                 onBookClick = { book -> navigator.push(BookDetailScreen(book)) },
-                                onRead = { readingMessage = message },
+                                onRead = { advisorModel.readingMessage = message },
                                 onFollowUp = { followUpPrompt ->
                                     submitPrompt(followUpPrompt, message.intent)
                                 }
@@ -403,9 +426,9 @@ class LiteraryAdvisorScreen(
             }
         }
 
-        readingMessage?.let { activeMsg ->
+        advisorModel.readingMessage?.let { activeMsg ->
             AlertDialog(
-                onDismissRequest = { readingMessage = null },
+                onDismissRequest = { advisorModel.readingMessage = null },
                 title = {
                     Text(
                         text = "Okuma Görünümü",
@@ -426,16 +449,16 @@ class LiteraryAdvisorScreen(
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = { readingMessage = null }) {
+                    TextButton(onClick = { advisorModel.readingMessage = null }) {
                         Text("Kapat")
                     }
                 }
             )
         }
 
-        if (showInformation) {
+        if (advisorModel.showInformation) {
             AlertDialog(
-                onDismissRequest = { showInformation = false },
+                onDismissRequest = { advisorModel.showInformation = false },
                 title = {
                     Text(
                         text = "Edebi Danışman Hakkında",
@@ -450,7 +473,7 @@ class LiteraryAdvisorScreen(
                     )
                 },
                 confirmButton = {
-                    TextButton(onClick = { showInformation = false }) {
+                    TextButton(onClick = { advisorModel.showInformation = false }) {
                         Text("Anladım")
                     }
                 }
@@ -1027,19 +1050,26 @@ private fun AdvisorInputBar(
     }
 }
 
-private fun parseBasicMarkdown(text: String): AnnotatedString = buildAnnotatedString {
+internal fun parseBasicMarkdown(text: String): AnnotatedString = buildAnnotatedString {
     val cleanText = text.replace(
         Regex("""\[(?:BOOK_REC|BOOK|KITAP|KITAP_REC|SOURCE):[^\]]*]""", RegexOption.IGNORE_CASE),
         ""
     ).trim()
-    val regex = Regex("""\*\*(.+?)\*\*""")
+    val regex = Regex("""\*\*(.+?)\*\*|(?<!\*)\*(?!\*|\s)([^*\n]+?)(?<!\s)\*(?!\*)""")
     var lastIndex = 0
     for (match in regex.findAll(cleanText)) {
         if (match.range.first > lastIndex) {
             append(cleanText.substring(lastIndex, match.range.first))
         }
-        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-            append(match.groupValues[1])
+        val boldGroup = match.groups[1]
+        if (boldGroup != null) {
+            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                append(boldGroup.value)
+            }
+        } else {
+            withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
+                append(match.groupValues[2])
+            }
         }
         lastIndex = match.range.last + 1
     }

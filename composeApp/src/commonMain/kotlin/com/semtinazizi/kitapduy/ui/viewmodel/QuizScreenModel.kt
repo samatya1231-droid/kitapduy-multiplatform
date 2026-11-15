@@ -3,6 +3,7 @@ package com.semtinazizi.kitapduy.ui.viewmodel
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import com.semtinazizi.kitapduy.model.QuizQuestion
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +23,12 @@ enum class QuizGameState {
     STARTING, PLAYING, GAME_OVER, SUCCESS, LEADERBOARD, MULTIPLAYER_LOBBY
 }
 
-class QuizScreenModel(private val authRepo: AuthRepository, private val multiplayerRepo: QuizMultiplayerRepository) : ScreenModel {
+class QuizScreenModel(
+    private val authRepo: AuthRepository,
+    private val multiplayerRepo: QuizMultiplayerRepository,
+    private val suppliedScope: CoroutineScope? = null
+) : ScreenModel {
+    private val scope get() = suppliedScope ?: screenModelScope
 
     private val allQuestions = listOf(
         com.semtinazizi.kitapduy.model.QuizQuestion("02iJNJdZ1lSftMkq4MUi", "Rousseau'nun 'Émile' eseri hangi alana katkıda bulunur?", listOf("Eğitim felsefesi", "Savaş stratejileri", "Ekonomi teorisi", "Astronomi"), 0, "Bireyin doğal gelişimi ve eğitim tartışılır."),
@@ -318,9 +324,12 @@ class QuizScreenModel(private val authRepo: AuthRepository, private val multipla
     
     private val _leaderboard = MutableStateFlow<List<QuizLeaderboardEntry>>(emptyList())
     val leaderboard = _leaderboard.asStateFlow()
+    private var leaderboardJob: Job? = null
 
     fun loadLeaderboard() {
-        screenModelScope.launch {
+        _gameState.value = QuizGameState.LEADERBOARD
+        leaderboardJob?.cancel()
+        leaderboardJob = scope.launch {
             val remote = runCatching { multiplayerRepo.getLeaderboard() }.getOrDefault(emptyList())
             _leaderboard.value = remote.ifEmpty {
                 listOf(
@@ -336,7 +345,7 @@ class QuizScreenModel(private val authRepo: AuthRepository, private val multipla
     
     // Save Score to Leaderboard
     fun saveScoreToLeaderboard() {
-        screenModelScope.launch {
+        scope.launch {
             try {
                 val uid = authRepo.currentUserUid
                 if (uid != null) {
@@ -381,6 +390,8 @@ class QuizScreenModel(private val authRepo: AuthRepository, private val multipla
     val eliminatedOptions: StateFlow<List<Int>> = _eliminatedOptions.asStateFlow()
 
     private var timerJob: Job? = null
+    private var nextQuestionJob: Job? = null
+    private var multiplayerJob: Job? = null
 
     
     private val _lobbyState = MutableStateFlow("Rakip Aranıyor...")
@@ -391,8 +402,8 @@ class QuizScreenModel(private val authRepo: AuthRepository, private val multipla
     fun findMultiplayerMatch() {
         _gameState.value = QuizGameState.MULTIPLAYER_LOBBY
         _lobbyState.value = "Rakip Aranıyor..."
-        
-        screenModelScope.launch {
+        multiplayerJob?.cancel()
+        multiplayerJob = scope.launch {
             try {
                 val uid = authRepo.currentUserUid
                 if (uid == null) {
@@ -431,6 +442,8 @@ class QuizScreenModel(private val authRepo: AuthRepository, private val multipla
                         _lobbyState.value = "Oda oluşturulamadı."
                     }
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Throwable) {
                 _lobbyState.value = "Hata: ${e.message}"
             }
@@ -438,6 +451,10 @@ class QuizScreenModel(private val authRepo: AuthRepository, private val multipla
     }
 
     fun resetGame() {
+        timerJob?.cancel()
+        nextQuestionJob?.cancel()
+        multiplayerJob?.cancel()
+        leaderboardJob?.cancel()
         _gameState.value = QuizGameState.STARTING
         _score.value = 0
         _lives.value = 3
@@ -489,12 +506,12 @@ class QuizScreenModel(private val authRepo: AuthRepository, private val multipla
 
     private fun startTimer() {
         timerJob?.cancel()
-        timerJob = screenModelScope.launch {
+        timerJob = scope.launch {
             while (isActive && _timeLeft.value > 0) {
                 delay(1000L)
                 _timeLeft.value -= 1
             }
-            if (_timeLeft.value <= 0) {
+            if (_timeLeft.value <= 0 && _gameState.value == QuizGameState.PLAYING) {
                 // Zaman doldu, yanlış kabul et
                 handleAnswer(-1)
             }
@@ -521,8 +538,10 @@ class QuizScreenModel(private val authRepo: AuthRepository, private val multipla
         }
         
         // Biraz bekle ve sonraki soruya geç
-        screenModelScope.launch {
+        nextQuestionJob?.cancel()
+        nextQuestionJob = scope.launch {
             delay(1500)
+            if (_gameState.value != QuizGameState.PLAYING) return@launch
             if (_lives.value > 0) {
                 _currentQuestionIndex.value += 1
                 loadNextQuestion()
@@ -535,6 +554,9 @@ class QuizScreenModel(private val authRepo: AuthRepository, private val multipla
     override fun onDispose() {
         super.onDispose()
         timerJob?.cancel()
+        nextQuestionJob?.cancel()
+        multiplayerJob?.cancel()
+        leaderboardJob?.cancel()
     }
     
     fun useFiftyFifty() {
@@ -561,7 +583,7 @@ class QuizScreenModel(private val authRepo: AuthRepository, private val multipla
 
     fun sendEmoji(emoji: String) {
         _lastEmoji.value = emoji
-        screenModelScope.launch {
+        scope.launch {
             delay(2000)
             if (_lastEmoji.value == emoji) {
                 _lastEmoji.value = null

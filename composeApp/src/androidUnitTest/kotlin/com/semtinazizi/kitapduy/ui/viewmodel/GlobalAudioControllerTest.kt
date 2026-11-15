@@ -182,6 +182,25 @@ class GlobalAudioControllerTest {
         controller.playTrack(book, isPremium = true)
         assertNull(controller.currentPodcastTitle.value)
     }
+
+    @Test fun ciSmokeTestSkipsAdsAndRestoresSavedPosition() = runTest {
+        val player = FakePlayer(); val progress = progress()
+        progress.saveProgress("a", 42_000)
+        val controller = GlobalAudioController(
+            audioPlayer = player,
+            fileDownloader = FakeDownloader(),
+            progressManager = progress,
+            scope = backgroundScope,
+            isCiSmokeTest = { true }
+        )
+        controller.playTrack(book, isPremium = false)
+        assertTrue(player.initialized)
+        assertEquals(listOf("a"), player.items.map { it.id })
+        assertEquals(42_000, player.items.single().startPositionMs)
+        player.position = 45_000
+        advanceTimeBy(501)
+        assertEquals(45_000, progress.getProgress("a"))
+    }
 }
 
 private class FakeDownloader : FileDownloader {

@@ -20,5 +20,6 @@ val viewModelModule = module {
     factory { com.semtinazizi.kitapduy.ui.viewmodel.BookDetailScreenModel(get(), get()) }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.GuessAuthorScreenModel() }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.PostDetailScreenModel(get()) }
+    factory { com.semtinazizi.kitapduy.ui.screens.LiteraryAdvisorScreenModel() }
 }
 

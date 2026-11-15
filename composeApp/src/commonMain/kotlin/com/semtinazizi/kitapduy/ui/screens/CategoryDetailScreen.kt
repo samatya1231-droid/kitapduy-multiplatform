@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.*
 import androidx.compose.ui.text.style.*
 import androidx.compose.ui.unit.*
@@ -273,7 +274,8 @@ class CategoryDetailScreen(val categoryName: String) : Screen {
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clickable { navigator.push(AuthorDetailScreen(author)) }
-                                            .padding(horizontal = 20.dp, vertical = 8.dp),
+                                            .padding(horizontal = 20.dp, vertical = 8.dp)
+                                            .testTag("category-author-$author"),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {

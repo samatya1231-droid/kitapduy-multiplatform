@@ -59,6 +59,7 @@ expect object AppConfig {
     val cfUploadToken: String
     val cfAccessKey: String
     val cfSecretKey: String
+    val isCiSmokeTest: Boolean
     
     /**
      * Resimleri okumak için yetkilendirilmiş (Presigned) URL üretir.
