@@ -1,0 +1,3 @@
+/* Turkish localization for Info.plist */
+"NSCameraUsageDescription" = "Uygulamamızın kamera özellikleri için izninize ihtiyacımız var.";
+"NSPhotoLibraryUsageDescription" = "Profil fotoğrafı ve gönderi fotoğrafı yüklemek için galerinize erişim gerekiyor.";

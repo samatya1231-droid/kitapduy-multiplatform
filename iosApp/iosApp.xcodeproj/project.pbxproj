@@ -14,6 +14,7 @@
 		A13000000000000000000001 /* StoreService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13000000000000000000002 /* StoreService.swift */; };
 		A13000000000000000000003 /* AuthenticationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13000000000000000000004 /* AuthenticationService.swift */; };
 		A13000000000000000000005 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A13000000000000000000006 /* PrivacyInfo.xcprivacy */; };
+		A30000000000000000000001 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A30000000000000000000002 /* InfoPlist.strings */; };
 		058557BB273AAA24004C7B11 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 058557BA273AAA24004C7B11 /* Assets.xcassets */; };
 		058557D9273AAEEB004C7B11 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 058557D8273AAEEB004C7B11 /* Preview Assets.xcassets */; };
 		2152FB042600AC8F00CF470E /* KitapDuyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2152FB032600AC8F00CF470E /* KitapDuyApp.swift */; };
@@ -33,6 +34,7 @@
 		7555FF7B242A565900829871 /* My application.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "My application.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		7555FF82242A565900829871 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		7555FF8C242A565B00829871 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A30000000000000000000003 /* tr */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = tr; path = tr.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		AB3632DC29227652001CCB65 /* Config.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		BEE000000000000000000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderJourneyTests.swift; sourceTree = "<group>"; };
 		BEE000000000000000000003 = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KitapDuyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -98,6 +100,7 @@
 				058557BA273AAA24004C7B11 /* Assets.xcassets */,
 				7555FF82242A565900829871 /* ContentView.swift */,
 				7555FF8C242A565B00829871 /* Info.plist */,
+				A30000000000000000000002 /* InfoPlist.strings */,
 				2152FB032600AC8F00CF470E /* KitapDuyApp.swift */,
 				058557D7273AAEEB004C7B11 /* Preview Content */,
 			);
@@ -177,10 +180,10 @@
 			};
 			buildConfigurationList = 7555FF76242A565900829871 /* Build configuration list for PBXProject "iosApp" */;
 			compatibilityVersion = "Xcode 9.3";
-			developmentRegion = en;
+			developmentRegion = tr;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				en,
+				tr,
 				Base,
 			);
 			mainGroup = 7555FF72242A565900829871;
@@ -205,6 +208,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A13000000000000000000005 /* PrivacyInfo.xcprivacy in Resources */,
+				A30000000000000000000001 /* InfoPlist.strings in Resources */,
 				058557D9273AAEEB004C7B11 /* Preview Assets.xcassets in Resources */,
 				058557BB273AAA24004C7B11 /* Assets.xcassets in Resources */,
 			);
@@ -249,6 +253,17 @@
 		};
 		BEE000000000000000000005 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (BEE000000000000000000001,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		A30000000000000000000002 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A30000000000000000000003 /* tr */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		7555FFA3242A565B00829871 /* Debug */ = {

@@ -69,7 +69,9 @@ jobs:
             macos-26-spm-
 
       - name: Run CI helper unit tests
-        run: python3 -m unittest discover -b -s ci -p 'test_ios_release.py'
+        run: |
+          python3 -m unittest discover -b -s ci -p 'test_ios_release.py'
+          python3 -m unittest discover -b -s ci -p 'test_validate_ios_plist.py'
 
       - name: Build, sign, validate, and upload IPA
         env:

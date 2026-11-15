@@ -178,7 +178,7 @@ prep_output="$(python3 ci/ios_release.py prepare-build \
 eval "$prep_output"
 echo "Release version: $SHORT_VERSION ($BUILD_VERSION)"
 
-python3 ci/validate-ios-plist.py iosApp/iosApp/Info.plist
+python3 ci/validate-ios-plist.py iosApp/iosApp/Info.plist --localization tr --exact-localizations
 
 # 6. Configure Gradle for 7 GB macos-26 runner and build/archive Release .xcarchive.
 bash ci/configure-ci-gradle.sh
@@ -220,7 +220,8 @@ if [[ ${#ipas[@]} -ne 1 ]]; then
 fi
 IPA_PATH="${ipas[0]}"
 python3 ci/validate-ios-plist.py "$IPA_PATH" \
-  --bundle-id "$BUNDLE_ID" --marketing-version "$SHORT_VERSION" --build-number "$BUILD_VERSION"
+  --bundle-id "$BUNDLE_ID" --marketing-version "$SHORT_VERSION" --build-number "$BUILD_VERSION" \
+  --development-region tr --localization tr --exact-localizations
 
 # 8. Upload to App Store Connect / TestFlight if enabled.
 UPLOAD_STATUS="Skipped (upload_to_app_store=false)"

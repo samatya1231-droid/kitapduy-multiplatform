@@ -6,6 +6,7 @@ import hashlib
 import os
 from pathlib import Path
 import plistlib
+import re
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -235,6 +236,7 @@ class VersionAndExportTests(unittest.TestCase):
             updated = plistlib.loads(plist_path.read_bytes())
             self.assertEqual(updated["CFBundleVersion"], "29")
             self.assertEqual(updated["CFBundleShortVersionString"], "1.0.3")
+            self.assertEqual(updated["CFBundleLocalizations"], ["tr"])
             self.assertIs(updated["CADisableMinimumFrameDurationOnPhone"], True)
 
             export_bytes = ios_release.build_export_options_plist(
@@ -295,6 +297,188 @@ class XcodeProjectSanityTests(unittest.TestCase):
         gitignore = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
         for pattern in ("*.p12", "*.p8", "*.mobileprovision", ".spm-cache/"):
             self.assertIn(pattern, gitignore)
+
+    @staticmethod
+    def _parse_openstep_plist(text: str) -> dict:
+        tokens = []
+        i = 0
+        n = len(text)
+        while i < n:
+            if text[i].isspace():
+                i += 1
+            elif text[i : i + 2] == "//":
+                end = text.find("\n", i)
+                i = n if end == -1 else end + 1
+            elif text[i : i + 2] == "/*":
+                end = text.find("*/", i + 2)
+                if end == -1:
+                    raise ValueError("Unclosed block comment in project.pbxproj")
+                i = end + 2
+            elif text[i] in "{}()=;," :
+                tokens.append((text[i], text[i]))
+                i += 1
+            elif text[i] == '"':
+                j = i + 1
+                out = []
+                while j < n:
+                    if text[j] == "\\":
+                        if j + 1 >= n:
+                            raise ValueError("Dangling escape in project.pbxproj")
+                        out.append(text[j + 1])
+                        j += 2
+                    elif text[j] == '"':
+                        break
+                    else:
+                        out.append(text[j])
+                        j += 1
+                else:
+                    raise ValueError("Unclosed string literal in project.pbxproj")
+                tokens.append(("STR", "".join(out)))
+                i = j + 1
+            else:
+                j = i
+                while j < n and not text[j].isspace() and text[j] not in '{}()=;,"':
+                    if text[j : j + 2] in ("/*", "//"):
+                        break
+                    j += 1
+                tokens.append(("ATOM", text[i:j]))
+                i = j
+
+        pos = 0
+
+        def parse_val():
+            nonlocal pos
+            kind, val = tokens[pos]
+            if kind == "{":
+                pos += 1
+                mapping = {}
+                while tokens[pos][0] != "}":
+                    k_kind, k_val = tokens[pos]
+                    if k_kind not in ("STR", "ATOM"):
+                        raise ValueError(f"Expected key, got {tokens[pos]}")
+                    pos += 1
+                    if tokens[pos][0] != "=":
+                        raise ValueError(f"Expected '=', got {tokens[pos]}")
+                    pos += 1
+                    parsed = parse_val()
+                    if tokens[pos][0] != ";":
+                        raise ValueError(f"Expected ';', got {tokens[pos]}")
+                    pos += 1
+                    if k_val in mapping:
+                        raise ValueError(f"Duplicate key in pbxproj dict: {k_val}")
+                    mapping[k_val] = parsed
+                pos += 1
+                return mapping
+            if kind == "(":
+                pos += 1
+                items = []
+                while tokens[pos][0] != ")":
+                    items.append(parse_val())
+                    if tokens[pos][0] == ",":
+                        pos += 1
+                pos += 1
+                return items
+            if kind in ("STR", "ATOM"):
+                pos += 1
+                return val
+            raise ValueError(f"Unexpected token {tokens[pos]}")
+
+        root = parse_val()
+        if pos != len(tokens):
+            raise ValueError(f"Unexpected trailing tokens at {pos}")
+        return root
+
+    @staticmethod
+    def _parse_apple_strings(text: str) -> dict[str, str]:
+        cleaned = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+        entries: dict[str, str] = {}
+        for line_no, raw_line in enumerate(cleaned.splitlines(), start=1):
+            line = raw_line.strip()
+            if not line or line.startswith("//"):
+                continue
+            match = re.fullmatch(
+                r'"((?:\\.|[^"\\])*)"\s*=\s*"((?:\\.|[^"\\])*)";',
+                line,
+            )
+            if not match:
+                raise ValueError(f"Invalid .strings syntax on line {line_no}: {raw_line!r}")
+            key = bytes(match.group(1), "utf-8").decode("unicode_escape") if "\\" in match.group(1) else match.group(1)
+            val = bytes(match.group(2), "utf-8").decode("unicode_escape") if "\\" in match.group(2) else match.group(2)
+            if key in entries:
+                raise ValueError(f"Duplicate key in .strings file: {key!r}")
+            entries[key] = val
+        return entries
+
+    def test_iosapp_turkish_localization_configuration(self):
+        plist = plistlib.loads((REPO_ROOT / "iosApp/iosApp/Info.plist").read_bytes())
+        self.assertEqual(plist.get("CFBundleLocalizations"), ["tr"])
+        self.assertIn(plist.get("CFBundleDevelopmentRegion"), ("$(DEVELOPMENT_LANGUAGE)", "tr"))
+
+        strings_path = REPO_ROOT / "iosApp/iosApp/tr.lproj/InfoPlist.strings"
+        self.assertTrue(strings_path.is_file(), "tr.lproj/InfoPlist.strings must exist")
+        raw_strings = strings_path.read_bytes()
+        self.assertFalse(raw_strings.startswith(b"\xef\xbb\xbf"), "InfoPlist.strings must not contain a UTF-8 BOM")
+        strings_text = raw_strings.decode("utf-8")
+        self.assertNotIn("\u201c", strings_text)
+        self.assertNotIn("\u201d", strings_text)
+        parsed_entries = self._parse_apple_strings(strings_text)
+        for key in ("NSCameraUsageDescription", "NSPhotoLibraryUsageDescription"):
+            self.assertEqual(parsed_entries.get(key), plist.get(key))
+
+        pbxproj_text = (REPO_ROOT / "iosApp/iosApp.xcodeproj/project.pbxproj").read_text(encoding="utf-8")
+        pbxproj = self._parse_openstep_plist(pbxproj_text)
+        objects = pbxproj["objects"]
+        project = objects[pbxproj["rootObject"]]
+        self.assertEqual(project.get("developmentRegion"), "tr")
+        regions = project.get("knownRegions", [])
+        self.assertIn("tr", regions)
+        self.assertNotIn("en", regions)
+
+        # Verify InfoPlist.strings variant group, file ref, build file, and Resources build phase wiring.
+        iosapp_target = objects["7555FF7A242A565900829871"]
+        iosapp_group = objects["7555FF7D242A565900829871"]
+        variant_ids = [
+            cid for cid in iosapp_group["children"]
+            if objects[cid]["isa"] == "PBXVariantGroup" and objects[cid].get("name") == "InfoPlist.strings"
+        ]
+        self.assertEqual(len(variant_ids), 1)
+        variant_id = variant_ids[0]
+        variant = objects[variant_id]
+        self.assertEqual(variant.get("sourceTree"), "<group>")
+        self.assertEqual(len(variant["children"]), 1)
+        tr_file_ref = objects[variant["children"][0]]
+        self.assertEqual(tr_file_ref.get("isa"), "PBXFileReference")
+        self.assertEqual(tr_file_ref.get("name"), "tr")
+        self.assertEqual(tr_file_ref.get("path"), "tr.lproj/InfoPlist.strings")
+        self.assertEqual(tr_file_ref.get("lastKnownFileType"), "text.plist.strings")
+        self.assertTrue((REPO_ROOT / "iosApp" / iosapp_group["path"] / tr_file_ref["path"]).is_file())
+
+        resources_phase = next(
+            objects[pid] for pid in iosapp_target["buildPhases"]
+            if objects[pid]["isa"] == "PBXResourcesBuildPhase"
+        )
+        resource_file_refs = [objects[bf_id]["fileRef"] for bf_id in resources_phase["files"]]
+        self.assertIn(variant_id, resource_file_refs)
+
+    def test_release_and_simulator_scripts_validate_turkish_localization(self):
+        release_sh = (REPO_ROOT / "ci/build-ios-release.sh").read_text(encoding="utf-8")
+        self.assertIn("--development-region tr", release_sh)
+        self.assertIn("--localization tr", release_sh)
+        self.assertIn("--exact-localizations", release_sh)
+
+        sim_sh = (REPO_ROOT / "ci/build-ios-simulator.sh").read_text(encoding="utf-8")
+        self.assertIn("--localization tr", sim_sh)
+        self.assertIn("--exact-localizations", sim_sh)
+        self.assertIn("KitapDuy.app", sim_sh)
+
+        codemagic = (REPO_ROOT / "codemagic.yaml").read_text(encoding="utf-8")
+        self.assertIn("--exact-localizations", codemagic)
+        self.assertIn("KitapDuy.app", codemagic)
+
+        release_yml = (REPO_ROOT / ".github/workflows/ios-release.yml").read_text(encoding="utf-8")
+        self.assertIn("test_validate_ios_plist.py", release_yml)
+        test_sim_sh = (REPO_ROOT / "ci/test-ios-simulator.sh").read_text(encoding="utf-8")
+        self.assertIn("test_validate_ios_plist.py", test_sim_sh)
 
 if __name__ == "__main__":
     unittest.main()

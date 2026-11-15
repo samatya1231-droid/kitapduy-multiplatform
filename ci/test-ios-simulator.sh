@@ -3,6 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 python3 -m unittest discover -b -s ci -p 'test_run_ios_smoke.py'
+python3 -m unittest discover -b -s ci -p 'test_validate_ios_plist.py'
 products=build/ios-simulator/Build/Products
 shopt -s nullglob
 test_runs=("$products"/KitapDuyUI*.xctestrun)
