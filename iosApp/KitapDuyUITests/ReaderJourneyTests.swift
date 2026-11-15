@@ -321,7 +321,8 @@ final class ReaderJourneyTests: XCTestCase {
             audit("43-author-detail")
             inspectScreen("43-author-detail")
             try tap(text("Geri"))
-            try scrollToVisible(text("Polisiye", contains: true))
+            try scrollToTop(target: text("Polisiye", contains: true))
+            try visible(text("Polisiye", contains: true))
             try tap(text("Geri"))
             try scrollToVisible(text("Bugün nasıl bir hikâye?"))
         }
@@ -579,13 +580,15 @@ final class ReaderJourneyTests: XCTestCase {
             }
             try visible(text("Kısalt", contains: true), scroll: true)
 
-            try tap(element("book-like"), scroll: true)
+            try scrollToTop(target: element("book-like"))
+            try tap(element("book-like"))
             try visible(text("Kitap beğenileri şu anda kullanılamıyor."))
             inspectScreen("51-book-summary-and-like")
             try tap(text("Tamam"))
         }
 
         try step("52-book-dialogs-and-shelf") {
+            try scrollToTop(target: element("book-play-pause"))
             let speedBtn = text("1.0x").exists ? text("1.0x") : text("1.25x")
             try tap(speedBtn, scroll: true)
             try visible(text("Çalma Hızı"))
@@ -1081,6 +1084,10 @@ final class ReaderJourneyTests: XCTestCase {
         let winFrame = app.windows.firstMatch.frame
         let frame = target.frame
         guard !winFrame.isEmpty, !frame.isEmpty, frame.width >= 1, frame.height >= 1 else { return false }
+        if frame.height <= winFrame.height * 0.6,
+           (frame.minY < -1 || frame.maxY > winFrame.height + 1) {
+            return false
+        }
         let center = CGPoint(x: frame.midX, y: frame.midY)
         let safeRect = (winFrame.width > 8 && winFrame.height > 8) ? winFrame.insetBy(dx: 2, dy: 2) : winFrame
         guard safeRect.contains(center) else { return false }
