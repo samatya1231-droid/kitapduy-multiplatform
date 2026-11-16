@@ -8,16 +8,12 @@ workflows:
       vars:
         BUNDLE_ID: "com.semtinazizi.kitapduy"
         GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx6g -XX:+UseG1GC"
+        IOS_SMOKE_DEVICES: "both"
       xcode: latest
       cocoapods: default
       java: 17
 
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: "main"
-          include: true
+    # Manual start only: automatic builds on push to main are disabled to save Codemagic minutes.
 
     scripts:
       - name: Set up local.properties

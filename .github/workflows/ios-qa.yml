@@ -2,6 +2,16 @@ name: KitapDuy iOS QA
 
 on:
   workflow_dispatch:
+    inputs:
+      devices:
+        description: "Test edilecek cihazlar (both: iPhone + iPad, iphone: sadece iPhone, ipad: sadece iPad)"
+        required: false
+        type: choice
+        default: "both"
+        options:
+          - "both"
+          - "iphone"
+          - "ipad"
 
 permissions:
   contents: read
@@ -12,7 +22,7 @@ concurrency:
 
 jobs:
   ios-qa:
-    name: iPhone and iPad user journeys
+    name: iOS user journeys (${{ inputs.devices || 'both' }})
     runs-on: macos-26
     timeout-minutes: 90
     defaults:
@@ -55,7 +65,9 @@ jobs:
       - name: Build KitapDuy and its XCUITest runner
         run: bash ci/build-ios-simulator.sh
 
-      - name: Record iPhone and iPad user journeys
+      - name: Record iOS user journeys (${{ inputs.devices || 'both' }})
+        env:
+          IOS_SMOKE_DEVICES: ${{ inputs.devices || 'both' }}
         run: bash ci/test-ios-simulator.sh
 
       - name: Upload the QA report and recordings

@@ -26,7 +26,15 @@ info.setdefault("NSAppTransportSecurity", {})["NSAllowsLocalNetworking"] = True
 info_path.write_bytes(plistlib.dumps(info, fmt=plistlib.FMT_BINARY))
 PY
 
-python3 ci/run-ios-smoke.py \
-  --app "$app" \
-  --test-run "${test_runs[0]}" \
+devices="${IOS_SMOKE_DEVICES:-both}"
+smoke_args=(
+  --app "$app"
+  --test-run "${test_runs[0]}"
   --output build/ios-smoke
+  --devices "$devices"
+)
+if [[ $# -gt 0 ]]; then
+  smoke_args+=("$@")
+fi
+
+python3 ci/run-ios-smoke.py "${smoke_args[@]}"

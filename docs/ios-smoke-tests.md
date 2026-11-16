@@ -1,10 +1,10 @@
 # iPhone ve iPad kullanıcı senaryoları
 
-GitHub’da **Actions → KitapDuy iOS QA → Run workflow** yolunu izleyip `main` dalını seçin. Bu akış elle başlatılır. GitHub artifact’i üç gün saklar. Codemagic’te **iPhone and iPad User Journey Tests** (`ios-build-test`) akışını seçin. `main` dalına yapılan push bu akışı başlatır.
+GitHub’da **Actions → KitapDuy iOS QA → Run workflow** yolunu izleyip `main` dalını ve isteğe bağlı olarak `devices` seçeneğini (`both`, `iphone` veya `ipad`) seçin. Bu akış elle başlatılır. GitHub artifact’i üç gün saklar. Codemagic’te **iPhone and iPad User Journey Tests** (`ios-build-test`) akışı da elle başlatılır (otomatik `push` tetiklemesi kapalıdır; gerekirse `IOS_SMOKE_DEVICES=iphone|ipad|both` ortam değişkeniyle cihaz seçilebilir).
 
-Bitrise’ta özel GitHub deposunu projeye bağlayın. **Workflows → Change storage** üzerinden depodaki kök `bitrise.yml` dosyasını kullanın. **Start/Schedule a build** ekranında `main` dalı ve `ios-qa` akışını seçin. Arşiv, çalıştırmanın **Artifacts** bölümünde görünür.
+Bitrise’ta özel GitHub deposunu projeye bağlayın. **Workflows → Change storage** üzerinden depodaki kök `bitrise.yml` dosyasını kullanın. **Start/Schedule a build** ekranında `main` dalı ve `ios-qa` akışını seçin (isteğe bağlı olarak `IOS_SMOKE_DEVICES` ortam değişkeniyle `iphone`, `ipad` veya `both` seçilebilir). Arşiv, çalıştırmanın **Artifacts** bölümünde görünür.
 
-Her akış Release simülatör uygulamasını ve XCUITest hedefini derler. İki cihaz ailesini de destekleyen en yeni kurulu iOS çalışma ortamında bir iPhone ve bir iPad oluşturur. Cihaz ve iOS sürümü raporda gösterilir.
+Her akış Release simülatör uygulamasını ve XCUITest hedefini derler. Seçilen cihaz ailelerini (`both` için bir iPhone ve bir iPad; `iphone` veya `ipad` için yalnızca seçilen aile) destekleyen en yeni kurulu iOS çalışma ortamında simülatör oluşturur. Cihaz ve iOS sürümü raporda gösterilir.
 
 Çalıştırmanın **Artifacts** bölümündeki **`kitapduy-ios-qa`** arşivini indirin, tamamını çıkarın ve **`index.html`** dosyasını tarayıcıda açın. Videolar sayfanın içinden izlenebilir. Sayfanın üst bölümündeki **Detaylı İnceleme Notu** panelinden (**Notu Panoya Kopyala** düğmesi veya **`inceleme-notu.md`** / **`inceleme-notu.txt`** dosyaları üzerinden) çalıştırma bulgularını doğrudan kopyalayıp paylaşabilirsiniz. Aynı ekranın iPhone ve iPad görüntüleri yan yana gelir ve tıklandığında tam boy açılır. Senaryo sonuçları, hata anları, çalışma zamanı denetim notları (`probes.txt` / `probes.json`) ve Apple erişilebilirlik bulguları (`accessibility.txt`) aynı raporda yer alır. `summary.json` cihaz başına senaryo sonuçlarını ve alınan kanıtları listeler. Codemagic ayrıca Xcode ile açılabilen `journey.xcresult.zip` arşivlerini saklar. Derleme simülatör testlerinden önce durursa GitHub ve Bitrise artifact’inde varsa derleme günlükleri yer alır.
 
@@ -42,5 +42,8 @@ Gerçek arayüz testleri için macOS ve Xcode gerekir. `codemagic.yaml` içindek
 python3 ci/run-ios-smoke.py \
   --app build/ios-simulator/Build/Products/Release-iphonesimulator/KitapDuy.app \
   --test-run path/to/KitapDuyUI.xctestrun \
-  --output build/ios-smoke
+  --output build/ios-smoke \
+  --devices both
 ```
+
+Yalnızca iPhone çalıştırmak için `--devices iphone` (veya `IOS_SMOKE_DEVICES=iphone`) kullanılabilir.

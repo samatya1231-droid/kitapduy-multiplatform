@@ -1,6 +1,7 @@
 from contextlib import nullcontext
 import importlib.util
 import json
+import os
 from pathlib import Path
 import plistlib
 import tempfile
@@ -45,6 +46,37 @@ class DeviceSelectionTest(unittest.TestCase):
     def test_missing_ipad_fails_instead_of_silently_testing_only_iphone(self):
         with self.assertRaisesRegex(RuntimeError, "both an available iPhone and iPad"):
             smoke.select_devices({"runtime.iOS-27-2": [device("iPhone 17")]})
+
+    def test_iphone_only_selection_ignores_missing_ipad_on_newest_runtime(self):
+        chosen = smoke.select_devices({
+            "runtime.iOS-27-2": [device("iPhone 17 Pro Max"), device("iPad Air", available=False)],
+            "runtime.iOS-26-0": [device("iPhone 16"), device("iPad Pro")],
+        }, families=("iPhone",))
+        self.assertEqual([item["name"] for item in chosen], ["iPhone 17 Pro Max"])
+        self.assertEqual(chosen[0]["runtime"], "runtime.iOS-27-2")
+        self.assertEqual(chosen[0]["family"], "iPhone")
+
+    def test_ipad_only_selection_picks_preferred_ipad(self):
+        chosen = smoke.select_devices({
+            "runtime.iOS-27-2": [device("iPad Pro 13-inch"), device("iPad Air 11-inch (M3)")],
+        }, families=("iPad",))
+        self.assertEqual([item["name"] for item in chosen], ["iPad Air 11-inch (M3)"])
+        self.assertEqual(chosen[0]["family"], "iPad")
+
+    def test_missing_single_family_raises_specific_error(self):
+        with self.assertRaisesRegex(RuntimeError, "available iPhone"):
+            smoke.select_devices({"runtime.iOS-27-2": [device("iPad Pro")]}, families=("iPhone",))
+        with self.assertRaisesRegex(RuntimeError, "available iPad"):
+            smoke.select_devices({"runtime.iOS-27-2": [device("iPhone 17")]}, families=("iPad",))
+
+    def test_parse_device_families_normalizes_and_validates(self):
+        self.assertEqual(smoke.parse_device_families(None), ("iPhone", "iPad"))
+        self.assertEqual(smoke.parse_device_families(""), ("iPhone", "iPad"))
+        self.assertEqual(smoke.parse_device_families("  both "), ("iPhone", "iPad"))
+        self.assertEqual(smoke.parse_device_families("iPhone"), ("iPhone",))
+        self.assertEqual(smoke.parse_device_families("IPAD"), ("iPad",))
+        with self.assertRaises(ValueError):
+            smoke.parse_device_families("watch")
 
 
 class ProcessObservationTest(unittest.TestCase):
@@ -308,6 +340,108 @@ class RunnerTest(unittest.TestCase):
         self.assertEqual(code, 1)
         root = ET.parse(self.output / "junit.xml").getroot()
         self.assertEqual(root.attrib["failures"], "1")
+
+    def test_main_iphone_only_returns_zero_and_omits_ipad_column(self):
+        test_run = self.root / "test.xctestrun"
+        test_run.touch()
+        devices_payload = json.dumps({"devices": {
+            "runtime.iOS-27-2": [device("iPhone 17 Pro Max"), device("iPad Air 11-inch (M3)")],
+        }})
+        with patch.object(smoke.SimulatorRunner, "command", return_value=devices_payload), \
+                patch.object(smoke.SimulatorRunner, "run_device", side_effect=lambda dev: {
+                    "name": dev["name"],
+                    "family": dev["family"],
+                    "runtime": dev["runtime"],
+                    "passed": True,
+                    "error": "",
+                    "screenshots": ["01-guest-entry.png"],
+                    "video": "recording.mp4",
+                    "journeys": {test: "passed" for test in smoke.JOURNEYS},
+                    "fixture_requests": ["guest_signup"],
+                }) as run_device_mock:
+            code = smoke.main([
+                "--app", str(self.app),
+                "--test-run", str(test_run),
+                "--output", str(self.output),
+                "--devices", "iphone",
+            ])
+        self.assertEqual(code, 0)
+        self.assertEqual(run_device_mock.call_count, 1)
+        self.assertEqual(run_device_mock.call_args.args[0]["family"], "iPhone")
+        report = (self.output / "index.html").read_text(encoding="utf-8")
+        self.assertIn('<th scope="col">iPhone</th>', report)
+        self.assertNotIn('<th scope="col">iPad</th>', report)
+        self.assertIn("Gerçek iPhone simülatörü", report)
+        note = (self.output / "inceleme-notu.md").read_text(encoding="utf-8")
+        self.assertIn("iPhone — iPhone 17 Pro Max", note)
+        self.assertNotIn("iPad Air", note)
+
+    def test_main_reads_ios_smoke_devices_env_and_allows_cli_override(self):
+        test_run = self.root / "test.xctestrun"
+        test_run.touch()
+        devices_payload = json.dumps({"devices": {
+            "runtime.iOS-27-2": [device("iPhone 17"), device("iPad Air 11-inch (M3)")],
+        }})
+
+        def fake_run_device(dev):
+            return {"name": dev["name"], "family": dev["family"], "passed": True, "error": "", "screenshots": []}
+
+        with patch.dict(os.environ, {"IOS_SMOKE_DEVICES": "ipad"}, clear=False), \
+                patch.object(smoke.SimulatorRunner, "command", return_value=devices_payload), \
+                patch.object(smoke.SimulatorRunner, "run_device", side_effect=fake_run_device) as run_mock:
+            code = smoke.main(["--app", str(self.app), "--test-run", str(test_run), "--output", str(self.output)])
+        self.assertEqual(code, 0)
+        self.assertEqual([c.args[0]["family"] for c in run_mock.call_args_list], ["iPad"])
+
+        with patch.dict(os.environ, {"IOS_SMOKE_DEVICES": ""}, clear=False), \
+                patch.object(smoke.SimulatorRunner, "command", return_value=devices_payload), \
+                patch.object(smoke.SimulatorRunner, "run_device", side_effect=fake_run_device) as run_mock:
+            code = smoke.main(["--app", str(self.app), "--test-run", str(test_run), "--output", str(self.output)])
+        self.assertEqual(code, 0)
+        self.assertEqual([c.args[0]["family"] for c in run_mock.call_args_list], ["iPhone", "iPad"])
+
+        with patch.dict(os.environ, {"IOS_SMOKE_DEVICES": "ipad"}, clear=False), \
+                patch.object(smoke.SimulatorRunner, "command", return_value=devices_payload), \
+                patch.object(smoke.SimulatorRunner, "run_device", side_effect=fake_run_device) as run_mock:
+            code = smoke.main([
+                "--app", str(self.app), "--test-run", str(test_run),
+                "--output", str(self.output), "--devices", "iphone",
+            ])
+        self.assertEqual(code, 0)
+        self.assertEqual([c.args[0]["family"] for c in run_mock.call_args_list], ["iPhone"])
+
+    def test_main_rejects_invalid_device_selection(self):
+        test_run = self.root / "test.xctestrun"
+        test_run.touch()
+        with self.assertRaises(SystemExit) as exc:
+            smoke.main(["--app", str(self.app), "--test-run", str(test_run), "--devices", "apple-watch"])
+        self.assertNotEqual(exc.exception.code, 0)
+        with patch.dict(os.environ, {"IOS_SMOKE_DEVICES": "apple-watch"}, clear=False):
+            with self.assertRaises(SystemExit) as env_exc:
+                smoke.main(["--app", str(self.app), "--test-run", str(test_run)])
+            self.assertNotEqual(env_exc.exception.code, 0)
+
+    def test_main_both_mode_fails_when_only_one_device_result_returned(self):
+        test_run = self.root / "test.xctestrun"
+        test_run.touch()
+        with patch.object(smoke, "SimulatorRunner") as runner_cls:
+            runner_cls.return_value.run.return_value = [{"name": "iPhone", "family": "iPhone", "passed": True, "error": ""}]
+            code = smoke.main(["--app", str(self.app), "--test-run", str(test_run), "--output", str(self.output)])
+        self.assertEqual(code, 1)
+
+    def test_ci_workflows_wire_device_selection_and_manual_codemagic(self):
+        repo = Path(__file__).resolve().parents[1]
+        qa_yml = (repo / ".github/workflows/ios-qa.yml").read_text(encoding="utf-8")
+        for token in ("devices:", "iphone", "ipad", "both", "IOS_SMOKE_DEVICES"):
+            self.assertIn(token, qa_yml)
+        sim_sh = (repo / "ci/test-ios-simulator.sh").read_text(encoding="utf-8")
+        self.assertIn("IOS_SMOKE_DEVICES", sim_sh)
+        self.assertIn("--devices", sim_sh)
+        bitrise = (repo / "bitrise.yml").read_text(encoding="utf-8")
+        self.assertIn("IOS_SMOKE_DEVICES", bitrise)
+        codemagic = (repo / "codemagic.yaml").read_text(encoding="utf-8")
+        self.assertNotIn("triggering:", codemagic)
+        self.assertIn("IOS_SMOKE_DEVICES", codemagic)
 
     def test_export_evidence_exports_alphanumeric_steps_audits_and_probes(self):
         device_dir = self.output / "iPhone"

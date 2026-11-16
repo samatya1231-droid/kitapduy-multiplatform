@@ -10,6 +10,8 @@ meta:
 workflows:
   ios-qa:
     title: KitapDuy iOS QA
+    envs:
+      - IOS_SMOKE_DEVICES: both
     steps:
       - activate-ssh-key@4:
           run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
@@ -25,7 +27,7 @@ workflows:
                 set -euo pipefail
                 bash ci/build-ios-simulator.sh
       - script@1:
-          title: Record iPhone and iPad user journeys
+          title: Record iOS user journeys
           inputs:
             - content: |-
                 #!/usr/bin/env bash

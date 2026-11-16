@@ -174,8 +174,37 @@ def journey_outcomes(log):
     return outcomes
 
 
-def select_devices(devices):
-    """Use the newest installed iOS runtime that has both available device families."""
+DEVICE_SPECS = (
+    ("iPhone", "iPhone 17 Pro Max"),
+    ("iPad", "iPad Air 11-inch (M3)"),
+)
+
+DEVICE_PRESETS = {
+    "both": ("iPhone", "iPad"),
+    "iphone": ("iPhone",),
+    "ipad": ("iPad",),
+}
+
+
+def parse_device_families(value):
+    key = "both" if value is None else str(value).strip().lower()
+    if not key:
+        key = "both"
+    if key not in DEVICE_PRESETS:
+        allowed = ", ".join(DEVICE_PRESETS)
+        raise ValueError(f"Unsupported --devices value {value!r}; expected one of: {allowed}")
+    return DEVICE_PRESETS[key]
+
+
+def select_devices(devices, families=("iPhone", "iPad")):
+    """Use the newest installed iOS runtime that has every requested device family."""
+    target_families = tuple(dict.fromkeys(families))
+    if not target_families:
+        raise ValueError("At least one device family is required.")
+    preferred_by_family = dict(DEVICE_SPECS)
+    unknown = [family for family in target_families if family not in preferred_by_family]
+    if unknown:
+        raise ValueError(f"Unsupported device families: {', '.join(unknown)}")
     runtimes = sorted(
         (key for key in devices if re.search(r"\.iOS-\d", key)),
         key=lambda key: tuple(int(part) for part in re.findall(r"\d+", key)),
@@ -185,15 +214,19 @@ def select_devices(devices):
         available = [device for device in devices[runtime]
                      if device.get("isAvailable") and device.get("deviceTypeIdentifier")]
         selected = []
-        for family, preferred in (("iPhone", "iPhone 17 Pro Max"), ("iPad", "iPad Air 11-inch (M3)")):
+        for family in target_families:
+            preferred = preferred_by_family[family]
             matches = [device for device in available if device["name"].startswith(family)]
             if not matches:
                 break
             device = next((device for device in matches if device["name"] == preferred), matches[0])
             selected.append(dict(device, runtime=runtime, family=family))
-        if len(selected) == 2:
+        if len(selected) == len(target_families):
             return selected
-    raise RuntimeError("No installed iOS runtime has both an available iPhone and iPad. Inspect devices.json.")
+    if target_families == ("iPhone", "iPad"):
+        raise RuntimeError("No installed iOS runtime has both an available iPhone and iPad. Inspect devices.json.")
+    needed = " and ".join(target_families)
+    raise RuntimeError(f"No installed iOS runtime has an available {needed}. Inspect devices.json.")
 
 
 def monitor_app(process, console, duration, clock=time.monotonic, sleep=time.sleep):
@@ -707,13 +740,15 @@ def write_gallery(results, output, review_note=None):
                         f'{details}{video}<p>{" · ".join(links)}</p></section>')
 
     # Align the same step across devices and make gaps visible even on a failed run.
+    active_families = [family for family in ("iPhone", "iPad") if family in devices] or ["iPhone", "iPad"]
     groups = []
+    family_headers = "".join(f'<th scope="col">{family}</th>' for family in active_families)
     android_header = '<th scope="col">KitapDuy3 · Android</th>' if has_android else ""
     for index, (title, guide, screens) in enumerate(SCREEN_GROUPS, start=1):
         rows = []
         for step, label in screens:
             cells = []
-            for family in ("iPhone", "iPad"):
+            for family in active_families:
                 available = devices.get(family, set())
                 pictures = []
                 for name, state in ((f"{step}.png", "Ekran"), (f"failure-{step}.png", "Hata anı")):
@@ -728,7 +763,7 @@ def write_gallery(results, output, review_note=None):
                 cells.append(f'<td>{picture}</td>')
             rows.append(f'<tr><th scope="row">{label}</th>{"".join(cells)}</tr>')
         groups.append(f'<section id="screens-{index}"><h2>{title}</h2><p>{guide}</p><table>'
-                      f'<thead><tr><th scope="col">Ekran</th><th scope="col">iPhone</th><th scope="col">iPad</th>{android_header}</tr></thead>'
+                      f'<thead><tr><th scope="col">Ekran</th>{family_headers}{android_header}</tr></thead>'
                       f'<tbody>{"".join(rows)}</tbody></table></section>')
 
     navigation = " · ".join(
@@ -737,19 +772,20 @@ def write_gallery(results, output, review_note=None):
         + [f'<a href="#screens-{index}">{title}</a>'
            for index, (title, _, _) in enumerate(SCREEN_GROUPS, start=1)]
     )
-    page = """<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+    device_scope = " ve ".join(active_families)
+    page = f"""<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>KitapDuy iOS kullanıcı deneyimi</title><style>
-body{font:16px system-ui;max-width:1080px;margin:32px auto;padding:0 16px;color:#29251f;background:#faf7f1}
-a{color:#704527}nav{line-height:2}section{padding:16px 0}li{padding-block:3px}li strong{margin-inline-start:8px}
-video{width:min(100%,680px);max-height:460px;background:#221d18}pre{white-space:pre-wrap;overflow-wrap:anywhere}
-table{width:100%;table-layout:fixed;border-collapse:collapse;background:#fff}th,td{padding:8px;border:1px solid #dfd6cb;text-align:left}
-th:first-child{width:24%}td a{display:block;margin:6px 0}img{display:block;width:100%;height:clamp(110px,36vw,320px);object-fit:contain}
-.review-note-panel{background:#fff;border:1px solid #dfd6cb;border-radius:10px;padding:16px;margin:16px 0}
-.note-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
-.copy-btn{background:#704527;color:#fff;border:0;border-radius:6px;padding:8px 14px;font:600 14px system-ui;cursor:pointer}
-.review-note{max-height:440px;overflow:auto;background:#faf7f1;border:1px solid #dfd6cb;border-radius:6px;padding:12px;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}
+body{{font:16px system-ui;max-width:1080px;margin:32px auto;padding:0 16px;color:#29251f;background:#faf7f1}}
+a{{color:#704527}}nav{{line-height:2}}section{{padding:16px 0}}li{{padding-block:3px}}li strong{{margin-inline-start:8px}}
+video{{width:min(100%,680px);max-height:460px;background:#221d18}}pre{{white-space:pre-wrap;overflow-wrap:anywhere}}
+table{{width:100%;table-layout:fixed;border-collapse:collapse;background:#fff}}th,td{{padding:8px;border:1px solid #dfd6cb;text-align:left}}
+th:first-child{{width:24%}}td a{{display:block;margin:6px 0}}img{{display:block;width:100%;height:clamp(110px,36vw,320px);object-fit:contain}}
+.review-note-panel{{background:#fff;border:1px solid #dfd6cb;border-radius:10px;padding:16px;margin:16px 0}}
+.note-actions{{display:flex;flex-wrap:wrap;gap:12px;align-items:center}}
+.copy-btn{{background:#704527;color:#fff;border:0;border-radius:6px;padding:8px 14px;font:600 14px system-ui;cursor:pointer}}
+.review-note{{max-height:440px;overflow:auto;background:#faf7f1;border:1px solid #dfd6cb;border-radius:6px;padding:12px;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}}
 </style><h1>KitapDuy iOS kullanıcı deneyimi</h1>
-<p>Gerçek iPhone ve iPad simülatörü görüntülerini KitapDuy3 ile karşılaştırmak için ekranlara tıkla.</p>
+<p>Gerçek {device_scope} simülatörü görüntülerini KitapDuy3 ile karşılaştırmak için ekranlara tıkla.</p>
 <p>Senaryolar yerel örnek veriyle çalışır. Canlı hesap girişi, mağaza işlemleri ve fiziksel cihaz davranışı ayrı doğrulama gerektirir.</p>"""
     reference_info = reference / "source.txt"
     provenance = ""
@@ -810,9 +846,12 @@ th:first-child{width:24%}td a{display:block;margin:6px 0}img{display:block;width
 
 
 class SimulatorRunner:
-    def __init__(self, app, output, duration, url, test_run=None):
+    def __init__(self, app, output, duration, url, test_run=None, families=("iPhone", "iPad")):
         self.app, self.output, self.duration, self.url = app, output, duration, url
         self.test_run = test_run
+        self.families = tuple(dict.fromkeys(families))
+        if not self.families:
+            raise ValueError("At least one device family is required.")
         with (app / "Info.plist").open("rb") as stream:
             plist = plistlib.load(stream)
         self.bundle = plist["CFBundleIdentifier"]
@@ -1084,8 +1123,8 @@ class SimulatorRunner:
     def run(self):
         snapshot = json.loads(self.command("list", "devices", "available", "--json"))
         (self.output / "devices.json").write_text(json.dumps(snapshot, indent=2), encoding="utf-8")
-        # Do not stop on the first failure: retain iPhone and iPad evidence.
-        return [self.run_device(device) for device in select_devices(snapshot["devices"])]
+        # Do not stop on the first failure: retain evidence for each selected device family.
+        return [self.run_device(device) for device in select_devices(snapshot["devices"], families=self.families)]
 
 
 def main(argv=None):
@@ -1096,10 +1135,16 @@ def main(argv=None):
     parser.add_argument("--android-reference", type=Path, default=Path("ci/kitapduy3-reference"),
                         help="Directory of Android reference PNGs named after report steps.")
     parser.add_argument("--duration", type=int, default=125)
+    parser.add_argument("--devices", default=(os.environ.get("IOS_SMOKE_DEVICES") or "both"),
+                        help="Device families to test: both, iphone, or ipad (or IOS_SMOKE_DEVICES).")
     parser.add_argument("--https-url", default=os.environ.get("IOS_SMOKE_HTTPS_URL", "https://www.apple.com/library/test/success.html"))
     args = parser.parse_args(argv)
     if args.duration < 1:
         parser.error("--duration must be positive")
+    try:
+        families = parse_device_families(args.devices)
+    except ValueError as error:
+        parser.error(str(error))
     output = args.output.resolve()
     try:
         url = urlsplit(args.https_url)
@@ -1107,7 +1152,14 @@ def main(argv=None):
             raise ValueError("Use an HTTPS endpoint without embedded credentials.")
         if not args.test_run.is_file():
             raise ValueError("The Xcode test configuration (.xctestrun) is missing.")
-        results = SimulatorRunner(args.app.resolve(), output, args.duration, args.https_url, args.test_run.resolve()).run()
+        results = SimulatorRunner(
+            args.app.resolve(),
+            output,
+            args.duration,
+            args.https_url,
+            args.test_run.resolve(),
+            families=families,
+        ).run()
     except Exception as failure:
         results = [{"name": "Simulator setup", "passed": False, "error": f"{type(failure).__name__}: {failure}"}]
         print(results[0]["error"], file=sys.stderr)
@@ -1124,7 +1176,7 @@ def main(argv=None):
         except OSError as failure:
             print(f"Android reference unavailable: {failure}", file=sys.stderr)
     write_reports(results, output)
-    return 0 if len(results) == 2 and all(result["passed"] for result in results) else 1
+    return 0 if len(results) == len(families) and all(result["passed"] for result in results) else 1
 
 
 if __name__ == "__main__":
