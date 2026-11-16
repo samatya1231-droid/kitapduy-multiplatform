@@ -8,7 +8,7 @@ workflows:
       vars:
         BUNDLE_ID: "com.semtinazizi.kitapduy"
         GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx6g -XX:+UseG1GC"
-        IOS_SMOKE_DEVICES: "both"
+        # Optional override via Codemagic API/UI variable groups: IOS_SMOKE_DEVICES=iphone|ipad|both (defaults to both below).
       xcode: latest
       cocoapods: default
       java: 17
@@ -47,6 +47,7 @@ workflows:
           #!/usr/bin/env bash
           set -euo pipefail
           status=0
+          export IOS_SMOKE_DEVICES="${IOS_SMOKE_DEVICES:-both}"
           bash ci/test-ios-simulator.sh || status=$?
           if [[ -f build/ios-smoke/index.html ]]; then
             (cd build/ios-smoke && zip -qr ../kitapduy-ios-qa.zip . -x '*/xcode-attachments/*')

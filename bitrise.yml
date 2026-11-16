@@ -10,8 +10,7 @@ meta:
 workflows:
   ios-qa:
     title: KitapDuy iOS QA
-    envs:
-      - IOS_SMOKE_DEVICES: both
+    # Set IOS_SMOKE_DEVICES (both, iphone, or ipad) via Start/Schedule Build custom env vars; do not fix it in workflow envs or it would override manual inputs.
     steps:
       - activate-ssh-key@4:
           run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
@@ -32,6 +31,7 @@ workflows:
             - content: |-
                 #!/usr/bin/env bash
                 set -euo pipefail
+                export IOS_SMOKE_DEVICES="${IOS_SMOKE_DEVICES:-both}"
                 bash ci/test-ios-simulator.sh
       - script@1:
           title: Package the QA report and recordings

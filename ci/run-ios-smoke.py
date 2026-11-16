@@ -665,11 +665,11 @@ def write_review_note(results, output):
     return note_md
 
 
-def write_reports(results, output):
+def write_reports(results, output, families=None):
     output.mkdir(parents=True, exist_ok=True)
     (output / "summary.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
     review_note = write_review_note(results, output)
-    write_gallery(results, output, review_note=review_note)
+    write_gallery(results, output, review_note=review_note, families=families)
     suite = ET.Element("testsuite", name="iOS user journeys")
     for result in results:
         outcomes = result.get("journeys", {})
@@ -704,7 +704,7 @@ def journey_titles(outcomes):
     return LEGACY_JOURNEYS if outcomes.keys() & LEGACY_JOURNEYS.keys() else JOURNEYS
 
 
-def write_gallery(results, output, review_note=None):
+def write_gallery(results, output, review_note=None, families=None):
     sections = []
     devices = {result["family"]: set(result.get("screenshots", [])) for result in results if result.get("family")}
     reference = output / "Android"
@@ -740,7 +740,8 @@ def write_gallery(results, output, review_note=None):
                         f'{details}{video}<p>{" · ".join(links)}</p></section>')
 
     # Align the same step across devices and make gaps visible even on a failed run.
-    active_families = [family for family in ("iPhone", "iPad") if family in devices] or ["iPhone", "iPad"]
+    fallback_families = [family for family in ("iPhone", "iPad") if not families or family in families] or ["iPhone", "iPad"]
+    active_families = [family for family in ("iPhone", "iPad") if family in devices] or fallback_families
     groups = []
     family_headers = "".join(f'<th scope="col">{family}</th>' for family in active_families)
     android_header = '<th scope="col">KitapDuy3 · Android</th>' if has_android else ""
@@ -1175,7 +1176,7 @@ def main(argv=None):
                     shutil.copy2(source, destination)
         except OSError as failure:
             print(f"Android reference unavailable: {failure}", file=sys.stderr)
-    write_reports(results, output)
+    write_reports(results, output, families=families)
     return 0 if len(results) == len(families) and all(result["passed"] for result in results) else 1
 
 
