@@ -277,8 +277,11 @@ final class ReaderJourneyTests: XCTestCase {
             try waitFor("Hesabı Sil diyaloğu kapanmalı") { !self.text("Evet, Sil").exists }
         }
         try step("20-premium") {
-            try scrollToVisible(element("settings-premium"))
+            try scrollToTop(target: element("settings-premium"))
             try tap(element("settings-premium"))
+            if !text("KitapDuy · PREMIUM").waitForExistence(timeout: 3), element("settings-premium").exists {
+                try tap(element("settings-premium"))
+            }
             try visible(text("KitapDuy · PREMIUM"))
             audit("20-premium", theme: "Koyu")
             inspectScreen("20-premium", theme: "Koyu")
@@ -342,6 +345,7 @@ final class ReaderJourneyTests: XCTestCase {
             audit("43-author-detail")
             inspectScreen("43-author-detail")
             try tap(text("Geri"))
+            _ = element("category-author-Arthur Conan Doyle").waitForExistence(timeout: 2)
             if text("Geri").exists {
                 try tap(text("Geri"))
             }
@@ -349,6 +353,9 @@ final class ReaderJourneyTests: XCTestCase {
         }
         try step("44-mood-detail") {
             try tap(text("Huzurlu", contains: true), scroll: true)
+            if !text("Sana Özel Kitaplar").waitForExistence(timeout: 3), text("Huzurlu", contains: true).exists {
+                try tap(text("Huzurlu", contains: true))
+            }
             try visible(text("Sana Özel Kitaplar"), scroll: true)
             audit("44-mood-detail")
             inspectScreen("44-mood-detail")
@@ -911,8 +918,8 @@ final class ReaderJourneyTests: XCTestCase {
             try type("Küçük", into: element("askida-search"))
             dismissKeyboardIfNeeded()
             dismissNonReturnKeyboard()
-            if app.keyboards.firstMatch.exists && text("Küçük Prens").exists {
-                text("Küçük Prens").tap()
+            if app.keyboards.firstMatch.exists, element("askida-tab-0").exists {
+                try tap(element("askida-tab-0"))
             }
             try visible(text("Küçük Prens"))
             try tap(text("Kitabı Talep Et"), scroll: true)
@@ -1170,7 +1177,7 @@ final class ReaderJourneyTests: XCTestCase {
 
     private func dismissKeyboardIfNeeded() {
         guard app.keyboards.firstMatch.exists else { return }
-        for key in ["Return", "Done", "Bitti", "Ara", "Gönder", "Send"] {
+        for key in ["Return", "return", "Search", "search", "Done", "Bitti", "Ara", "Gönder", "Send"] {
             let keyButton = app.keyboards.buttons[key]
             if keyButton.exists && keyButton.isHittable {
                 keyButton.tap()

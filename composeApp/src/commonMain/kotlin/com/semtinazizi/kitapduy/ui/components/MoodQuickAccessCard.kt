@@ -21,6 +21,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,12 +38,14 @@ fun MoodQuickAccessCard(
     val cardBg = MaterialTheme.colorScheme.surfaceVariant
     
     Surface(
+        onClick = onClick,
         shape = RoundedCornerShape(12.dp),
         color = cardBg,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
         modifier = modifier
             .height(64.dp)
-            .clickable { onClick() }
+            .testTag("home-mood-${mood.id}")
+            .semantics(mergeDescendants = true) {}
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -50,7 +54,7 @@ fun MoodQuickAccessCard(
             Box(modifier = Modifier.size(64.dp)) {
                 SmartImage(
                     imageUrl = mood.imageUrl,
-                    contentDescription = mood.name,
+                    contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                     fallbackText = mood.name

@@ -58,6 +58,7 @@ class AskidaKitapScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = koinScreenModel<AskidaViewModel>()
+        val focusManager = LocalFocusManager.current
         
         var selectedTab by remember { mutableIntStateOf(0) }
         val tabs = listOf("Askıdakiler", "Bağışla", "Sohbetler")
@@ -119,7 +120,10 @@ class AskidaKitapScreen : Screen {
                                     .fillMaxHeight()
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(if (isSelected) BrandGold else Color.Transparent)
-                                    .clickable { selectedTab = index }
+                                    .clickable {
+                                        focusManager.clearFocus()
+                                        selectedTab = index
+                                    }
                                     .testTag("askida-tab-$index"),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -275,7 +279,10 @@ fun AskidaKitaplarList(viewModel: AskidaViewModel, onClaimSuccess: () -> Unit, o
                 items(categories, key = { it }) { cat ->
                     val isSelected = selectedCategory == cat
                     Surface(
-                        modifier = Modifier.clickable { selectedCategory = cat },
+                        modifier = Modifier.clickable {
+                            focusManager.clearFocus()
+                            selectedCategory = cat
+                        },
                         shape = RoundedCornerShape(50),
                         color = if (isSelected) Color(0xFFFFD700) else MaterialTheme.colorScheme.onSurface.copy(0.05f),
                         border = if (!isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(0.1f)) else null
@@ -306,7 +313,7 @@ fun AskidaKitaplarList(viewModel: AskidaViewModel, onClaimSuccess: () -> Unit, o
             }
         } else {
             LazyColumn(
-                contentPadding = PaddingValues(16.dp),
+                contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 160.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
                 modifier = Modifier.weight(1f)
             ) {
