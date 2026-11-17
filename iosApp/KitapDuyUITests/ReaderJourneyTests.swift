@@ -1168,7 +1168,7 @@ final class ReaderJourneyTests: XCTestCase {
             }
         }
         do {
-            try waitFor("Erişilebilir öğe görünmeli") { isOnScreenAndHittable(target) }
+            try waitFor("Erişilebilir öğe görünmeli") { self.isOnScreenAndHittable(target) }
         } catch {
             throw JourneyError("Erişilebilir öğe görünmedi: \(target.debugDescription)")
         }
