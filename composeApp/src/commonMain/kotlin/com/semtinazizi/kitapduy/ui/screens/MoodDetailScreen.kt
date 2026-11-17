@@ -32,11 +32,11 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.model.Book
 import com.semtinazizi.kitapduy.model.Podcast
 import com.semtinazizi.kitapduy.model.ScienceArticle
 import com.semtinazizi.kitapduy.model.getMoodList
+import com.semtinazizi.kitapduy.ui.components.SmartImage
 import com.semtinazizi.kitapduy.ui.components.VerticalBookCard
 import com.semtinazizi.kitapduy.ui.theme.*
 import com.semtinazizi.kitapduy.ui.viewmodel.HomeViewModel
@@ -112,11 +112,12 @@ data class MoodDetailScreen(val moodId: String) : Screen {
                 // Immersive Header
                 item {
                     Box(modifier = Modifier.fillMaxWidth().height(350.dp)) {
-                        AsyncImage(
-                            model = mood.imageUrl,
+                        SmartImage(
+                            imageUrl = mood.imageUrl,
                             contentDescription = mood.name,
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxSize(),
+                            fallbackText = mood.name
                         )
                         Box(
                             modifier = Modifier
@@ -358,14 +359,15 @@ fun PremiumPodcastCard(podcast: Podcast, onClick: () -> Unit) {
             .clickable { onClick() }
     ) {
         Box {
-            AsyncImage(
-                model = podcast.imageUrl,
-                contentDescription = null,
+            SmartImage(
+                imageUrl = podcast.imageUrl,
+                contentDescription = podcast.name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(160.dp)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(SleekSurface)
+                    .background(SleekSurface),
+                fallbackText = podcast.name
             )
             Box(
                 modifier = Modifier
@@ -410,13 +412,14 @@ fun PremiumArticleCard(article: ScienceArticle, onClick: () -> Unit) {
         border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(modifier = Modifier.fillMaxSize().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            AsyncImage(
-                model = article.imageUrl,
-                contentDescription = null,
+            SmartImage(
+                imageUrl = article.imageUrl,
+                contentDescription = article.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(110.dp)
-                    .clip(RoundedCornerShape(20.dp))
+                    .clip(RoundedCornerShape(20.dp)),
+                fallbackText = article.title
             )
             Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {

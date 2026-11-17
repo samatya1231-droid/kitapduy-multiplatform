@@ -24,8 +24,8 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.model.Podcast
+import com.semtinazizi.kitapduy.ui.components.SmartImage
 import com.semtinazizi.kitapduy.platform.BannerAdView
 import com.semtinazizi.kitapduy.ui.theme.*
 import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
@@ -151,11 +151,12 @@ fun PodcastGridItem(podcast: Podcast, onClick: () -> Unit) {
                 .clip(RoundedCornerShape(24.dp))
                 .background(MaterialTheme.colorScheme.surface)
         ) {
-            AsyncImage(
-                model = podcast.imageUrl,
-                contentDescription = null,
+            SmartImage(
+                imageUrl = podcast.imageUrl,
+                contentDescription = podcast.name,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                fallbackText = podcast.name
             )
             Box(
                 modifier = Modifier

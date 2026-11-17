@@ -56,7 +56,7 @@ fun PremiumUpgradeCard(
                 border = BorderStroke(0.5.dp, SleekChampagne.copy(alpha = 0.4f))
             ) {
                 Text(
-                    text = "✨ KitapDuy Premium",
+                    text = "✨ KitapDuy Premium · Uygunsa 7 gün ücretsiz",
                     color = badgeText,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -101,7 +101,7 @@ fun PremiumUpgradeCard(
                     .height(44.dp)
             ) {
                 Text(
-                    text = "14 gün ücretsiz dene",
+                    text = "Premium planlarını gör",
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp
                 )

@@ -1,9 +1,14 @@
 package com.semtinazizi.kitapduy.ui.viewmodel
 
+import com.semtinazizi.kitapduy.data.repository.SupabaseFeedRepository
+import com.semtinazizi.kitapduy.domain.repository.AuthRepository
+import com.semtinazizi.kitapduy.domain.repository.FeedRepository
 import com.semtinazizi.kitapduy.model.Book
 import com.semtinazizi.kitapduy.platform.AudioMediaItem
 import com.semtinazizi.kitapduy.platform.AudioPlayer
 import com.semtinazizi.kitapduy.platform.FileDownloader
+import com.semtinazizi.kitapduy.util.UrlSanitizer
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -18,9 +23,12 @@ class GlobalAudioController(
     private val fileDownloader: FileDownloader,
     private val progressManager: com.semtinazizi.kitapduy.util.KmpBookProgressManager,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main + kotlinx.coroutines.SupervisorJob()),
-    private val isCiSmokeTest: () -> Boolean = { com.semtinazizi.kitapduy.platform.AppConfig.isCiSmokeTest }
+    private val isCiSmokeTest: () -> Boolean = { com.semtinazizi.kitapduy.platform.AppConfig.isCiSmokeTest },
+    private val feedRepository: FeedRepository? = null,
+    private val authRepository: AuthRepository? = null
 ) {
     private var sleepTimerJob: Job? = null
+    private var lastPostedListeningContentId: String? = null
     
     private val _currentBook = MutableStateFlow<Book?>(null)
     val currentBook: StateFlow<Book?> = _currentBook.asStateFlow()
@@ -95,19 +103,20 @@ class GlobalAudioController(
         progressManager.saveLastPlayedBook(book.id)
         progressManager.saveContentMetadata(book.id, book.title, book.author, book.coverUrl)
         val localPath = fileDownloader.getDownloadedFilePath(book.id + ".mp3")
-        val playUrl = localPath ?: book.audioUrl
+        val playUrl = localPath ?: UrlSanitizer.normalizeMediaUrl(book.audioUrl)
+        val normalizedCoverUrl = UrlSanitizer.normalizeMediaUrl(book.coverUrl)
 
         if (!isPremium && localPath == null && !book.id.startsWith("local_") && !isCiSmokeTest()) {
             val preRollAd = AudioMediaItem(
                 id = "kitapduy_preroll_ad",
-                url = "https://ancient-shape-df97.samatya231.workers.dev/kitapd%C4%B1ytan%C4%B1t%C4%B1m.wav",
+                url = UrlSanitizer.normalizeMediaUrl("https://ancient-shape-df97.samatya231.workers.dev/kitapd%C4%B1ytan%C4%B1t%C4%B1m.wav"),
                 title = "KitapDuy Premium",
                 artist = "Sponsorlu İçerik",
                 artworkUrl = "https://firebasestorage.googleapis.com/v0/b/semtinazizi.appspot.com/o/kitapduy_logo.png?alt=media"
             )
             val postRollAd = AudioMediaItem(
                 id = "kitapduy_postroll_ad",
-                url = "https://ancient-shape-df97.samatya231.workers.dev/tan%C4%B1t%C4%B1mbiti%C5%9F.wav",
+                url = UrlSanitizer.normalizeMediaUrl("https://ancient-shape-df97.samatya231.workers.dev/tan%C4%B1t%C4%B1mbiti%C5%9F.wav"),
                 title = "KitapDuy Premium",
                 artist = "Sponsorlu İçerik",
                 artworkUrl = "https://firebasestorage.googleapis.com/v0/b/semtinazizi.appspot.com/o/kitapduy_logo.png?alt=media"
@@ -117,18 +126,24 @@ class GlobalAudioController(
                 url = playUrl,
                 title = book.title,
                 artist = book.author,
-                artworkUrl = book.coverUrl,
+                artworkUrl = normalizedCoverUrl,
                 startPositionMs = progressManager.getProgress(book.id)
             )
             audioPlayer.playQueue(listOf(preRollAd, mainItem, postRollAd))
         } else {
             audioPlayer.playQueue(listOf(AudioMediaItem(book.id, playUrl, book.title, book.author,
-                book.coverUrl, progressManager.getProgress(book.id))))
+                normalizedCoverUrl, progressManager.getProgress(book.id))))
         }
 
         _isPlaying.value = true
         _playbackSpeed.value = 1.0f
         audioPlayer.setPlaybackSpeed(1.0f)
+        emitListeningActivity(
+            contentId = book.id,
+            title = book.title,
+            coverUrl = normalizedCoverUrl,
+            audioUrl = book.audioUrl
+        )
     }
 
     fun playPodcastEpisode(
@@ -137,17 +152,79 @@ class GlobalAudioController(
     ) {
         saveProgress()
         val resolvedTitle = podcastTitle.trim().takeIf { it.isNotBlank() }
+        val normalizedAudioUrl = UrlSanitizer.normalizeMediaUrl(episode.audioUrl)
+        val normalizedImageUrl = episode.imageUrl?.let { UrlSanitizer.normalizeMediaUrl(it) }.orEmpty()
         _currentEpisode.value = episode
         _currentPodcastTitle.value = resolvedTitle
         _currentBook.value = null
         _currentPosition.value = 0f
         _duration.value = 0f
-        audioPlayer.playQueue(listOf(AudioMediaItem(episode.id, episode.audioUrl, episode.title,
+        audioPlayer.playQueue(listOf(AudioMediaItem(episode.id, normalizedAudioUrl, episode.title,
             artist = resolvedTitle.orEmpty(),
-            artworkUrl = episode.imageUrl.orEmpty(), startPositionMs = progressManager.getProgress(episode.id))))
+            artworkUrl = normalizedImageUrl, startPositionMs = progressManager.getProgress(episode.id))))
         _isPlaying.value = true
         _playbackSpeed.value = 1.0f
         audioPlayer.setPlaybackSpeed(1.0f)
+        emitListeningActivity(
+            contentId = episode.id,
+            title = episode.title.ifBlank { resolvedTitle.orEmpty() },
+            coverUrl = normalizedImageUrl,
+            audioUrl = normalizedAudioUrl
+        )
+    }
+
+    fun currentPositionMsFor(bookId: String): Long {
+        return if (matchesPlayingContent(expectedBookId = bookId, expectedEpisodeId = null)) {
+            audioPlayer.getCurrentPosition().coerceAtLeast(0L)
+        } else {
+            progressManager.getProgress(bookId).coerceAtLeast(0L)
+        }
+    }
+
+    private fun emitListeningActivity(
+        contentId: String,
+        title: String,
+        coverUrl: String,
+        audioUrl: String
+    ) {
+        if (isCiSmokeTest()) return
+        val feed = feedRepository ?: return
+        val auth = authRepository ?: return
+        if (contentId.isBlank() || contentId.startsWith("local_") || contentId.startsWith("feed_")) return
+        if (lastPostedListeningContentId == contentId) return
+        val uid = auth.currentUserUid?.trim()?.takeIf { it.isNotBlank() && !it.startsWith("guest_") } ?: return
+        lastPostedListeningContentId = contentId
+
+        scope.launch {
+            try {
+                val profile = auth.getUserProfile(uid) ?: run {
+                    if (lastPostedListeningContentId == contentId) lastPostedListeningContentId = null
+                    return@launch
+                }
+                val displayName = profile.name.ifBlank { profile.username?.takeIf { it.isNotBlank() } ?: "KitapDuy Okuru" }
+                val posted = feed.createPost(
+                    userId = uid,
+                    userName = displayName,
+                    userPhoto = profile.photoUrl,
+                    bookId = contentId,
+                    bookName = title.ifBlank { "Sesli Kitap" },
+                    comment = SupabaseFeedRepository.LISTEN_COMMENT,
+                    isPremium = profile.hasPremium(),
+                    imageUrl = UrlSanitizer.normalizeMediaUrl(coverUrl).ifBlank { null },
+                    audioUrl = UrlSanitizer.normalizeMediaUrl(audioUrl).ifBlank { null },
+                    pollOptions = null
+                )
+                if (!posted && lastPostedListeningContentId == contentId) {
+                    lastPostedListeningContentId = null
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                if (lastPostedListeningContentId == contentId) {
+                    lastPostedListeningContentId = null
+                }
+            }
+        }
     }
 
     fun playFeedAudio(item: com.semtinazizi.kitapduy.model.FeedItem, url: String, position: Long) {

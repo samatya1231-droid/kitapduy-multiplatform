@@ -29,6 +29,7 @@ import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import io.github.vinceglb.filekit.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.core.PickerMode
 import io.github.vinceglb.filekit.core.PickerType
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -64,6 +65,7 @@ class ProfileEditScreen : Screen {
         ) { file ->
             file?.let { platformFile ->
                 isImageUploading = true
+                feedback = null
                 coroutineScope.launch {
                     try {
                         val bytes = platformFile.readBytes()
@@ -72,9 +74,11 @@ class ProfileEditScreen : Screen {
                             isImageUploading = false
                             if (!success) feedback = "Fotoğraf kaydedilemedi. Tekrar dene."
                         }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
                         isImageUploading = false
+                        feedback = "Fotoğraf okunamadı. Tekrar dene."
                     }
                 }
             }
@@ -146,6 +150,7 @@ class ProfileEditScreen : Screen {
 
                 if (!userProfile?.photoUrl.isNullOrEmpty()) {
                     TextButton(
+                        enabled = !isImageUploading,
                         onClick = {
                             isImageUploading = true
                             authViewModel.removeProfilePicture { isImageUploading = false }

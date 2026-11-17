@@ -1,6 +1,7 @@
 package com.semtinazizi.kitapduy
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import cafe.adriel.voyager.navigator.CurrentScreen
 import cafe.adriel.voyager.navigator.Navigator
 
@@ -12,6 +13,8 @@ import cafe.adriel.voyager.navigator.Navigator
  */
 
 import com.semtinazizi.kitapduy.ui.screens.SplashScreen
+import com.semtinazizi.kitapduy.ui.screens.MainScreen
+import com.semtinazizi.kitapduy.platform.PushNotificationBridge
 
 import com.semtinazizi.kitapduy.ui.theme.KitapduyTheme
 import com.semtinazizi.kitapduy.util.KmpThemeManager
@@ -35,7 +38,11 @@ fun App() {
     }
     
     KitapduyTheme {
-        Navigator(SplashScreen()) {
+        Navigator(SplashScreen()) { navigator ->
+            val onMainScreen = navigator.lastItem is MainScreen
+            LaunchedEffect(onMainScreen) {
+                if (onMainScreen) PushNotificationBridge.requestInitialPermission()
+            }
             CurrentScreen()
         }
     }

@@ -8,6 +8,12 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
 import com.semtinazizi.kitapduy.platform.AppConfig
 import com.semtinazizi.kitapduy.util.UrlSanitizer
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
+import kotlin.concurrent.Volatile
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.datetime.Clock
 
 @Serializable
 private data class BookDto(
@@ -37,31 +43,72 @@ private data class BookDto(
         listenCount = listenCount ?: 0L,
         viewCount = viewCount ?: 0,
         likeCount = likeCount ?: 0,
-        language = language ?: "tr",
+        language = language?.trim()?.lowercase()?.ifBlank { "tr" } ?: "tr",
         tags = tags ?: emptyList()
     )
 }
 
-class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookRepository {
+class SupabaseBookRepository(
+    private val supabaseClient: SupabaseClient,
+    private val httpClient: io.ktor.client.HttpClient = io.ktor.client.HttpClient()
+) : BookRepository {
 
-    private fun fixUrl(url: String?): String {
-        if (url.isNullOrBlank()) return ""
-        val resolved = if (url.startsWith("http")) url else "${AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
-        return UrlSanitizer.sanitizeUrl(resolved)
+    private val booksCacheMutex = Mutex()
+    private val podcastsCacheMutex = Mutex()
+    private val cacheTtlMs = 5L * 60L * 1000L
+
+    @Volatile
+    private var cachedBooks: List<Book>? = null
+    @Volatile
+    private var cachedBooksTimestampMs: Long = 0L
+    @Volatile
+    private var cachedPodcasts: List<com.semtinazizi.kitapduy.model.Podcast>? = null
+    @Volatile
+    private var cachedPodcastsTimestampMs: Long = 0L
+    @Volatile
+    private var cacheGeneration: Long = 0L
+
+    override fun invalidateCache() {
+        cacheGeneration++
+        cachedBooksTimestampMs = 0L
+        cachedPodcastsTimestampMs = 0L
+        cachedBooks = null
+        cachedPodcasts = null
     }
 
-    private fun fixImageUrl(url: String?): String {
-        if (url.isNullOrBlank()) return ""
-
-        val resolved = if (url.contains("r2.cloudflarestorage.com")) {
-            AppConfig.generatePresignedUrl(url)
-        } else if (url.startsWith("http")) {
-            url
+    private fun resolvedBaseUrl(): String {
+        val publicBase = AppConfig.cfPublicUrl.trim().trimEnd('/')
+        return if (publicBase.startsWith("http://localhost", ignoreCase = true) ||
+            publicBase.startsWith("http://127.0.0.1", ignoreCase = true)
+        ) {
+            publicBase
         } else {
-            "${AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
+            UrlSanitizer.CUSTOM_R2_BASE_URL
         }
-        return UrlSanitizer.sanitizeUrl(resolved)
     }
+
+    private fun fixUrl(url: String?): String = UrlSanitizer.normalizeMediaUrl(url, resolvedBaseUrl())
+
+    private fun fixImageUrl(url: String?): String = UrlSanitizer.normalizeMediaUrl(url, resolvedBaseUrl())
+
+    private fun isValidCatalogTitle(title: String): Boolean {
+        val clean = title.trim()
+        if (clean.isBlank()) return false
+        val normalized = clean
+            .replace("\u0307", "")
+            .replace('İ', 'i')
+            .lowercase()
+        return normalized != "isimsiz kitap" && normalized != "bilinmeyen kitap" && normalized != "untitled"
+    }
+
+    private fun normalizeCatalogBook(book: Book): Book = book.copy(
+        title = book.title.trim(),
+        author = book.author.trim().ifBlank { "Bilinmeyen Yazar" },
+        category = book.category.trim().ifBlank { "Genel" },
+        coverUrl = fixImageUrl(book.coverUrl),
+        audioUrl = fixUrl(book.audioUrl),
+        language = book.language.trim().lowercase().ifBlank { "tr" }
+    )
 
     companion object {
         val sampleFallbackBooks = listOf(
@@ -99,60 +146,58 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
     }
 
     override suspend fun getBooks(): List<Book> {
-        val isLocalFixture = AppConfig.supabaseUrl.startsWith("http://localhost:")
-        return try {
-            val books = supabaseClient.postgrest["books"]
-                .select()
-                .decodeList<BookDto>().map { it.toBook() }
-
-            val remote = books.filter { it.title.isNotBlank() && it.author.isNotBlank() }.map {
-                it.copy(
-                    coverUrl = fixImageUrl(it.coverUrl),
-                    audioUrl = fixUrl(it.audioUrl)
-                )
+        val now = Clock.System.now().toEpochMilliseconds()
+        cachedBooks?.takeIf { it.isNotEmpty() && now - cachedBooksTimestampMs < cacheTtlMs }?.let {
+            return it
+        }
+        return booksCacheMutex.withLock {
+            val nowLocked = Clock.System.now().toEpochMilliseconds()
+            cachedBooks?.takeIf { it.isNotEmpty() && nowLocked - cachedBooksTimestampMs < cacheTtlMs }?.let {
+                return@withLock it
             }
-            if (isLocalFixture) {
-                if (remote.isNotEmpty()) remote else CatalogSeed.books
-            } else {
-                mergeWithSeedCatalog(remote)
-            }
-        } catch (e: Throwable) {
-            println("GET_BOOKS_ERROR: ${e.stackTraceToString()}")
-            CatalogSeed.books.ifEmpty { sampleFallbackBooks }
+            val generationAtStart = cacheGeneration
+            fetchBooksRemote(generationAtStart)
         }
     }
 
-    private fun mergeWithSeedCatalog(remote: List<Book>): List<Book> {
-        val seedById = CatalogSeed.books.associateBy { it.id }
-        val merged = remote.map { book ->
-            val seed = seedById[book.id]
-            if (seed == null) {
-                book
+    private suspend fun fetchBooksRemote(generationAtStart: Long): List<Book> {
+        return try {
+            val allRemote = mutableListOf<Book>()
+            val pageSize = 1000L
+            var offset = 0L
+            while (true) {
+                val batch = supabaseClient.postgrest["books"]
+                    .select {
+                        order("id", order = io.github.jan.supabase.postgrest.query.Order.ASCENDING)
+                        range(offset, offset + pageSize - 1)
+                    }
+                    .decodeList<BookDto>()
+                    .map { it.toBook() }
+                allRemote.addAll(batch)
+                if (batch.size.toLong() < pageSize) break
+                offset += pageSize
+            }
+
+            val remote = allRemote
+                .filter { isValidCatalogTitle(it.title) && (it.author.isNotBlank() || it.audioUrl.isNotBlank() || it.coverUrl.isNotBlank()) }
+                .map { normalizeCatalogBook(it) }
+                .distinctBy { it.id }
+
+            if (remote.isNotEmpty()) {
+                if (generationAtStart == cacheGeneration) {
+                    cachedBooks = remote
+                    cachedBooksTimestampMs = Clock.System.now().toEpochMilliseconds()
+                }
+                remote
             } else {
-                book.copy(
-                    category = book.category.takeIf { it.isNotBlank() && !it.equals("Genel", ignoreCase = true) } ?: seed.category,
-                    coverUrl = book.coverUrl.ifBlank { fixImageUrl(seed.coverUrl) },
-                    audioUrl = book.audioUrl.ifBlank { fixUrl(seed.audioUrl) },
-                    description = book.description.ifBlank { seed.description },
-                    duration = if (book.duration > 0L) book.duration else seed.duration,
-                    viewCount = maxOf(book.viewCount, seed.viewCount),
-                    likeCount = maxOf(book.likeCount, seed.likeCount),
-                    tags = book.tags.ifEmpty { seed.tags }
-                )
+                CatalogSeed.books.map { normalizeCatalogBook(it) }.ifEmpty { sampleFallbackBooks }
             }
-        }.toMutableList()
-        val seenIds = merged.map { it.id }.toHashSet()
-        CatalogSeed.books.forEach { seed ->
-            if (seed.id !in seenIds) {
-                merged.add(
-                    seed.copy(
-                        coverUrl = fixImageUrl(seed.coverUrl),
-                        audioUrl = fixUrl(seed.audioUrl)
-                    )
-                )
-            }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (e: Throwable) {
+            println("GET_BOOKS_ERROR: ${e.stackTraceToString()}")
+            CatalogSeed.books.map { normalizeCatalogBook(it) }.ifEmpty { sampleFallbackBooks }
         }
-        return merged
     }
 
     override suspend fun getFavoriteBookIds(userId: String): Set<String> {
@@ -193,64 +238,177 @@ class SupabaseBookRepository(private val supabaseClient: SupabaseClient) : BookR
     }
 
     override suspend fun searchBooks(query: String): List<Book> {
-        if (query.isBlank()) return emptyList()
+        val cleanQuery = query.trim()
+        if (cleanQuery.isBlank()) return emptyList()
         val isLocalFixture = AppConfig.supabaseUrl.startsWith("http://localhost:")
-        val seedMatches = if (isLocalFixture) {
-            emptyList()
-        } else {
-            CatalogSeed.books.filter {
-                it.title.contains(query, ignoreCase = true) || it.author.contains(query, ignoreCase = true)
-            }.map {
-                it.copy(coverUrl = fixImageUrl(it.coverUrl), audioUrl = fixUrl(it.audioUrl))
-            }
-        }
         return try {
             val books = supabaseClient.postgrest["books"]
                 .select {
                     filter {
                         or {
-                            ilike("title", "%$query%")
-                            ilike("author", "%$query%")
+                            ilike("title", "%$cleanQuery%")
+                            ilike("author", "%$cleanQuery%")
+                            ilike("category", "%$cleanQuery%")
                         }
                     }
                 }
-                .decodeList<BookDto>().map { it.toBook() }
+                .decodeList<BookDto>()
+                .map { it.toBook() }
 
-            val filtered = books.filter { it.title.isNotBlank() && it.author.isNotBlank() }.map {
-                it.copy(
-                    coverUrl = fixImageUrl(it.coverUrl),
-                    audioUrl = fixUrl(it.audioUrl)
-                )
+            books.filter {
+                isValidCatalogTitle(it.title) && (it.author.isNotBlank() || it.audioUrl.isNotBlank() || it.coverUrl.isNotBlank())
             }
-            if (isLocalFixture) {
-                filtered
-            } else {
-                val seen = filtered.map { it.id }.toHashSet()
-                filtered + seedMatches.filter { it.id !in seen }
-            }
+                .map { normalizeCatalogBook(it) }
+                .distinctBy { it.id }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
         } catch (e: Throwable) {
             e.printStackTrace()
-            if (seedMatches.isNotEmpty()) seedMatches else sampleFallbackBooks.filter {
-                it.title.contains(query, ignoreCase = true) || it.author.contains(query, ignoreCase = true)
+            if (isLocalFixture) {
+                emptyList()
+            } else {
+                val seedMatches = CatalogSeed.books.filter {
+                    it.title.contains(cleanQuery, ignoreCase = true) ||
+                        it.author.contains(cleanQuery, ignoreCase = true) ||
+                        it.category.contains(cleanQuery, ignoreCase = true) ||
+                        it.tags.any { tag -> tag.contains(cleanQuery, ignoreCase = true) }
+                }.map { normalizeCatalogBook(it) }
+                if (seedMatches.isNotEmpty()) {
+                    seedMatches
+                } else {
+                    sampleFallbackBooks.filter {
+                        it.title.contains(cleanQuery, ignoreCase = true) ||
+                            it.author.contains(cleanQuery, ignoreCase = true)
+                    }.map { normalizeCatalogBook(it) }
+                }
             }
         }
     }
 
-    override suspend fun getPodcasts(): List<com.semtinazizi.kitapduy.model.Podcast> {
+    override suspend fun getBookById(bookId: String): Book? {
+        if (bookId.isBlank()) return null
+        cachedBooks?.firstOrNull { it.id == bookId }?.let { return it }
         return try {
-            println("SupabaseRepository: Fetching from 'podcasts' table...")
-            val response = supabaseClient.postgrest["podcasts"].select()
+            supabaseClient.postgrest["books"]
+                .select { filter { eq("id", bookId) } }
+                .decodeList<BookDto>()
+                .firstOrNull()
+                ?.toBook()
+                ?.takeIf { isValidCatalogTitle(it.title) }
+                ?.let { normalizeCatalogBook(it) }
+                ?: CatalogSeed.books.firstOrNull { it.id == bookId }?.let { normalizeCatalogBook(it) }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            CatalogSeed.books.firstOrNull { it.id == bookId }?.let { normalizeCatalogBook(it) }
+        }
+    }
 
-            val podcasts = response.decodeList<com.semtinazizi.kitapduy.model.PodcastDto>().map { it.toPodcast() }
-            println("SupabaseRepository: Decoded ${podcasts.size} podcasts")
+    override suspend fun resolvePodcastEpisode(
+        bookId: String,
+        fallbackTitle: String,
+        fallbackCover: String,
+        fallbackAudioUrl: String,
+        fallbackAuthor: String
+    ): Pair<com.semtinazizi.kitapduy.model.PodcastEpisode, String>? {
+        if (!bookId.startsWith("podcast_")) return null
+        val withoutPrefix = bookId.removePrefix("podcast_")
+        val podcastId = withoutPrefix.substringBefore("_EP_").trim()
+        val epHash = withoutPrefix.substringAfterLast("_EP_", "").toIntOrNull()
 
-            podcasts.map { it.copy(
-                imageUrl = fixImageUrl(it.imageUrl),
-                rssUrl = fixUrl(it.rssUrl)
-            ) }
-        } catch (e: Throwable) {
-            println("SupabaseRepository ERROR: ${e.message}")
-            emptyList()
+        val normalizedFallbackAudio = fixUrl(fallbackAudioUrl)
+        val normalizedFallbackCover = fixImageUrl(fallbackCover)
+
+        val podcastIdCandidates = setOf(
+            podcastId.lowercase(),
+            "podcast_${podcastId.lowercase()}",
+            podcastId.removePrefix("podcast_").lowercase()
+        )
+        val podcasts = runCatching { getPodcasts() }.getOrDefault(emptyList())
+        val matchedPodcast = podcasts.firstOrNull {
+            it.id.lowercase() in podcastIdCandidates ||
+                (fallbackAuthor.isNotBlank() && (it.name.contains(fallbackAuthor, ignoreCase = true) || fallbackAuthor.contains(it.name, ignoreCase = true)))
+        }
+
+        if (matchedPodcast != null && matchedPodcast.rssUrl.isNotBlank()) {
+            val rssXml = runCatching {
+                httpClient.get(matchedPodcast.rssUrl).bodyAsText()
+            }.getOrNull().orEmpty()
+            val episodes = if (rssXml.isNotBlank()) {
+                com.semtinazizi.kitapduy.ui.viewmodel.PodcastEpisodesViewModel.parseEpisodesXml(
+                    xmlContent = rssXml,
+                    podcastId = matchedPodcast.id
+                )
+            } else emptyList()
+            val hashByNormalizedUrl = if (rssXml.isNotBlank()) {
+                com.semtinazizi.kitapduy.ui.viewmodel.PodcastEpisodesViewModel.extractCandidateAudioHashes(rssXml)
+            } else emptyMap()
+
+            val matchedEp = episodes.firstOrNull { ep ->
+                val normEpAudio = fixUrl(ep.audioUrl)
+                val candidateHashes = hashByNormalizedUrl[normEpAudio].orEmpty() + ep.audioUrl.hashCode()
+                (epHash != null && epHash in candidateHashes) ||
+                    (normalizedFallbackAudio.isNotBlank() && normEpAudio == normalizedFallbackAudio) ||
+                    (fallbackTitle.isNotBlank() && ep.title.equals(fallbackTitle.trim(), ignoreCase = true))
+            }
+            if (matchedEp != null) {
+                return matchedEp.copy(
+                    id = bookId,
+                    audioUrl = fixUrl(matchedEp.audioUrl),
+                    imageUrl = matchedEp.imageUrl?.takeIf { it.isNotBlank() }?.let { fixImageUrl(it) }
+                        ?: matchedPodcast.imageUrl.takeIf { it.isNotBlank() }
+                        ?: normalizedFallbackCover.ifBlank { null }
+                ) to matchedPodcast.name.ifBlank { fallbackAuthor.ifBlank { "Podcast" } }
+            }
+        }
+
+        if (normalizedFallbackAudio.isNotBlank()) {
+            return com.semtinazizi.kitapduy.model.PodcastEpisode(
+                id = bookId,
+                title = fallbackTitle.ifBlank { "Podcast Bölümü" },
+                description = "Podcast Bölümü",
+                audioUrl = normalizedFallbackAudio,
+                imageUrl = normalizedFallbackCover.ifBlank { matchedPodcast?.imageUrl }
+            ) to (matchedPodcast?.name ?: fallbackAuthor.ifBlank { "Podcast" })
+        }
+        return null
+    }
+
+    override suspend fun getPodcasts(): List<com.semtinazizi.kitapduy.model.Podcast> {
+        val now = Clock.System.now().toEpochMilliseconds()
+        cachedPodcasts?.takeIf { it.isNotEmpty() && now - cachedPodcastsTimestampMs < cacheTtlMs }?.let {
+            return it
+        }
+        return podcastsCacheMutex.withLock {
+            val nowLocked = Clock.System.now().toEpochMilliseconds()
+            cachedPodcasts?.takeIf { it.isNotEmpty() && nowLocked - cachedPodcastsTimestampMs < cacheTtlMs }?.let {
+                return@withLock it
+            }
+            val generationAtStart = cacheGeneration
+            try {
+                println("SupabaseRepository: Fetching from 'podcasts' table...")
+                val response = supabaseClient.postgrest["podcasts"].select()
+
+                val podcasts = response.decodeList<com.semtinazizi.kitapduy.model.PodcastDto>().map { it.toPodcast() }
+                println("SupabaseRepository: Decoded ${podcasts.size} podcasts")
+
+                val normalized = podcasts.map {
+                    it.copy(
+                        imageUrl = fixImageUrl(it.imageUrl),
+                        rssUrl = fixUrl(it.rssUrl)
+                    )
+                }
+                if (normalized.isNotEmpty() && generationAtStart == cacheGeneration) {
+                    cachedPodcasts = normalized
+                    cachedPodcastsTimestampMs = Clock.System.now().toEpochMilliseconds()
+                }
+                normalized
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (e: Throwable) {
+                println("SupabaseRepository ERROR: ${e.message}")
+                emptyList()
+            }
         }
     }
 

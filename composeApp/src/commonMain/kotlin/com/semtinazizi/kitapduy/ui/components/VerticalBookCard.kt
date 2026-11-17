@@ -26,7 +26,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.model.Book
 
 @Composable
@@ -56,8 +55,8 @@ fun VerticalBookCard(book: Book, onClick: () -> Unit) {
             contentAlignment = Alignment.Center
         ) {
             // 1. Ambient Drop Shadow Layer
-            AsyncImage(
-                model = book.coverUrl,
+            SmartImage(
+                imageUrl = book.coverUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
@@ -65,7 +64,8 @@ fun VerticalBookCard(book: Book, onClick: () -> Unit) {
                     .offset(y = 16.dp)
                     .clip(RoundedCornerShape(24.dp))
                     .blur(20.dp)
-                    .graphicsLayer { alpha = 0.8f }
+                    .graphicsLayer { alpha = 0.8f },
+                fallbackText = book.title
             )
 
             // 2. The Card Container
@@ -95,11 +95,12 @@ fun VerticalBookCard(book: Book, onClick: () -> Unit) {
                 shape = RoundedCornerShape(24.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                AsyncImage(
-                    model = book.coverUrl,
+                SmartImage(
+                    imageUrl = book.coverUrl,
                     contentDescription = book.title,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    fallbackText = book.title
                 )
             }
         }

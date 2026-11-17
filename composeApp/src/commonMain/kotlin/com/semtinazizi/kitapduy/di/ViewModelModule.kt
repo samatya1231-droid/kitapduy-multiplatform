@@ -9,7 +9,7 @@ val viewModelModule = module {
     viewModel { HomeViewModel(get(), get()) }
     viewModel { AuthViewModel(get(), get(), get()) }
     viewModel { com.semtinazizi.kitapduy.ui.viewmodel.PodcastEpisodesViewModel(get()) }
-    factory { com.semtinazizi.kitapduy.ui.viewmodel.FeedScreenModel(get<com.semtinazizi.kitapduy.domain.repository.FeedRepository>(), get<com.semtinazizi.kitapduy.data.repository.StorageRepository>(), get()) }
+    factory { com.semtinazizi.kitapduy.ui.viewmodel.FeedScreenModel(get<com.semtinazizi.kitapduy.domain.repository.FeedRepository>(), get<com.semtinazizi.kitapduy.data.repository.StorageRepository>(), get(), getOrNull()) }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.LibraryScreenModel(get(), get(), get(), get()) }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.FocusScreenModel(get()) }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.QuizScreenModel(get(), get()) }
@@ -17,7 +17,7 @@ val viewModelModule = module {
     factory { com.semtinazizi.kitapduy.ui.viewmodel.SearchScreenModel(get(), get()) }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.ChatScreenModel(get(), it.get()) }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.ProfileScreenModel(get(), get(), get()) }
-    factory { com.semtinazizi.kitapduy.ui.viewmodel.BookDetailScreenModel(get(), get()) }
+    factory { com.semtinazizi.kitapduy.ui.viewmodel.BookDetailScreenModel(get(), get(), getOrNull()) }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.GuessAuthorScreenModel() }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.PostDetailScreenModel(get()) }
     factory { com.semtinazizi.kitapduy.ui.screens.LiteraryAdvisorScreenModel() }

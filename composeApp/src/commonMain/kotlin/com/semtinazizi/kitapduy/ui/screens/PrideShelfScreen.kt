@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,10 +27,12 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.model.SupabaseBookshelf
+import com.semtinazizi.kitapduy.ui.components.SmartImage
+import com.semtinazizi.kitapduy.ui.viewmodel.FeedContentTarget
 import com.semtinazizi.kitapduy.ui.viewmodel.LibraryScreenModel
 import cafe.adriel.voyager.koin.koinScreenModel
+import kotlinx.coroutines.launch
 
 data class PrideShelfScreen(val shelfType: String = "FINISHED", val title: String = "Gurur Rafım") : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -37,6 +40,7 @@ data class PrideShelfScreen(val shelfType: String = "FINISHED", val title: Strin
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val libraryViewModel = koinScreenModel<LibraryScreenModel>()
+        val scope = rememberCoroutineScope()
 
         val finishedBooks by libraryViewModel.bookshelfItems.collectAsState()
         val error by libraryViewModel.errorMessage.collectAsState()
@@ -85,7 +89,15 @@ data class PrideShelfScreen(val shelfType: String = "FINISHED", val title: Strin
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         items(finishedBooks) { book ->
-                            BookOnShelf(book) { libraryViewModel.bookFor(book)?.let { navigator.push(BookDetailScreen(it)) } }
+                            BookOnShelf(book) {
+                                scope.launch {
+                                    when (val target = libraryViewModel.resolveNavigationTarget(book)) {
+                                        is FeedContentTarget.BookTarget -> navigator.push(BookDetailScreen(target.book))
+                                        is FeedContentTarget.PodcastTarget -> navigator.push(PodcastDetailScreen(target.episode, target.podcastTitle))
+                                        is FeedContentTarget.NotFound -> Unit
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -106,11 +118,12 @@ fun BookOnShelf(book: SupabaseBookshelf, onClick: () -> Unit = {}) {
         ) {
             val coverUrl = book.bookCoverUrl
             if (!coverUrl.isNullOrBlank()) {
-                AsyncImage(
-                    model = coverUrl,
+                SmartImage(
+                    imageUrl = coverUrl,
                     contentDescription = book.bookTitle,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    fallbackText = book.bookTitle ?: ""
                 )
             }
 

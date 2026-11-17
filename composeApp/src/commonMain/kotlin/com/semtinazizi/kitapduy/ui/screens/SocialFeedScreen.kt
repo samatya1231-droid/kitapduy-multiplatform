@@ -36,8 +36,10 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.model.FeedItem
 import com.semtinazizi.kitapduy.ui.components.FeedCard
 import com.semtinazizi.kitapduy.ui.components.SmartImage
+import com.semtinazizi.kitapduy.ui.viewmodel.FeedContentTarget
 import com.semtinazizi.kitapduy.ui.viewmodel.FeedScreenModel
 import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import org.koin.compose.viewmodel.koinViewModel
@@ -46,6 +48,7 @@ import io.github.vinceglb.filekit.core.PickerMode
 import io.github.vinceglb.filekit.core.PickerType
 import io.github.vinceglb.filekit.core.PlatformFile
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -53,15 +56,64 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = koinScreenModel<FeedScreenModel>()
-        LaunchedEffect(Unit) { viewModel.loadFeed(true) }
+        val scope = rememberCoroutineScope()
+        LaunchedEffect(Unit) {
+            viewModel.loadFeed(true)
+            while (true) {
+                delay(60_000L)
+                viewModel.refreshListeningStreamSilently()
+            }
+        }
 
         val generalItems by viewModel.generalFeedItems.collectAsState()
         val listeningItems by viewModel.listeningFeedItems.collectAsState()
+        val listeningRibbonItems by viewModel.listeningRibbonItems.collectAsState()
         val isLoading by viewModel.isLoading.collectAsState()
         val actionError by viewModel.actionError.collectAsState()
+        var selectedListeningItem by remember { mutableStateOf<FeedItem?>(null) }
+        var openingContent by remember { mutableStateOf(false) }
+
         actionError?.let { message ->
             AlertDialog(onDismissRequest = { viewModel.actionError.value = null }, text = { Text(message) },
                 confirmButton = { TextButton(onClick = { viewModel.actionError.value = null }) { Text("Tamam") } })
+        }
+
+        selectedListeningItem?.let { listening ->
+            RichListeningDialog(
+                item = listening,
+                isOpeningContent = openingContent,
+                onDismiss = { if (!openingContent) selectedListeningItem = null },
+                onViewProfile = {
+                    selectedListeningItem = null
+                    if (listening.userId.isNotBlank()) {
+                        navigator.push(UserProfileScreen(listening.userId))
+                    }
+                },
+                onOpenContent = {
+                    if (openingContent) return@RichListeningDialog
+                    openingContent = true
+                    scope.launch {
+                        try {
+                            when (val target = viewModel.resolveContentTarget(listening)) {
+                                is FeedContentTarget.BookTarget -> {
+                                    selectedListeningItem = null
+                                    navigator.push(BookDetailScreen(target.book))
+                                }
+                                is FeedContentTarget.PodcastTarget -> {
+                                    selectedListeningItem = null
+                                    navigator.push(PodcastDetailScreen(target.episode, target.podcastTitle))
+                                }
+                                is FeedContentTarget.NotFound -> {
+                                    selectedListeningItem = null
+                                    viewModel.actionError.value = target.message
+                                }
+                            }
+                        } finally {
+                            openingContent = false
+                        }
+                    }
+                }
+            )
         }
 
         var selectedTabIndex by remember { mutableStateOf(0) }
@@ -398,7 +450,7 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                         state = currentListState
                     ) {
                         // "Şu An Dinleyenler" Header
-                        if (targetIndex == 0 && listeningItems.isNotEmpty()) {
+                        if (targetIndex == 0 && listeningRibbonItems.isNotEmpty()) {
                             item {
                                 Column(modifier = Modifier.fillMaxWidth()) {
                                     Row(
@@ -419,7 +471,7 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                                         )
                                         Spacer(modifier = Modifier.weight(1f))
                                         Text(
-                                            text = "${listeningItems.size} okur",
+                                            text = "${listeningRibbonItems.size} okur",
                                             style = MaterialTheme.typography.labelMedium,
                                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                         )
@@ -429,10 +481,10 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        items(items = listeningItems, key = { "${it.id}_${listeningItems.indexOf(it)}" }) { item ->
+                                        items(items = listeningRibbonItems, key = { "${it.userId.trim()}_${it.userName.trim()}_${it.id}" }) { item ->
                                             Column(
                                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                                modifier = Modifier.width(70.dp).clickable { navigator.push(UserProfileScreen(item.userId)) }
+                                                modifier = Modifier.width(70.dp).clickable { selectedListeningItem = item }
                                             ) {
                                                 Box(contentAlignment = Alignment.Center) {
                                                     // ListeningRipple Equivalent
@@ -465,11 +517,11 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                                                 }
                                                 Spacer(Modifier.height(8.dp))
                                                 Text(
-                                                    text = item.userName.split(" ").firstOrNull() ?: "Okur",
+                                                    text = item.userName.trim().ifBlank { "Okur" },
                                                     color = MaterialTheme.colorScheme.onSurface,
                                                     fontSize = 11.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    maxLines = 1,
+                                                    maxLines = 2,
                                                     textAlign = TextAlign.Center
                                                 )
                                             }
@@ -629,4 +681,95 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
             }
         }
     }
+}
+
+@Composable
+private fun RichListeningDialog(
+    item: FeedItem,
+    isOpeningContent: Boolean,
+    onDismiss: () -> Unit,
+    onViewProfile: () -> Unit,
+    onOpenContent: () -> Unit
+) {
+    val gold = Color(0xFFF9E4B7)
+    val accent = Color(0xFFD4AF37)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(24.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SmartImage(
+                    imageUrl = item.userPhotoUrl,
+                    contentDescription = item.userName,
+                    modifier = Modifier.size(44.dp).clip(CircleShape).border(1.5.dp, Brush.linearGradient(listOf(gold, accent)), CircleShape),
+                    fallbackText = item.userName,
+                    isAvatar = true
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = item.userName.ifBlank { "KitapDuy Okuru" },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Şu an dinliyor",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        },
+        text = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
+                    .padding(12.dp)
+            ) {
+                SmartImage(
+                    imageUrl = item.bookCoverUrl,
+                    contentDescription = item.bookTitle,
+                    modifier = Modifier.width(64.dp).height(92.dp).clip(RoundedCornerShape(10.dp)),
+                    fallbackText = item.bookTitle
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = item.bookTitle.ifBlank { "Sesli Kitap" },
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = if (item.bookId.startsWith("podcast_")) "Podcast Bölümü" else "Sesli Kitap",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = accent
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            if (item.bookId.isNotBlank()) {
+                Button(
+                    enabled = !isOpeningContent,
+                    onClick = onOpenContent,
+                    colors = ButtonDefaults.buttonColors(containerColor = gold)
+                ) {
+                    Text(if (isOpeningContent) "Açılıyor…" else "İçeriğe Git", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (item.userId.isNotBlank()) {
+                    TextButton(enabled = !isOpeningContent, onClick = onViewProfile) { Text("Profili Gör") }
+                }
+                TextButton(enabled = !isOpeningContent, onClick = onDismiss) { Text("Kapat") }
+            }
+        }
+    )
 }

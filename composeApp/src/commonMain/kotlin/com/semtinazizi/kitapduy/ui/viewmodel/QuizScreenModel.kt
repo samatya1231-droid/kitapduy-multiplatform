@@ -5,6 +5,7 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import com.semtinazizi.kitapduy.model.QuizQuestion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -13,14 +14,27 @@ import com.semtinazizi.kitapduy.domain.repository.QuizMultiplayerRepository
 import com.semtinazizi.kitapduy.data.model.QuizLeaderboardEntry
 import com.semtinazizi.kitapduy.data.model.QuizMatch
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.random.Random
 
 enum class QuizGameState {
     STARTING, PLAYING, GAME_OVER, SUCCESS, LEADERBOARD, MULTIPLAYER_LOBBY
+}
+
+enum class ArenaRound(val title: String, val questionCount: Int, val secondsPerQuestion: Int?, val pointsPerAnswer: Int = 10) {
+    LITERATURE("Edebiyat Molası", 5, null, 20),
+    BLITZ("Blitz", 10, 10, 20),
+    TOURNAMENT("10 soruluk turnuva", 10, null),
+    DUEL("Düello", 5, 15)
 }
 
 class QuizScreenModel(
@@ -307,7 +321,20 @@ class QuizScreenModel(
         com.semtinazizi.kitapduy.model.QuizQuestion("zcdcTD2muVN9OhwcL3Dw", "Hece ölçüsü nedir?", listOf("Hece sayısına göre ölçü", "Ses ölçüsü", "Serbest", "Aruz"), 0, "Halk şiiri."),
         com.semtinazizi.kitapduy.model.QuizQuestion("zjQV05S0eJaJ5fuH3aVS", "René Descartes felsefede hangi yöntemi kullanır?", listOf("Metodik şüphe", "Deneysel gözlem", "Tarihsel analiz", "Sezgi temelli yorum"), 0, "Her şeyi şüpheyle sorgulayarak başlar."),
         com.semtinazizi.kitapduy.model.QuizQuestion("zu1CTuGwaeiyamx848Z6", "Platon'un mağara alegorisi neyi anlatır?", listOf("Gerçeklik ve algı", "Aşk", "Savaş", "Ekonomi"), 0, "Bilgi felsefesiyle ilgilidir.")
-    ).shuffled()
+    ).filter { question ->
+        question.question.isNotBlank() && question.options.size == 4 &&
+            question.options.none { it.isBlank() } && question.options.distinct().size == 4 &&
+            question.correctIndex in question.options.indices
+    }
+
+    fun dailyQuestion(): QuizQuestion {
+        val date = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+        return allQuestions[(date.year * 366 + date.dayOfYear) % allQuestions.size]
+    }
+
+    var round: ArenaRound = ArenaRound.LITERATURE
+        private set
+    private var roundQuestions = emptyList<QuizQuestion>()
 
     private val _gameState = MutableStateFlow(QuizGameState.STARTING)
     val gameState: StateFlow<QuizGameState> = _gameState.asStateFlow()
@@ -326,8 +353,8 @@ class QuizScreenModel(
     val leaderboard = _leaderboard.asStateFlow()
     private var leaderboardJob: Job? = null
 
-    fun loadLeaderboard() {
-        _gameState.value = QuizGameState.LEADERBOARD
+    fun loadLeaderboard(open: Boolean = true) {
+        if (open) _gameState.value = QuizGameState.LEADERBOARD
         leaderboardJob?.cancel()
         leaderboardJob = scope.launch {
             val remote = runCatching { multiplayerRepo.getLeaderboard() }.getOrDefault(emptyList())
@@ -345,13 +372,15 @@ class QuizScreenModel(
     
     // Save Score to Leaderboard
     fun saveScoreToLeaderboard() {
+        val completedScore = _score.value
+        if (completedScore <= 0) return
         scope.launch {
             try {
                 val uid = authRepo.currentUserUid
                 if (uid != null) {
                     val profile = authRepo.getUserProfile(uid)
                     val userName = profile?.name ?: "Anonim"
-                    multiplayerRepo.updateLeaderboard(uid, userName, _score.value.toLong())
+                    multiplayerRepo.updateLeaderboard(uid, userName, completedScore.toLong())
                 }
             } catch (e: Throwable) {
                 e.printStackTrace()
@@ -397,11 +426,26 @@ class QuizScreenModel(
     private val _lobbyState = MutableStateFlow("Rakip Aranıyor...")
     val lobbyState = _lobbyState.asStateFlow()
     
-    private var currentMatchId: String? = null
+    private val _opponent = MutableStateFlow<ArenaOpponent?>(null)
+    val opponent = _opponent.asStateFlow()
+    private var activeDuel: QuizMatch? = null
+
+    data class ArenaOpponent(val name: String, val answeredQuestions: Int, val score: Int)
+
+    private fun updateOpponent(match: QuizMatch, uid: String) {
+        val isHost = match.player1Id == uid
+        _opponent.value = if (isHost) {
+            ArenaOpponent(match.player2Name.orEmpty(), match.player2Progress, match.player2Score)
+        } else {
+            ArenaOpponent(match.player1Name.orEmpty(), match.player1Progress, match.player1Score)
+        }
+    }
 
     fun findMultiplayerMatch() {
         _gameState.value = QuizGameState.MULTIPLAYER_LOBBY
         _lobbyState.value = "Rakip Aranıyor..."
+        activeDuel = null
+        _opponent.value = null
         multiplayerJob?.cancel()
         multiplayerJob = scope.launch {
             try {
@@ -414,33 +458,40 @@ class QuizScreenModel(
                 val userName = profile?.name ?: "Anonim"
                 
                 // Try finding waiting match
-                val match = multiplayerRepo.findWaitingMatch()
-                if (match != null) {
-                    _lobbyState.value = "Rakip Bulundu! Bağlanıyor..."
-                    val joinedMatch = multiplayerRepo.joinMatch(match.matchId, uid, userName)
-                    if (joinedMatch != null) {
-                        currentMatchId = joinedMatch.matchId
-                        startGame(isMultiplayer = true)
-                    } else {
-                        _lobbyState.value = "Bağlantı hatası!"
-                    }
-                } else {
+                val waiting = multiplayerRepo.findWaitingMatch(uid)
+                val match = waiting?.let { multiplayerRepo.joinMatch(it.matchId, uid, userName) } ?: run {
                     _lobbyState.value = "Oda Oluşturuluyor..."
-                    val newMatch = multiplayerRepo.createMatch(uid, userName)
-                    if (newMatch != null) {
-                        currentMatchId = newMatch.matchId
-                        _lobbyState.value = "Oda Oluşturuldu. Rakip Bekleniyor..."
-                        
-                        // Listen for player 2
-                        multiplayerRepo.observeMatch(newMatch.matchId).collect { update ->
-                            if (update.status == "PLAYING") {
-                                _lobbyState.value = "Rakip Katıldı! Oyun Başlıyor..."
-                                startGame(isMultiplayer = true)
-                            }
-                        }
-                    } else {
+                    val room = multiplayerRepo.createMatch(uid, userName)
+                    if (room == null || room.matchId.isBlank()) {
                         _lobbyState.value = "Oda oluşturulamadı."
+                        return@launch
                     }
+                    _lobbyState.value = "Oda Oluşturuldu. Rakip Bekleniyor..."
+                    try {
+                        withTimeoutOrNull(60_000L) {
+                            multiplayerRepo.observeMatch(room.matchId)
+                                .firstOrNull { it.status == "PLAYING" && !it.player2Id.isNullOrBlank() }
+                        }
+                    } finally {
+                        withContext(NonCancellable) {
+                            withTimeoutOrNull(5_000L) { multiplayerRepo.cancelWaitingMatch(room.matchId, uid) }
+                        }
+                    }
+                }
+                if (match == null) {
+                    _lobbyState.value = "Rakip bulunamadı. Tekrar deneyebilirsin."
+                    return@launch
+                }
+                activeDuel = match
+                updateOpponent(match, uid)
+                startGame(ArenaRound.DUEL)
+                withTimeoutOrNull(180_000L) {
+                    multiplayerRepo.observeMatch(match.matchId)
+                        .firstOrNull {
+                            updateOpponent(it, uid)
+                            it.status == "FINISHED" ||
+                                (it.player1Progress >= round.questionCount && it.player2Progress >= round.questionCount)
+                        }
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -455,15 +506,22 @@ class QuizScreenModel(
         nextQuestionJob?.cancel()
         multiplayerJob?.cancel()
         leaderboardJob?.cancel()
+        activeDuel = null
+        _opponent.value = null
         _gameState.value = QuizGameState.STARTING
         _score.value = 0
         _lives.value = 3
     }
 
-    fun startGame(isMultiplayer: Boolean = false) {
+    fun startGame(mode: ArenaRound = ArenaRound.LITERATURE) {
         try {
+            round = mode
+            val duelSeed = activeDuel?.matchId?.hashCode()?.takeIf { mode == ArenaRound.DUEL }
+            val questionOrder = if (duelSeed != null) allQuestions.shuffled(Random(duelSeed)) else allQuestions.shuffled()
+            roundQuestions = questionOrder.take(mode.questionCount)
+            nextQuestionJob?.cancel()
             _score.value = 0
-            _lives.value = 3
+            _lives.value = 1
             _currentQuestionIndex.value = 0
             _gameState.value = QuizGameState.PLAYING
             _isFiftyFiftyUsed.value = false
@@ -485,8 +543,9 @@ class QuizScreenModel(
                 return
             }
 
-            if (_currentQuestionIndex.value >= allQuestions.size) {
+            if (_currentQuestionIndex.value >= roundQuestions.size) {
                 _gameState.value = QuizGameState.SUCCESS
+                if (round != ArenaRound.DUEL) saveScoreToLeaderboard()
                 return
             }
 
@@ -494,10 +553,10 @@ class QuizScreenModel(
             _isCorrect.value = null
             _showHintDialog.value = false
             _eliminatedOptions.value = emptyList()
-            _currentQuestion.value = allQuestions[_currentQuestionIndex.value]
-            _timeLeft.value = 15
-            
-            startTimer()
+            _currentQuestion.value = roundQuestions[_currentQuestionIndex.value]
+            _timeLeft.value = round.secondsPerQuestion ?: 0
+
+            if (round.secondsPerQuestion != null) startTimer() else timerJob?.cancel()
         } catch (e: Throwable) {
             println("QUIZ_ERROR: CRASH IN loadNextQuestion: ${e.message}")
             e.printStackTrace()
@@ -531,10 +590,17 @@ class QuizScreenModel(
         
         if (selectedIndex == question.correctIndex) {
             _isCorrect.value = true
-            _score.value += 10 + _timeLeft.value // Hızlı cevap ekstra puan
+            _score.value += round.pointsPerAnswer
         } else {
             _isCorrect.value = false
-            _lives.value -= 1
+            if (round == ArenaRound.BLITZ || round == ArenaRound.TOURNAMENT) _lives.value -= 1
+        }
+        val duel = activeDuel
+        val uid = authRepo.currentUserUid
+        if (round == ArenaRound.DUEL && duel != null && uid != null) {
+            val progress = _currentQuestionIndex.value + 1
+            val score = _score.value
+            scope.launch { multiplayerRepo.updateMatchProgress(duel.matchId, duel.player1Id == uid, progress, score) }
         }
         
         // Biraz bekle ve sonraki soruya geç
@@ -547,6 +613,7 @@ class QuizScreenModel(
                 loadNextQuestion()
             } else {
                 _gameState.value = QuizGameState.GAME_OVER
+                if (round != ArenaRound.DUEL) saveScoreToLeaderboard()
             }
         }
     }

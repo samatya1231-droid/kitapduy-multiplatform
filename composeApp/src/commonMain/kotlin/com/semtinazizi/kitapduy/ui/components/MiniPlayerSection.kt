@@ -25,7 +25,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -64,14 +63,15 @@ fun MiniPlayerSection(
             ) {
                 // Kitap Kapağı
                 Box(modifier = Modifier.padding(start = 12.dp)) {
-                    AsyncImage(
-                        model = coverUrl,
+                    SmartImage(
+                        imageUrl = coverUrl,
                         contentDescription = null,
                         modifier = Modifier
                             .size(48.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.onSurface.copy(0.05f)),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Crop,
+                        fallbackText = title
                     )
                 }
 

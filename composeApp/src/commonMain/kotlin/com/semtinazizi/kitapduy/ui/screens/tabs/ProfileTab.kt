@@ -33,7 +33,6 @@ import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import org.koin.compose.viewmodel.koinViewModel
-import cafe.adriel.voyager.navigator.Navigator
 import com.semtinazizi.kitapduy.ui.screens.UserProfileScreen
 import cafe.adriel.voyager.transitions.SlideTransition
 
@@ -56,7 +55,7 @@ object ProfileTab : Tab {
 
     @Composable
     override fun Content() {
-        Navigator(UserProfileScreen()) { navigator ->
+        TabRootNavigator(UserProfileScreen()) { navigator ->
             SlideTransition(navigator)
         }
     }

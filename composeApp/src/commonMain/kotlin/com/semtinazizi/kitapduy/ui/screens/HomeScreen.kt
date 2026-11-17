@@ -1,3 +1,4 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
 package com.semtinazizi.kitapduy.ui.screens
 
 import androidx.compose.foundation.BorderStroke
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
@@ -32,6 +34,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import com.semtinazizi.kitapduy.util.root
 import org.koin.compose.viewmodel.koinViewModel
 import com.semtinazizi.kitapduy.platform.BillingManager
+import com.semtinazizi.kitapduy.platform.platformName
 import com.semtinazizi.kitapduy.ui.viewmodel.HomeViewModel
 import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import com.semtinazizi.kitapduy.ui.components.*
@@ -67,7 +70,9 @@ class HomeScreen : Screen {
         val podcasts by homeViewModel.podcasts.collectAsState()
         val articles by homeViewModel.articles.collectAsState()
         val weeklyStars by homeViewModel.weeklyStars.collectAsState()
+        val englishBooks by homeViewModel.englishBooks.collectAsState()
         val isLoading by homeViewModel.isLoading.collectAsState()
+        val isRefreshing by homeViewModel.isRefreshing.collectAsState()
         
         var showQuoteDialog by remember { mutableStateOf(false) }
         var selectedQuote by remember { mutableStateOf<Triple<String, String, String>?>(null) }
@@ -75,16 +80,13 @@ class HomeScreen : Screen {
         val progressManager = org.koin.compose.koinInject<com.semtinazizi.kitapduy.util.KmpBookProgressManager>()
         val audioController = org.koin.compose.koinInject<com.semtinazizi.kitapduy.ui.viewmodel.GlobalAudioController>()
         val playingBook by audioController.currentBook.collectAsState()
-        val positionFraction by audioController.currentPosition.collectAsState()
-        val durationMs by audioController.duration.collectAsState()
         val lastId = playingBook?.id ?: progressManager.getLastPlayedBook()
-        val continueListeningBook = books.firstOrNull { it.id == lastId && progressManager.getProgress(it.id) > 0 }
+        val continueListeningBook = books.firstOrNull {
+            it.id == lastId && (it.id == playingBook?.id || progressManager.getProgress(it.id) > 0)
+        }
         val displayBook = continueListeningBook
-            ?: books.filter { it.id != "local_ci_book" }.maxByOrNull { it.viewCount }
+            ?: remember(books) { books.asSequence().filter { it.id != "local_ci_book" }.maxByOrNull { it.viewCount } }
             ?: books.firstOrNull()
-        val savedPosition = continueListeningBook?.let {
-            if (playingBook?.id == it.id && durationMs > 0) (positionFraction * durationMs).toLong() else progressManager.getProgress(it.id)
-        } ?: 0L
 
         val lazyListState = rememberLazyListState()
         val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
@@ -103,8 +105,18 @@ class HomeScreen : Screen {
 
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // Blur background
-                if (books.isNotEmpty() && !isLoading) {
+                if (books.isNotEmpty() && !isLoading && platformName == "iOS") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(500.dp)
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(MaterialTheme.colorScheme.primary.copy(alpha = 0.06f), Color.Transparent)
+                                )
+                            )
+                    )
+                } else if (books.isNotEmpty() && !isLoading) {
                     val topBook = displayBook ?: books.firstOrNull { it.coverUrl.isNotEmpty() }
                     if (topBook != null && topBook.coverUrl.isNotEmpty()) {
                         SmartImage(
@@ -138,6 +150,11 @@ class HomeScreen : Screen {
                 } else if (books.isEmpty() && !isLoading) {
                     EmptyHomeState()
                 } else {
+                    PullToRefreshBox(
+                        isRefreshing = isRefreshing,
+                        onRefresh = { homeViewModel.refresh() },
+                        modifier = Modifier.fillMaxSize()
+                    ) {
                     LazyColumn(
                         state = lazyListState,
                         modifier = Modifier.fillMaxSize(),
@@ -213,8 +230,27 @@ class HomeScreen : Screen {
                         }
                         displayBook?.let { book ->
                             item {
+                                val listeningMinutes = when {
+                                    continueListeningBook == null -> 0L
+                                    playingBook?.id == book.id -> {
+                                        val position = audioController.currentPosition.collectAsState()
+                                        val duration = audioController.duration.collectAsState()
+                                        val minutes by remember(book.id) {
+                                            derivedStateOf {
+                                                val positionMs = if (duration.value > 0) {
+                                                    (position.value * duration.value).toLong()
+                                                } else {
+                                                    progressManager.getProgress(book.id)
+                                                }
+                                                positionMs / 60_000
+                                            }
+                                        }
+                                        minutes
+                                    }
+                                    else -> progressManager.getProgress(book.id) / 60_000
+                                }
                                 ContinueListeningCard(book, hasHistory = continueListeningBook != null,
-                                    positionMs = savedPosition, onClick = { navigator.push(BookDetailScreen(book)) })
+                                    listeningMinutes = listeningMinutes, onClick = { navigator.push(BookDetailScreen(book)) })
                             }
                         }
                         if (recommendedBooks.isNotEmpty()) item {
@@ -230,6 +266,14 @@ class HomeScreen : Screen {
                             LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 items(moods, key = { it.id }) { mood ->
                                     MoodQuickAccessCard(mood, Modifier.width(156.dp)) { navigator.push(MoodDetailScreen(mood.id)) }
+                                }
+                            }
+                        }
+                        if (englishBooks.isNotEmpty()) item {
+                            SpotifySectionHeader("İngilizce Sesli Kitaplar")
+                            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                items(englishBooks, key = { "en_${it.id}" }) { book ->
+                                    SpotifySquareCard(book, book.author) { navigator.push(BookDetailScreen(book)) }
                                 }
                             }
                         }
@@ -254,6 +298,7 @@ class HomeScreen : Screen {
                             SpotifySectionHeader("Bilim & Düşünce")
                             ArticlesRow(articles) { navigator.push(ArticleDetailScreen(it.link, it.title)) }
                         }
+                    }
                     }
                 }
 
@@ -446,7 +491,7 @@ class HomeScreen : Screen {
     }
 
     @Composable
-    private fun ContinueListeningCard(book: Book, hasHistory: Boolean, positionMs: Long, onClick: () -> Unit) {
+    private fun ContinueListeningCard(book: Book, hasHistory: Boolean, listeningMinutes: Long, onClick: () -> Unit) {
         Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
             SpotifySectionHeader(if (hasHistory) "Dinlemeye devam et" else "İlk hikâyeni keşfet")
             Surface(
@@ -454,6 +499,7 @@ class HomeScreen : Screen {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
+                    .testTag("home-featured-book")
                     .semantics(mergeDescendants = true) {},
                 color = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(18.dp),
@@ -509,7 +555,7 @@ class HomeScreen : Screen {
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                text = if (hasHistory) "${positionMs / 60_000} dakika dinlendi · Devam et" else "Kitabı keşfet",
+                                text = if (hasHistory) "$listeningMinutes dakika dinlendi · Devam et" else "Kitabı keşfet",
                                 color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold

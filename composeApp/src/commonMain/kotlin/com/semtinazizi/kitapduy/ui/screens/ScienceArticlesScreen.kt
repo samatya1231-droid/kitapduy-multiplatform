@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import coil3.compose.AsyncImage
+import com.semtinazizi.kitapduy.ui.components.SmartImage
 import com.semtinazizi.kitapduy.ui.viewmodel.HomeViewModel
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.ui.platform.LocalUriHandler
@@ -73,11 +73,12 @@ class ScienceArticlesScreen : Screen {
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
                             Column {
-                                AsyncImage(
-                                    model = article.imageUrl,
-                                    contentDescription = null,
+                                SmartImage(
+                                    imageUrl = article.imageUrl,
+                                    contentDescription = article.title,
                                     modifier = Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
-                                    contentScale = ContentScale.Crop
+                                    contentScale = ContentScale.Crop,
+                                    fallbackText = article.title
                                 )
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Text(

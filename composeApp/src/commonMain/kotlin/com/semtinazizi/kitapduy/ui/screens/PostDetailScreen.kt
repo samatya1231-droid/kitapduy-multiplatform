@@ -17,10 +17,12 @@ import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.semtinazizi.kitapduy.domain.repository.AuthRepository
+import com.semtinazizi.kitapduy.domain.repository.BookRepository
 import com.semtinazizi.kitapduy.model.Comment
 import com.semtinazizi.kitapduy.ui.components.InteractiveFeedCard
 import com.semtinazizi.kitapduy.ui.viewmodel.PostDetailScreenModel
 import com.semtinazizi.kitapduy.ui.viewmodel.HomeViewModel
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -30,7 +32,9 @@ class PostDetailScreen(private val postId: String) : Screen {
         val navigator = LocalNavigator.currentOrThrow
         val model = koinScreenModel<PostDetailScreenModel>()
         val auth = koinInject<AuthRepository>()
+        val catalog = koinInject<BookRepository>()
         val home = koinViewModel<HomeViewModel>()
+        val scope = rememberCoroutineScope()
         val books by home.books.collectAsState()
         val post by model.post.collectAsState()
         val comments by model.comments.collectAsState()
@@ -65,7 +69,25 @@ class PostDetailScreen(private val postId: String) : Screen {
                     post?.let { current -> item {
                         InteractiveFeedCard(current, onChanged = { model.load(postId) }, onDeleted = { navigator.pop() },
                             showComments = false, onOpenContent = {
-                                books.firstOrNull { it.id == current.bookId }?.let { navigator.push(BookDetailScreen(it)) }
+                                val targetId = current.bookId
+                                if (targetId.isBlank()) return@InteractiveFeedCard
+                                scope.launch {
+                                    if (targetId.startsWith("podcast_")) {
+                                        val resolved = catalog.resolvePodcastEpisode(
+                                            bookId = targetId,
+                                            fallbackTitle = current.bookTitle,
+                                            fallbackCover = current.bookCoverUrl,
+                                            fallbackAudioUrl = current.audioUrl.orEmpty(),
+                                            fallbackAuthor = current.userName
+                                        )
+                                        if (resolved != null) {
+                                            navigator.push(PodcastDetailScreen(resolved.first, resolved.second))
+                                        }
+                                    } else {
+                                        val book = books.firstOrNull { it.id == targetId } ?: catalog.getBookById(targetId)
+                                        if (book != null) navigator.push(BookDetailScreen(book))
+                                    }
+                                }
                             })
                     } }
                     item { Text("Yorumlar (${comments.size})", style = MaterialTheme.typography.titleMedium) }

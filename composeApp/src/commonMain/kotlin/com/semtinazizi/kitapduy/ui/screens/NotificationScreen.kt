@@ -113,9 +113,18 @@ class NotificationScreen : Screen {
                                     else -> scope.launch {
                                         opening = true
                                         try {
-                                            val book = books.getBooks().find { it.id == target }
-                                            if (book != null) navigator.push(BookDetailScreen(book))
-                                            else error = "Bu bildirimin içeriği artık bulunamıyor."
+                                            if (target.startsWith("podcast_")) {
+                                                val resolved = books.resolvePodcastEpisode(target, fallbackTitle = note.message)
+                                                if (resolved != null) {
+                                                    navigator.push(PodcastDetailScreen(resolved.first, resolved.second))
+                                                } else {
+                                                    error = "Bu bildirimin podcast bölümü artık bulunamıyor."
+                                                }
+                                            } else {
+                                                val book = books.getBookById(target) ?: books.getBooks().find { it.id == target }
+                                                if (book != null) navigator.push(BookDetailScreen(book))
+                                                else error = "Bu bildirimin içeriği artık bulunamıyor."
+                                            }
                                         } catch (cancelled: CancellationException) { throw cancelled }
                                         catch (failure: Exception) { error = "İçerik açılamadı. Tekrar dene." }
                                         finally { opening = false }

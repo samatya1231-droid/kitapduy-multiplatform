@@ -103,4 +103,18 @@ class DiscoveryCategoriesTest {
         assertTrue(bookMatchesCategory(taggedBook, "Tümü"))
         assertFalse(bookMatchesCategory(taggedBook, "Bilim"))
     }
+
+    @Test
+    fun englishLanguageAndEnglishAudioBookAliasesMatchEnglishCategory() {
+        val enByLang = book("en1", "Roman").copy(language = "en")
+        val enByCat = book("en2", "İngilizce Sesli Kitap").copy(language = "tr")
+        val trOnly = book("tr1", "Roman").copy(language = "tr")
+
+        val (genres, _) = buildActiveDiscoveryCategories(listOf(enByLang, enByCat, trOnly))
+        assertTrue("İngilizce Kitaplar" in genres.map { it.title })
+        assertTrue(bookMatchesCategory(enByLang, "İngilizce Kitaplar"))
+        assertTrue(bookMatchesCategory(enByCat, "İngilizce Kitaplar"))
+        assertTrue(bookMatchesCategory(enByLang, "İngilizce Sesli Kitap"))
+        assertFalse(bookMatchesCategory(trOnly, "İngilizce Kitaplar"))
+    }
 }

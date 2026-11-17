@@ -18,7 +18,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.model.Book
 
 @Composable
@@ -44,11 +43,12 @@ fun TrendingTop10List(
                         .height(180.dp)
                         .clip(RoundedCornerShape(8.dp))
                 ) {
-                    AsyncImage(
-                        model = book.coverUrl,
+                    SmartImage(
+                        imageUrl = book.coverUrl,
                         contentDescription = book.title,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Crop,
+                        fallbackText = book.title
                     )
                     Box(
                         modifier = Modifier

@@ -24,7 +24,8 @@ fun QuoteDialog(
     onDismiss: () -> Unit,
     bookTitle: String,
     bookAuthor: String,
-    onShare: () -> Unit = {}
+    onShare: () -> Unit = {},
+    onShareQuoteToFeed: ((String) -> Unit)? = null
 ) {
     val clipboard = LocalClipboardManager.current
     var quote by remember { mutableStateOf("") }
@@ -93,6 +94,24 @@ fun QuoteDialog(
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Text("Alıntıyı kopyala", color = Color.Black, fontWeight = FontWeight.Bold)
+            }
+
+            if (onShareQuoteToFeed != null) {
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(
+                    enabled = quote.isNotBlank(),
+                    onClick = {
+                        onShareQuoteToFeed(quote.trim())
+                        onDismiss()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .testTag("quote-share-feed"),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("Akışta Paylaş", fontWeight = FontWeight.Bold)
+                }
             }
             
             Spacer(modifier = Modifier.height(32.dp))

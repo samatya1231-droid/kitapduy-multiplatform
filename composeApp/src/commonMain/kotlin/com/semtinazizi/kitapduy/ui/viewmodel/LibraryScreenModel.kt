@@ -42,6 +42,47 @@ class LibraryScreenModel(
             coverUrl = item.bookCoverUrl.orEmpty(), audioUrl = local)
     }
 
+    suspend fun resolveNavigationTarget(item: SupabaseBookshelf): FeedContentTarget {
+        val local = downloader.getDownloadedFilePath(item.bookId + ".mp3")
+        val cachedBook = books[item.bookId]
+        if (cachedBook != null) {
+            return FeedContentTarget.BookTarget(if (local != null) cachedBook.copy(audioUrl = local) else cachedBook)
+        }
+        if (item.bookId.startsWith("podcast_")) {
+            val metadata = progress.getContentMetadata(item.bookId)
+            val resolved = bookRepository.resolvePodcastEpisode(
+                bookId = item.bookId,
+                fallbackTitle = item.bookTitle ?: metadata?.first.orEmpty(),
+                fallbackCover = item.bookCoverUrl ?: metadata?.third.orEmpty(),
+                fallbackAuthor = metadata?.second.orEmpty()
+            )
+            if (resolved != null) {
+                val ep = if (local != null) resolved.first.copy(audioUrl = local) else resolved.first
+                return FeedContentTarget.PodcastTarget(ep, resolved.second)
+            }
+        }
+        if (local != null) {
+            val metadata = progress.getContentMetadata(item.bookId)
+            return FeedContentTarget.BookTarget(
+                Book(
+                    id = item.bookId,
+                    title = item.bookTitle.orEmpty(),
+                    author = metadata?.second.orEmpty(),
+                    coverUrl = item.bookCoverUrl.orEmpty(),
+                    audioUrl = local
+                )
+            )
+        }
+        val fetched = runCatching { bookRepository.getBookById(item.bookId) }.getOrNull()
+        if (fetched != null) {
+            books = books + (fetched.id to fetched)
+            return FeedContentTarget.BookTarget(fetched)
+        }
+        val msg = if (item.bookId.startsWith("podcast_")) "Bu podcast bölümü bulunamadı." else "Kitap bilgileri yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin."
+        _errorMessage.value = msg
+        return FeedContentTarget.NotFound(msg)
+    }
+
     fun loadBookshelf(shelfType: String) {
         loadJob?.cancel()
         _bookshelfItems.value = emptyList()

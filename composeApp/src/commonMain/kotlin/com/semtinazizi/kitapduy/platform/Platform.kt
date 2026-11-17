@@ -57,6 +57,7 @@ expect object AppConfig {
     val cfPublicUrl: String
     val cfWorkerUrl: String
     val cfUploadToken: String
+    val r2UploadTicketUrl: String
     val cfAccessKey: String
     val cfSecretKey: String
     val isCiSmokeTest: Boolean

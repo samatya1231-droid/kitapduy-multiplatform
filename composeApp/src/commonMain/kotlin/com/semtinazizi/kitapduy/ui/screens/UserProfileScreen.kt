@@ -226,7 +226,15 @@ class UserProfileScreen(val targetUserId: String? = null) : Screen {
                                     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                         items(shelf, key = { it.bookId }) { entry ->
                                             Column(Modifier.width(100.dp)) {
-                                                BookOnShelf(entry) { model.bookFor(entry)?.let { navigator.push(BookDetailScreen(it)) } }
+                                                BookOnShelf(entry) {
+                                                    scope.launch {
+                                                        when (val target = model.resolveShelfTarget(entry)) {
+                                                            is com.semtinazizi.kitapduy.ui.viewmodel.FeedContentTarget.BookTarget -> navigator.push(BookDetailScreen(target.book))
+                                                            is com.semtinazizi.kitapduy.ui.viewmodel.FeedContentTarget.PodcastTarget -> navigator.push(PodcastDetailScreen(target.episode, target.podcastTitle))
+                                                            is com.semtinazizi.kitapduy.ui.viewmodel.FeedContentTarget.NotFound -> feedback = target.message
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
                                     }

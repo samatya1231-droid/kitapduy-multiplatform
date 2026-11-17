@@ -29,8 +29,8 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.model.Book
+import com.semtinazizi.kitapduy.ui.components.SmartImage
 import com.semtinazizi.kitapduy.platform.BookDownloader
 import com.semtinazizi.kitapduy.platform.createBookDownloader
 import com.semtinazizi.kitapduy.ui.viewmodel.HomeViewModel
@@ -223,15 +223,16 @@ fun DownloadedBookCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box {
-                AsyncImage(
-                    model = book.coverUrl,
+                SmartImage(
+                    imageUrl = book.coverUrl,
                     contentDescription = "Kapak",
                     modifier = Modifier
                         .width(70.dp)
                         .height(100.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(MaterialTheme.colorScheme.onSurface.copy(0.05f)),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    fallbackText = book.title
                 )
                 
                 Box(

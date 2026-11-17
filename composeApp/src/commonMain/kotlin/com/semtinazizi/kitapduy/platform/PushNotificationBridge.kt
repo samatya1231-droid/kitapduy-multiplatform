@@ -28,6 +28,7 @@ object PushNotificationBridge {
     private val identity = PushIdentityCoordinator()
     private val enabledState = MutableStateFlow<Boolean?>(null)
     val enabled = enabledState.asStateFlow()
+    var requestInitialNotifications: (() -> Unit)? = null
     var enableNotifications: (() -> Unit)? = null
     var disableNotifications: (() -> Unit)? = null
     var refreshPermission: (() -> Unit)? = null
@@ -36,6 +37,7 @@ object PushNotificationBridge {
     fun updateUser(userId: String?) = identity.updateUser(userId)
     fun updatePermission(enabled: Boolean) { enabledState.value = enabled }
     fun refresh() { refreshPermission?.invoke() }
+    fun requestInitialPermission() { requestInitialNotifications?.invoke() }
     fun requestPermission() { enableNotifications?.invoke() }
     fun disable() { disableNotifications?.invoke() }
 }

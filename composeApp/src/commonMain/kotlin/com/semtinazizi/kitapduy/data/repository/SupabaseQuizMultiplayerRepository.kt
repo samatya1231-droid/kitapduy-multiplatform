@@ -6,14 +6,15 @@ import com.semtinazizi.kitapduy.domain.repository.QuizMultiplayerRepository
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Order
-import io.github.jan.supabase.realtime.PostgresAction
-import io.github.jan.supabase.realtime.channel
-import io.github.jan.supabase.realtime.postgresChangeFlow
-import io.github.jan.supabase.realtime.realtime
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flow
+import kotlinx.datetime.Clock
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlin.time.Duration.Companion.minutes
 
 class SupabaseQuizMultiplayerRepository(
     private val supabaseClient: SupabaseClient
@@ -67,7 +68,9 @@ class SupabaseQuizMultiplayerRepository(
             supabaseClient.postgrest["quiz_matches"]
                 .insert(newMatch) { select() }
                 .decodeSingle<QuizMatch>()
-        } catch (e: Throwable) {
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             e.printStackTrace()
             null
         }
@@ -83,24 +86,40 @@ class SupabaseQuizMultiplayerRepository(
             
             supabaseClient.postgrest["quiz_matches"]
                 .update(update) {
-                    filter { eq("match_id", matchId) }
+                    filter {
+                        eq("match_id", matchId)
+                        eq("status", "WAITING")
+                        neq("player1_id", userId)
+                        exact("player2_id", null)
+                        gte("created_at", (Clock.System.now() - 1.minutes).toString())
+                    }
                     select()
                 }
-                .decodeSingle<QuizMatch>()
+                .decodeSingleOrNull<QuizMatch>()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             e.printStackTrace()
             null
         }
     }
 
-    override suspend fun findWaitingMatch(): QuizMatch? {
+    override suspend fun findWaitingMatch(excludingUserId: String): QuizMatch? {
         return try {
             supabaseClient.postgrest["quiz_matches"]
                 .select {
-                    filter { eq("status", "WAITING") }
+                    filter {
+                        eq("status", "WAITING")
+                        neq("player1_id", excludingUserId)
+                        exact("player2_id", null)
+                        gte("created_at", (Clock.System.now() - 1.minutes).toString())
+                    }
+                    order("created_at", Order.ASCENDING)
                     limit(1)
                 }
                 .decodeSingleOrNull<QuizMatch>()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             e.printStackTrace()
             null
@@ -119,18 +138,28 @@ class SupabaseQuizMultiplayerRepository(
                 }
             }
             supabaseClient.postgrest["quiz_matches"].update(update) {
-                filter { eq("match_id", matchId) }
+                filter {
+                    eq("match_id", matchId)
+                    eq("status", "PLAYING")
+                    lt(if (isPlayer1) "player1_progress" else "player2_progress", progress)
+                }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             e.printStackTrace()
         }
     }
 
-    override suspend fun finishMatch(matchId: String) {
+    override suspend fun cancelWaitingMatch(matchId: String, hostId: String) {
         try {
             val update = buildJsonObject { put("status", "FINISHED") }
             supabaseClient.postgrest["quiz_matches"].update(update) {
-                filter { eq("match_id", matchId) }
+                filter {
+                    eq("match_id", matchId)
+                    eq("player1_id", hostId)
+                    eq("status", "WAITING")
+                }
             }
         } catch (e: Throwable) {
             e.printStackTrace()
@@ -138,9 +167,14 @@ class SupabaseQuizMultiplayerRepository(
     }
 
     
-    override fun observeMatch(matchId: String): Flow<QuizMatch> = kotlinx.coroutines.flow.flow {
-        // Realtime plugin devre dışı - HTTP polling ile alternatif yapılabilir
-        // Şimdilik boş flow döndürülüyor, crash önleniyor
-        println("observeMatch: Realtime plugin devre dışı")
-    }
+    override fun observeMatch(matchId: String): Flow<QuizMatch> = flow {
+        while (true) {
+            val match = supabaseClient.postgrest["quiz_matches"]
+                .select { filter { eq("match_id", matchId) } }
+                .decodeSingleOrNull<QuizMatch>() ?: break
+            emit(match)
+            if (match.status == "FINISHED") break
+            delay(2_000)
+        }
+    }.distinctUntilChanged()
 }

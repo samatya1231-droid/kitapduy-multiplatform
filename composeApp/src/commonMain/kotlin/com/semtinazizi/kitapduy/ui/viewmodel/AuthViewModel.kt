@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import com.semtinazizi.kitapduy.data.repository.StorageRepository
 import com.semtinazizi.kitapduy.model.UserProfile
+import com.semtinazizi.kitapduy.platform.prepareProfilePhoto
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -71,42 +73,37 @@ class AuthViewModel(
         }
     }
 
-    fun updateProfilePicture(bytes: ByteArray, extension: String, onResult: (Boolean) -> Unit) {
-        val uid = authRepository.currentUserUid
-        if (uid == null) {
-            onResult(false)
-            return
-        }
+    fun updateProfilePicture(bytes: ByteArray, extension: String, onResult: (Boolean) -> Unit) =
+        uploadProfilePhoto(bytes, extension, isCover = false, onResult = onResult)
 
-        viewModelScope.launch {
-            val uploadResult = storageRepository.uploadProfilePicture(uid, bytes, extension)
-            if (uploadResult.isSuccess) {
-                val publicUrl = uploadResult.getOrNull()
-                if (publicUrl != null) {
-                    val dbResult = authRepository.updateProfilePhoto(uid, publicUrl)
-                    onResult(dbResult)
-                    if (dbResult) {
-                        observeUserProfile(uid) // Refresh
-                    }
-                } else {
-                    onResult(false)
-                }
-            } else {
-                onResult(false)
-            }
-        }
-    }
+    fun updateCoverPicture(bytes: ByteArray, extension: String, onResult: (Boolean) -> Unit) =
+        uploadProfilePhoto(bytes, extension, isCover = true, onResult = onResult)
 
-    fun updateCoverPicture(bytes: ByteArray, extension: String, onResult: (Boolean) -> Unit) {
+    private fun uploadProfilePhoto(
+        bytes: ByteArray,
+        extension: String,
+        isCover: Boolean,
+        onResult: (Boolean) -> Unit
+    ) {
         val uid = authRepository.currentUserUid ?: run { onResult(false); return }
         viewModelScope.launch {
-            try {
-                val url = storageRepository.uploadImage("cover_photos", uid, bytes, extension).getOrThrow()
-                val success = authRepository.updateCoverPhoto(uid, url)
-                if (success) observeUserProfile(uid)
-                onResult(success)
-            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
-            catch (failure: Exception) { onResult(false) }
+            val success = try {
+                val photo = prepareProfilePhoto(bytes, extension, isCover)
+                check(authRepository.currentUserUid == uid)
+                val url = if (isCover) {
+                    storageRepository.uploadImage("cover_photos", uid, photo.bytes, photo.extension).getOrThrow()
+                } else {
+                    storageRepository.uploadProfilePicture(uid, photo.bytes, photo.extension).getOrThrow()
+                }
+                check(authRepository.currentUserUid == uid)
+                if (isCover) authRepository.updateCoverPhoto(uid, url) else authRepository.updateProfilePhoto(uid, url)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                false
+            }
+            if (success) observeUserProfile(uid)
+            onResult(success)
         }
     }
 

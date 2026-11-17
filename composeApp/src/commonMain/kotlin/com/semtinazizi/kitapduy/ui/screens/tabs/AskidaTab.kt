@@ -5,7 +5,6 @@ import androidx.compose.material.icons.filled.VolunteerActivism
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
-import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import com.semtinazizi.kitapduy.ui.screens.AskidaKitapScreen
@@ -29,7 +28,7 @@ object AskidaTab : Tab {
 
     @Composable
     override fun Content() {
-        // Tab içinde kendi navigasyon ağacını barındırması için Navigator kullanıyoruz
-        Navigator(AskidaKitapScreen())
+        // Tab içinde kendi navigasyon ağacını ve sekme kök dönüşünü barındırması için TabRootNavigator kullanıyoruz
+        TabRootNavigator(AskidaKitapScreen())
     }
 }

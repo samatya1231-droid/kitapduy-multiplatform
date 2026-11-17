@@ -127,7 +127,8 @@ data class AdvisorMessage(
     val intent: String? = null,
     val answerKind: String? = null,
     val recommendedBooks: List<Book> = emptyList(),
-    val followUps: List<Pair<String, String>> = emptyList()
+    val followUps: List<Pair<String, String>> = emptyList(),
+    val analyzedTitle: String? = null
 )
 
 class LiteraryAdvisorScreenModel : ScreenModel {
@@ -145,6 +146,7 @@ class LiteraryAdvisorScreenModel : ScreenModel {
     fun submitPrompt(rawPrompt: String, explicitIntent: String?, catalog: List<Book>): Boolean {
         val cleanPrompt = rawPrompt.trim()
         if (cleanPrompt.isEmpty()) return false
+        val previousTitle = messages.lastOrNull { it.sender == AdvisorSender.ADVISOR }?.analyzedTitle
         showDiscovery = false
         messageSeq += 1
         messages.add(
@@ -160,7 +162,8 @@ class LiteraryAdvisorScreenModel : ScreenModel {
             explicitIntent = explicitIntent,
             catalog = catalog,
             depth = responseDepth,
-            spoilerOverride = spoilerOverride
+            spoilerOverride = spoilerOverride,
+            previousTitle = previousTitle
         )
         messageSeq += 1
         messages.add(reply.copy(id = "a_$messageSeq"))
@@ -233,7 +236,7 @@ private object KmpLiteraryAdvisorPolicy {
             "Soruyu derinleştir" to "Bu tartışmanın altında yatan varsayımı sorgulamak için bana bir soru sor."
         )
         "analysis" -> listOf(
-            "Karakterin izini sürelim" to "Karakterin seçimlerini ve iç çatışmasını metindeki ipuçları üzerinden inceleyelim.",
+            "Karakterin izini sürelim" to "Bu eserdeki karakterin seçimlerini ve iç çatışmasını inceleyelim.",
             "Temayı derinleştirelim" to "Bu eserdeki ana temanın anlatım biçimiyle ilişkisini derinleştir.",
             "Başka bir eser öner" to "Bu temaya yakın sesli kütüphanemizden bir kitap önerir misin?"
         )
@@ -1079,11 +1082,11 @@ internal fun parseBasicMarkdown(text: String): AnnotatedString = buildAnnotatedS
 }
 
 private fun normalizeAdvisorText(input: String): String =
-    input.lowercase()
+    input.replace('İ', 'i').lowercase()
+        .replace("\u0307", "")
         .replace('ç', 'c')
         .replace('ğ', 'g')
         .replace('ı', 'i')
-        .replace('İ', 'i')
         .replace('ö', 'o')
         .replace('ş', 's')
         .replace('ü', 'u')
@@ -1093,6 +1096,57 @@ private fun normalizeAdvisorText(input: String): String =
         .replace(Regex("[^a-z0-9\\s]"), " ")
         .replace(Regex("\\s+"), " ")
         .trim()
+
+private const val ICIMIZDEKI_SEYTAN = "İçimizdeki Şeytan"
+private val analysisRequest = Regex("\\b(?:anlat\\w*|ozet\\w*|incele\\w*|yorumla\\w*|analiz\\w*|konusu|konus\\w*|hakkinda|kimdir|nedir|degerlendir\\w*)\\b")
+private val recommendationRequest = Regex("\\b(?:oner\\w*|tavsiye|ne dinlesem|kitap sec)\\b")
+private val previousWorkReference = Regex("\\b(?:bu|o) (?:esere?|eserin|eserdeki|romana?|romanin|kitaba?|kitabin)\\b")
+
+private fun mentionsTitle(normalizedPrompt: String, title: String): Boolean {
+    val normalizedTitle = normalizeAdvisorText(title)
+    if (normalizedTitle.length < 3) return false
+    return Regex("\\b${Regex.escape(normalizedTitle)}(?:ya|ye|yi|yu|dan|den|tan|ten|da|de|ta|te|nin|nun|in|un|i|u|a|e)?\\b")
+        .containsMatchIn(normalizedPrompt)
+}
+
+private fun buildWorkReply(
+    normalizedPrompt: String,
+    catalog: List<Book>,
+    previousTitle: String?,
+    depth: String,
+    spoilerNote: String
+): AdvisorMessage {
+    val catalogBooks = catalog.filter { !it.category.equals("Podcast", ignoreCase = true) }
+    val titles = (catalogBooks.map { it.title } + ICIMIZDEKI_SEYTAN)
+        .distinctBy(::normalizeAdvisorText)
+        .filter { mentionsTitle(normalizedPrompt, it) }
+        .sortedByDescending { it.length }
+    val title = titles.firstOrNull() ?: previousTitle?.takeIf { previousWorkReference.containsMatchIn(normalizedPrompt) }
+    val selectedBook = catalogBooks.firstOrNull { normalizeAdvisorText(it.title) == title?.let(::normalizeAdvisorText) }
+    val synopsis = when {
+        title == null -> "İncelemek istediğin eseri belirleyemedim. Tam adını ve biliyorsan yazarını yazar mısın?"
+        normalizeAdvisorText(title) == normalizeAdvisorText(ICIMIZDEKI_SEYTAN) -> {
+            // https://kitap.ykykultur.com.tr/kitaplar/icimizdeki-seytan-butun-yapitlari
+            val introduction = "**İçimizdeki Şeytan**, Sabahattin Ali’nin Ömer ile Macide’nin ilişkisi üzerinden insanın kendi seçimlerinin sorumluluğunu sorguladığı bir roman. Ömer, savunamadığı davranışlarını ‘içindeki şeytana’ yükler. Roman, bu bahaneyi irade ve çevre baskısı üzerinden tartışır."
+            if (depth != "deep") introduction else "$introduction\n\nEseri okurken Ömer’in kendisi hakkında söyledikleriyle Macide’ye karşı yaptıklarını yan yana düşün. Aralarındaki mesafe, romanın kişinin kendini nasıl aldattığına dair en güçlü ipuçlarından biri."
+        }
+        selectedBook != null -> {
+            val heading = "**${selectedBook.title}** — ${selectedBook.author}"
+            val description = selectedBook.description.trim()
+            if (description.isEmpty()) "$heading\n\nBu eser için ayrıntılı bir tanıtım bulamadım." else "$heading\n\nKatalog tanıtımı\n\n$description"
+        }
+        else -> "**$title** için ayrıntılı bir tanıtım bulamadım. İncelemek istediğin bölümden kısa bir parça paylaşabilirsin."
+    }
+    return AdvisorMessage(
+        id = "",
+        sender = AdvisorSender.ADVISOR,
+        content = synopsis + spoilerNote,
+        intent = "analysis",
+        answerKind = "Eser hakkında",
+        recommendedBooks = listOfNotNull(selectedBook),
+        analyzedTitle = title
+    )
+}
 
 private fun findCatalogMatches(
     query: String,
@@ -1105,6 +1159,11 @@ private fun findCatalogMatches(
 
     val q = normalizeAdvisorText(query)
     val tokens = q.split(' ').filter { it.length >= 3 }
+    if (!Regex("\\bgibi\\b").containsMatchIn(q)) {
+        val exact = audiobooks.filter { mentionsTitle(q, it.title) }
+            .sortedByDescending { it.title.length }
+        if (exact.isNotEmpty()) return exact.take(limit)
+    }
 
     fun matchBook(predicate: (Book, String) -> Boolean): List<Book> =
         audiobooks.filter { book ->
@@ -1164,7 +1223,8 @@ private fun buildAdvisorReply(
     explicitIntent: String?,
     catalog: List<Book>,
     depth: String,
-    spoilerOverride: Boolean?
+    spoilerOverride: Boolean?,
+    previousTitle: String?
 ): AdvisorMessage {
     val q = normalizeAdvisorText(prompt)
 
@@ -1237,6 +1297,13 @@ private fun buildAdvisorReply(
             answerKind = "Okuma rotası",
             recommendedBooks = routeBooks
         )
+    }
+
+    val asksAboutWork = explicitIntent == "analysis" || analysisRequest.containsMatchIn(q) ||
+        previousWorkReference.containsMatchIn(q) || catalog.any { mentionsTitle(q, it.title) } ||
+        mentionsTitle(q, ICIMIZDEKI_SEYTAN)
+    if (asksAboutWork && explicitIntent != "recommendation" && !recommendationRequest.containsMatchIn(q)) {
+        return buildWorkReply(q, catalog, previousTitle, depth, spoilerNote)
     }
 
     val recs = findCatalogMatches(prompt, catalog, limit = 2)

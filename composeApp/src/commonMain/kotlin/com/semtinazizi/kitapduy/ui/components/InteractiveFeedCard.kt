@@ -49,7 +49,7 @@ fun InteractiveFeedCard(item: FeedItem, onChanged: () -> Unit, onDeleted: () -> 
     error?.let { message -> AlertDialog(onDismissRequest = { error = null }, text = { Text(message) },
         confirmButton = { TextButton(onClick = { error = null }) { Text("Tamam") } }) }
     image?.let { url -> AlertDialog(onDismissRequest = { image = null },
-        text = { coil3.compose.AsyncImage(url, "Gönderi fotoğrafı", Modifier.fillMaxWidth()) },
+        text = { SmartImage(imageUrl = url, contentDescription = "Gönderi fotoğrafı", modifier = Modifier.fillMaxWidth(), contentScale = androidx.compose.ui.layout.ContentScale.Fit) },
         confirmButton = { TextButton(onClick = { image = null }) { Text("Kapat") } }) }
     if (confirmDelete) AlertDialog(onDismissRequest = { confirmDelete = false }, title = { Text("Gönderiyi sil?") },
         text = { Text("Bu gönderi kalıcı olarak silinecek.") },

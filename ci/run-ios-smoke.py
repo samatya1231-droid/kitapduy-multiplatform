@@ -144,7 +144,7 @@ TRACKED_FIXTURE_EVENTS = (
     ("mark_notifications_read", "Bildirimleri okundu işaretleme (`PATCH /rest/v1/notifications`)"),
     ("donate_askida", "Askıda Kitap bağışı (`POST /rest/v1/askida_kitap`)"),
     ("send_askida_chat", "Askıda Kitap sohbet mesajı (`POST /rest/v1/askida_mesaj`)"),
-    ("create_quiz_match", "Blitz Arena çok oyunculu oda oluşturma (`POST /rest/v1/quiz_matches`)"),
+    ("create_quiz_match", "Arena düello odası oluşturma (`POST /rest/v1/quiz_matches`)"),
 )
 
 UNREACHABLE_CODEBASE_SCREENS = (

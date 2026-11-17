@@ -31,6 +31,12 @@ class HomeViewModel(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    private val _englishBooks = MutableStateFlow<List<Book>>(emptyList())
+    val englishBooks: StateFlow<List<Book>> = _englishBooks.asStateFlow()
+
     private val _selectedCategory = MutableStateFlow("Tümü")
     val selectedCategory: StateFlow<String> = _selectedCategory.asStateFlow()
 
@@ -69,53 +75,71 @@ class HomeViewModel(
     val weeklyStars: StateFlow<List<Book>> = _weeklyStars.asStateFlow()
 
     init {
-        loadInitialData()
+        loadInitialData(isRefresh = false)
     }
 
-    private fun loadInitialData() {
+    fun refresh() {
+        if (_isRefreshing.value || _isLoading.value) return
+        bookRepository.invalidateCache()
+        loadInitialData(isRefresh = true)
+    }
+
+    private fun loadInitialData(isRefresh: Boolean = false) {
         viewModelScope.launch {
-            _isLoading.value = true
-            
+            if (isRefresh) _isRefreshing.value = true else _isLoading.value = true
             try {
-                // Kitapları ve Podcastleri paralel yükleyelim
-                launch {
-                    try {
-                        val fetchedBooks = bookRepository.getBooks()
-                        _books.value = fetchedBooks
-                        val audiobookCatalog = fetchedBooks.filterNot {
-                            it.category.trim().equals("Podcast", ignoreCase = true)
+                kotlinx.coroutines.coroutineScope {
+                    val booksDeferred = async {
+                        try {
+                            val fetchedBooks = bookRepository.getBooks()
+                            _books.value = fetchedBooks
+                            val audiobookCatalog = fetchedBooks.filterNot {
+                                it.category.trim().equals("Podcast", ignoreCase = true)
+                            }
+                            val prioritizedBooks = audiobookCatalog.sortedWith(
+                                compareBy<Book> { if (it.id == "local_ci_book") 1 else 0 }
+                                    .thenByDescending { it.viewCount }
+                            )
+                            _weeklyStars.value = prioritizedBooks.take(5)
+                            val grouped = prioritizedBooks.groupBy { if (it.category.isBlank()) "Genel" else it.category }
+                            _groupedBooks.value = grouped
+                            _recommendedBooks.value = prioritizedBooks.take(10)
+                            _englishBooks.value = audiobookCatalog.filter {
+                                it.language.equals("en", ignoreCase = true) ||
+                                    it.category.trim().contains("İngilizce", ignoreCase = true) ||
+                                    it.category.trim().equals("English", ignoreCase = true)
+                            }
+                        } catch (e: Throwable) {
+                            println("HomeVM Books Error: ${e.message}")
                         }
-                        val prioritizedBooks = audiobookCatalog.sortedWith(
-                            compareBy<Book> { if (it.id == "local_ci_book") 1 else 0 }
-                                .thenByDescending { it.viewCount }
-                        )
-                        _weeklyStars.value = prioritizedBooks.take(5)
-                        val grouped = prioritizedBooks.groupBy { if (it.category.isBlank()) "Genel" else it.category }
-                        _groupedBooks.value = grouped
-                        _recommendedBooks.value = prioritizedBooks.take(10)
-                    } catch (e: Throwable) { println("HomeVM Books Error: ${e.message}") }
-                }
-                
-                launch {
-                    try {
-                        println("HomeViewModel: Starting podcast fetch...")
-                        val fetchedPodcasts = bookRepository.getPodcasts()
-                        println("HomeViewModel: Received ${fetchedPodcasts.size} podcasts from repository")
-                        _podcasts.value = fetchedPodcasts
-                    } catch (e: Throwable) { println("HomeVM Podcasts Error: ${e.message}") }
-                }
+                    }
 
-                // Makaleler ve diğerleri
-                fetchArticles()
-                _dailySummary.value = bookRepository.getDailySummary()
-                _dailyQuote.value = bookRepository.getDailyQuote() ?: Triple("Bir kitap okuyan her şeyi okuyabilir.", "Sabahattin Ali", "Kürk Mantolu Madonna")
+                    val podcastsDeferred = async {
+                        try {
+                            val fetchedPodcasts = bookRepository.getPodcasts()
+                            _podcasts.value = fetchedPodcasts
+                        } catch (e: Throwable) {
+                            println("HomeVM Podcasts Error: ${e.message}")
+                        }
+                    }
 
+                    val articlesDeferred = async {
+                        try {
+                            fetchArticles()
+                        } catch (_: Throwable) { }
+                    }
+
+                    _dailySummary.value = bookRepository.getDailySummary()
+                    _dailyQuote.value = bookRepository.getDailyQuote()
+                        ?: Triple("Bir kitap okuyan her şeyi okuyabilir.", "Sabahattin Ali", "Kürk Mantolu Madonna")
+
+                    awaitAll(booksDeferred, podcastsDeferred, articlesDeferred)
+                }
             } catch (e: Throwable) {
                 e.printStackTrace()
             } finally {
-                // Not: Paralel launch'lar bitene kadar beklemek gerekirse join() kullanılır. 
-                // Şimdilik ana akış isLoading'i kapatsın.
                 _isLoading.value = false
+                _isRefreshing.value = false
             }
         }
     }

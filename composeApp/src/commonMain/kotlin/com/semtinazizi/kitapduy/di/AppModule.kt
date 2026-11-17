@@ -25,7 +25,7 @@ val coreModule = module {
         com.semtinazizi.kitapduy.data.repository.SupabaseAuthRepository(get())
     }
     single<com.semtinazizi.kitapduy.domain.repository.BookRepository> {
-        com.semtinazizi.kitapduy.data.repository.SupabaseBookRepository(get())
+        com.semtinazizi.kitapduy.data.repository.SupabaseBookRepository(get(), get())
     }
     single<com.semtinazizi.kitapduy.domain.repository.FeedRepository> {
         com.semtinazizi.kitapduy.data.repository.SupabaseFeedRepository(get(), get())
@@ -48,7 +48,15 @@ val coreModule = module {
     single { com.semtinazizi.kitapduy.util.KmpBookProgressManager() }
 
     single<com.semtinazizi.kitapduy.platform.FileDownloader> { com.semtinazizi.kitapduy.platform.createFileDownloader() }
-    single { com.semtinazizi.kitapduy.ui.viewmodel.GlobalAudioController(get(), get(), get()) }
+    single {
+        com.semtinazizi.kitapduy.ui.viewmodel.GlobalAudioController(
+            audioPlayer = get(),
+            fileDownloader = get(),
+            progressManager = get(),
+            feedRepository = getOrNull(),
+            authRepository = getOrNull()
+        )
+    }
 }
 
 val appModules = listOf(

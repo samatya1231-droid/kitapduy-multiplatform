@@ -6,6 +6,7 @@ import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import com.semtinazizi.kitapduy.domain.repository.QuizMultiplayerRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -72,7 +73,7 @@ class QuizScreenModelTest {
             suppliedScope = backgroundScope
         )
 
-        model.startGame(isMultiplayer = false)
+        model.startGame()
         assertEquals(QuizGameState.PLAYING, model.gameState.value)
 
         model.resetGame()
@@ -106,13 +107,13 @@ class QuizScreenModelTest {
             suppliedScope = backgroundScope
         )
 
-        model.startGame(isMultiplayer = false)
+        model.startGame(ArenaRound.BLITZ)
         assertEquals(QuizGameState.PLAYING, model.gameState.value)
         assertEquals(0, model.currentQuestionIndex.value)
 
         // Advance timer by 1 second to confirm timerJob runs on suppliedScope.
         advanceTimeBy(1001)
-        assertEquals(14, model.timeLeft.value)
+        assertEquals(9, model.timeLeft.value)
 
         // Answer and advance past 1500ms to reach the next question.
         val q0 = model.currentQuestion.value!!
@@ -136,11 +137,57 @@ class QuizScreenModelTest {
         assertEquals(1, model.currentQuestionIndex.value)
         assertEquals(3, model.lives.value)
     }
+
+    @Test
+    fun literatureRoundContinuesAfterAWrongAnswerAndFinishesAfterFiveQuestions() = runTest {
+        val model = QuizScreenModel(
+            authRepo = auth(),
+            multiplayerRepo = FakeQuizMultiplayerRepo(),
+            suppliedScope = backgroundScope
+        )
+
+        model.startGame(ArenaRound.LITERATURE)
+        advanceTimeBy(16_000)
+        assertEquals(0, model.currentQuestionIndex.value)
+        assertNull(model.selectedAnswer.value)
+        repeat(5) { index ->
+            val question = requireNotNull(model.currentQuestion.value)
+            val choice = if (index == 0) (question.correctIndex + 1) % question.options.size else question.correctIndex
+            model.submitAnswer(choice)
+            advanceTimeBy(1501)
+        }
+        assertEquals(QuizGameState.SUCCESS, model.gameState.value)
+        assertEquals(80, model.score.value)
+    }
+
+    @Test
+    fun duelHostAndGuestStartWithTheSameQuestionAfterOpponentJoins() = runTest {
+        val waiting = QuizMatch(matchId = "match_1", player1Id = "host", player1Name = "Ev sahibi")
+        val playing = waiting.copy(player2Id = "guest", player2Name = "Misafir", status = "PLAYING")
+        val hostRepo = FakeQuizMultiplayerRepo(createdRoom = waiting, observedRoom = playing)
+        val guestRepo = FakeQuizMultiplayerRepo(waitingRoom = waiting, joinedRoom = playing, observedRoom = playing)
+        val host = QuizScreenModel(auth("host"), hostRepo, backgroundScope)
+        val guest = QuizScreenModel(auth("guest"), guestRepo, backgroundScope)
+
+        host.findMultiplayerMatch()
+        guest.findMultiplayerMatch()
+        runCurrent()
+
+        assertEquals(QuizGameState.PLAYING, host.gameState.value)
+        assertEquals(QuizGameState.PLAYING, guest.gameState.value)
+        assertEquals(host.currentQuestion.value?.id, guest.currentQuestion.value?.id)
+        assertEquals("Misafir", host.opponent.value?.name)
+        assertEquals("Ev sahibi", guest.opponent.value?.name)
+    }
 }
 
 private class FakeQuizMultiplayerRepo(
     var leaderboard: List<QuizLeaderboardEntry> = emptyList(),
-    var shouldFailLeaderboard: Boolean = false
+    var shouldFailLeaderboard: Boolean = false,
+    private val createdRoom: QuizMatch? = null,
+    private val waitingRoom: QuizMatch? = null,
+    private val joinedRoom: QuizMatch? = null,
+    private val observedRoom: QuizMatch? = null
 ) : QuizMultiplayerRepository {
     override suspend fun getLeaderboard(): List<QuizLeaderboardEntry> {
         if (shouldFailLeaderboard) error("Leaderboard unavailable")
@@ -148,10 +195,10 @@ private class FakeQuizMultiplayerRepo(
     }
 
     override suspend fun updateLeaderboard(userId: String, userName: String, scoreToAdd: Long) {}
-    override suspend fun createMatch(userId: String, userName: String, roomCode: String?): QuizMatch? = null
-    override suspend fun joinMatch(matchId: String, userId: String, userName: String): QuizMatch? = null
-    override suspend fun findWaitingMatch(): QuizMatch? = null
+    override suspend fun createMatch(userId: String, userName: String, roomCode: String?): QuizMatch? = createdRoom
+    override suspend fun joinMatch(matchId: String, userId: String, userName: String): QuizMatch? = joinedRoom
+    override suspend fun findWaitingMatch(excludingUserId: String): QuizMatch? = waitingRoom
     override suspend fun updateMatchProgress(matchId: String, isPlayer1: Boolean, progress: Int, score: Int) {}
-    override suspend fun finishMatch(matchId: String) {}
-    override fun observeMatch(matchId: String) = emptyFlow<QuizMatch>()
+    override suspend fun cancelWaitingMatch(matchId: String, hostId: String) {}
+    override fun observeMatch(matchId: String) = observedRoom?.let { flowOf(it) } ?: emptyFlow()
 }

@@ -84,8 +84,8 @@ data class PodcastEpisodesScreen(
         val currentEpisode by audioController.currentEpisode.collectAsState()
         val isPlaying by audioController.isPlaying.collectAsState()
 
-        LaunchedEffect(rssUrl) {
-            viewModel.loadEpisodes(rssUrl)
+        LaunchedEffect(rssUrl, podcastId) {
+            viewModel.loadEpisodes(rssUrl, podcastId)
         }
 
         val headerImageUrl = imageUrl.ifBlank { channelImageUrl.orEmpty() }

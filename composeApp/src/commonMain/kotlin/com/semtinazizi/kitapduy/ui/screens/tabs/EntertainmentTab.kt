@@ -38,6 +38,7 @@ import com.semtinazizi.kitapduy.ui.theme.PlayfairDisplayFamily
 import com.semtinazizi.kitapduy.ui.theme.SleekChampagne
 import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import com.semtinazizi.kitapduy.platform.BannerAdView
+import com.semtinazizi.kitapduy.platform.platformName
 import org.koin.compose.viewmodel.koinViewModel
 
 import androidx.compose.ui.draw.clip
@@ -82,33 +83,26 @@ object EntertainmentTab : Tab {
         val softCardBackground = MaterialTheme.colorScheme.surface
 
         Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            // ?? MODERN DİNAMİK ARKA PLAN (BLOBLAR) ??
-            val infiniteTransition = rememberInfiniteTransition(label = "bg_blobs")
+            if (platformName != "iOS") {
+                // ?? MODERN DİNAMİK ARKA PLAN (BLOBLAR) ??
+                val infiniteTransition = rememberInfiniteTransition(label = "bg_blobs")
 
-            val blobOffset1X by infiniteTransition.animateFloat(
-                initialValue = -50f, targetValue = 50f,
-                animationSpec = infiniteRepeatable(animation = tween(10000, easing = LinearEasing), repeatMode = RepeatMode.Reverse)
-            )
-            val blobOffset1Y by infiniteTransition.animateFloat(
-                initialValue = -50f, targetValue = 150f,
-                animationSpec = infiniteRepeatable(animation = tween(10000, easing = LinearEasing), repeatMode = RepeatMode.Reverse)
-            )
+                val blobOffset1X by infiniteTransition.animateFloat(
+                    initialValue = -50f, targetValue = 50f,
+                    animationSpec = infiniteRepeatable(animation = tween(10000, easing = LinearEasing), repeatMode = RepeatMode.Reverse)
+                )
+                val blobOffset1Y by infiniteTransition.animateFloat(
+                    initialValue = -50f, targetValue = 150f,
+                    animationSpec = infiniteRepeatable(animation = tween(10000, easing = LinearEasing), repeatMode = RepeatMode.Reverse)
+                )
 
-            val blobOffset2X by infiniteTransition.animateFloat(
-                initialValue = 200f, targetValue = -100f,
-                animationSpec = infiniteRepeatable(animation = tween(15000, easing = LinearEasing), repeatMode = RepeatMode.Reverse)
-            )
-            val blobOffset2Y by infiniteTransition.animateFloat(
-                initialValue = 300f, targetValue = 500f,
-                animationSpec = infiniteRepeatable(animation = tween(15000, easing = LinearEasing), repeatMode = RepeatMode.Reverse)
-            )
-
-            Box(
-                modifier = Modifier
-                    .offset(x = blobOffset1X.dp, y = blobOffset1Y.dp)
-                    .size(350.dp)
-                    .blur(100.dp)
-            )
+                Box(
+                    modifier = Modifier
+                        .offset(x = blobOffset1X.dp, y = blobOffset1Y.dp)
+                        .size(350.dp)
+                        .blur(100.dp)
+                )
+            }
 
             Column(
                 modifier = Modifier
@@ -227,11 +221,12 @@ object EntertainmentTab : Tab {
                                         parentNavigator.push(com.semtinazizi.kitapduy.ui.screens.PodcastEpisodesScreen(pod.id, pod.name, pod.rssUrl, pod.imageUrl))
                                     }
                                 ) {
-                                    coil3.compose.AsyncImage(
-                                        model = pod.imageUrl,
+                                    com.semtinazizi.kitapduy.ui.components.SmartImage(
+                                        imageUrl = pod.imageUrl,
                                         contentDescription = pod.name,
                                         modifier = Modifier.size(120.dp).clip(RoundedCornerShape(12.dp)),
-                                        contentScale = ContentScale.Crop
+                                        contentScale = ContentScale.Crop,
+                                        fallbackText = pod.name
                                     )
                                     Spacer(Modifier.height(8.dp))
                                     Text(
@@ -297,17 +292,21 @@ fun ModernNeonBentoCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "neon_glow")
-
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.7f,
-        animationSpec = infiniteRepeatable(animation = tween(1500, easing = LinearEasing), repeatMode = RepeatMode.Reverse),
-        label = "glowAlpha"
-    )
+    val isIos = platformName == "iOS"
+    val glowAlpha = if (isIos) {
+        0.5f
+    } else {
+        val infiniteTransition = rememberInfiniteTransition(label = "neon_glow")
+        infiniteTransition.animateFloat(
+            initialValue = 0.3f,
+            targetValue = 0.7f,
+            animationSpec = infiniteRepeatable(animation = tween(1500, easing = LinearEasing), repeatMode = RepeatMode.Reverse),
+            label = "glowAlpha"
+        ).value
+    }
 
     Card(
-        modifier = modifier.clickable { onClick() }.shadow(12.dp, RoundedCornerShape(28.dp)),
+        modifier = modifier.clickable { onClick() }.shadow(if (isIos) 4.dp else 12.dp, RoundedCornerShape(28.dp)),
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)),
         border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
@@ -345,8 +344,8 @@ fun ModernNeonBentoCard(
                     Box(
                         modifier = Modifier
                             .size(46.dp)
-                            .blur(16.dp)
-                            .background(primaryColor.copy(alpha = glowAlpha * 0.4f), CircleShape)
+                            .let { if (isIos) it else it.blur(16.dp) }
+                            .background(primaryColor.copy(alpha = if (isIos) 0.16f else glowAlpha * 0.4f), CircleShape)
                     )
                     // Ana İkon
                     Icon(

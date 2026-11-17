@@ -25,7 +25,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.model.MoodItem
 
 @Composable
@@ -49,11 +48,12 @@ fun MoodQuickAccessCard(
             modifier = Modifier.fillMaxSize()
         ) {
             Box(modifier = Modifier.size(64.dp)) {
-                AsyncImage(
-                    model = mood.imageUrl,
+                SmartImage(
+                    imageUrl = mood.imageUrl,
                     contentDescription = mood.name,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    fallbackText = mood.name
                 )
                 Box(
                     modifier = Modifier

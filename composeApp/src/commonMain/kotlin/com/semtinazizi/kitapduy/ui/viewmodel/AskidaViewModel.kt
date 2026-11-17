@@ -108,9 +108,13 @@ class AskidaViewModel(
     }
 
     private fun fixUrl(url: String?): String {
-        if (url.isNullOrBlank()) return ""
-        val resolved = if (url.startsWith("http")) url else "${com.semtinazizi.kitapduy.platform.AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
-        return UrlSanitizer.sanitizeUrl(resolved)
+        val publicBase = com.semtinazizi.kitapduy.platform.AppConfig.cfPublicUrl.trim().trimEnd('/')
+        val defaultBase = if (publicBase.startsWith("http://localhost") || publicBase.startsWith("http://127.0.0.1")) {
+            publicBase
+        } else {
+            com.semtinazizi.kitapduy.util.UrlSanitizer.CUSTOM_R2_BASE_URL
+        }
+        return com.semtinazizi.kitapduy.util.UrlSanitizer.normalizeMediaUrl(url, defaultBase)
     }
 
     fun loadAskidaBooks() {

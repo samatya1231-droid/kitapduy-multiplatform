@@ -49,40 +49,15 @@ private val BookCoverFallbackPalettes = listOf(
 )
 
 internal fun resolveSmartImageUrl(imageUrl: String?): String {
-    var targetUrl = (imageUrl ?: "").trim()
-    if (targetUrl.isBlank()) return ""
-
-    val isLoopback = targetUrl.startsWith("http://localhost", ignoreCase = true) ||
-        targetUrl.startsWith("http://127.0.0.1", ignoreCase = true)
-    if (!isLoopback && targetUrl.startsWith("http://", ignoreCase = true)) {
-        targetUrl = "https://" + targetUrl.removePrefix("http://")
+    val publicBase = AppConfig.cfPublicUrl.trim().trimEnd('/')
+    val defaultBase = if (publicBase.startsWith("http://localhost", ignoreCase = true) ||
+        publicBase.startsWith("http://127.0.0.1", ignoreCase = true)
+    ) {
+        publicBase
+    } else {
+        UrlSanitizer.CUSTOM_R2_BASE_URL
     }
-
-    val workerBase = AppConfig.cfWorkerUrl.trimEnd('/')
-    val isR2Host = targetUrl.contains("r2.cloudflarestorage.com") ||
-        targetUrl.contains(".r2.dev") ||
-        targetUrl.contains("workers.dev")
-
-    if (isR2Host && workerBase.isNotBlank() && !targetUrl.startsWith(workerBase)) {
-        var cleanPath = targetUrl
-            .substringAfter("r2.cloudflarestorage.com/")
-            .substringAfter(".r2.dev/")
-            .substringAfter("workers.dev/")
-            .substringBefore("?t=")
-            .substringBefore("?")
-
-        val bucket = "kitapduyprofiller"
-        if (cleanPath.startsWith("$bucket/")) {
-            cleanPath = cleanPath.removePrefix("$bucket/")
-        } else if (cleanPath.startsWith("/$bucket/")) {
-            cleanPath = cleanPath.removePrefix("/$bucket/")
-        }
-        cleanPath = cleanPath.trimStart('/')
-
-        targetUrl = "$workerBase/$cleanPath"
-    }
-
-    return UrlSanitizer.sanitizeUrl(targetUrl)
+    return UrlSanitizer.normalizeMediaUrl(imageUrl, defaultBase)
 }
 
 @Composable

@@ -17,7 +17,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.model.Book
 
 @Composable
@@ -28,11 +27,12 @@ fun KidsBookCard(book: Book, onClick: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF0F5))
     ) {
         Column {
-            AsyncImage(
-                book.coverUrl,
-                null,
-                Modifier.height(130.dp).fillMaxWidth(),
-                contentScale = ContentScale.Crop
+            SmartImage(
+                imageUrl = book.coverUrl,
+                contentDescription = book.title,
+                modifier = Modifier.height(130.dp).fillMaxWidth(),
+                contentScale = ContentScale.Crop,
+                fallbackText = book.title
             )
             Column(Modifier.padding(10.dp)) {
                 Text(

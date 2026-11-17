@@ -26,7 +26,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.model.Book
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -63,11 +62,12 @@ fun BookItem(book: Book, onClick: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) {
                 if (book.coverUrl.isNotBlank()) {
-                    AsyncImage(
-                        model = book.coverUrl,
+                    SmartImage(
+                        imageUrl = book.coverUrl,
                         contentDescription = book.title,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Crop,
+                        fallbackText = book.title
                     )
                 } else {
                     Icon(

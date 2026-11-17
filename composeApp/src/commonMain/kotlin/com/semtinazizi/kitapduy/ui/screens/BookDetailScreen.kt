@@ -91,6 +91,8 @@ data class BookDetailScreen(val book: Book) : Screen {
         val isLiked by viewModel.isLiked.collectAsState()
         val activeListeners by viewModel.activeListeners.collectAsState()
         val comments by viewModel.comments.collectAsState()
+        val repliesByComment by viewModel.repliesByComment.collectAsState()
+        val loadingRepliesFor by viewModel.loadingRepliesFor.collectAsState()
         val actionError by viewModel.error.collectAsState()
         actionError?.let { message ->
             AlertDialog(onDismissRequest = { viewModel.error.value = null }, text = { Text(message) },
@@ -133,9 +135,6 @@ data class BookDetailScreen(val book: Book) : Screen {
             audioController.setFullPlayerVisible(true, fullPlayerToken)
             onDispose { audioController.setFullPlayerVisible(false, fullPlayerToken) }
         }
-        val isPlaying by audioController.isPlaying.collectAsState()
-        val currentPosition by audioController.currentPosition.collectAsState()
-        val currentBook by audioController.currentBook.collectAsState()
 
         var showAtmosphereDialog by remember { mutableStateOf(false) }
         var showSpeedDialog by remember { mutableStateOf(false) }
@@ -151,6 +150,11 @@ data class BookDetailScreen(val book: Book) : Screen {
         downloadMessage?.let { message ->
             AlertDialog(onDismissRequest = { downloadMessage = null }, text = { Text(message) },
                 confirmButton = { TextButton(onClick = { downloadMessage = null }) { Text("Tamam") } })
+        }
+        var quoteFeedback by remember { mutableStateOf<String?>(null) }
+        quoteFeedback?.let { message ->
+            AlertDialog(onDismissRequest = { quoteFeedback = null }, text = { Text(message) },
+                confirmButton = { TextButton(onClick = { quoteFeedback = null }) { Text("Tamam") } })
         }
 
         LaunchedEffect(book.id) {
@@ -204,9 +208,6 @@ data class BookDetailScreen(val book: Book) : Screen {
 
                         AudioPlayerControls(
                             audioController = audioController,
-                            currentPosition = currentPosition,
-                            isPlaying = isPlaying,
-                            currentBook = currentBook,
                             book = book,
                             isPremium = isPremium
                         )
@@ -295,7 +296,24 @@ data class BookDetailScreen(val book: Book) : Screen {
                             },
                             userId = userId,
                             bookId = book.id,
-                            bookTitle = book.title
+                            bookTitle = book.title,
+                            onEditComment = { commentId, updatedText ->
+                                viewModel.editBookComment(book.id, commentId, updatedText)
+                            },
+                            onDeleteComment = { commentId ->
+                                viewModel.deleteBookComment(book.id, commentId)
+                            },
+                            onToggleLike = { commentId ->
+                                viewModel.toggleBookCommentLike(book.id, commentId)
+                            },
+                            onAddReply = { commentId, replyText ->
+                                viewModel.addReply(book.id, commentId, replyText)
+                            },
+                            onLoadReplies = { commentId ->
+                                viewModel.loadReplies(commentId)
+                            },
+                            repliesByComment = repliesByComment,
+                            loadingRepliesFor = loadingRepliesFor
                         )
                     }
                 }
@@ -331,7 +349,19 @@ data class BookDetailScreen(val book: Book) : Screen {
                 showQuoteDialog = showQuoteDialog,
                 onDismissQuote = { showQuoteDialog = false },
                 bookTitle = book.title,
-                bookAuthor = book.author
+                bookAuthor = book.author,
+                onShareQuoteToFeed = { quoteText ->
+                    viewModel.shareQuoteToFeed(
+                        book = book,
+                        quoteText = quoteText,
+                        positionMs = audioController.currentPositionMsFor(book.id),
+                        userId = userId,
+                        userName = userName,
+                        userPhoto = userProfile?.photoUrl,
+                        isPremium = isPremium,
+                        onSuccess = { quoteFeedback = "Alıntınız akışta paylaşıldı." }
+                    )
+                }
             )
         }
     }
@@ -379,7 +409,8 @@ private fun BookDetailDialogs(
     showQuoteDialog: Boolean,
     onDismissQuote: () -> Unit,
     bookTitle: String,
-    bookAuthor: String
+    bookAuthor: String,
+    onShareQuoteToFeed: ((String) -> Unit)? = null
 ) {
     if (showAtmosphereDialog) {
         AtmosphereDialog(
@@ -411,7 +442,8 @@ private fun BookDetailDialogs(
         QuoteDialog(
             onDismiss = onDismissQuote,
             bookTitle = bookTitle,
-            bookAuthor = bookAuthor
+            bookAuthor = bookAuthor,
+            onShareQuoteToFeed = onShareQuoteToFeed
         )
     }
 }
@@ -505,12 +537,12 @@ private fun PremiumAndAdsSection(isPremium: Boolean, onPremiumClick: () -> Unit)
 @Composable
 private fun AudioPlayerControls(
     audioController: GlobalAudioController,
-    currentPosition: Float,
-    isPlaying: Boolean,
-    currentBook: Book?,
     book: Book,
     isPremium: Boolean
 ) {
+    val currentBook by audioController.currentBook.collectAsState()
+    val isPlaying by audioController.isPlaying.collectAsState()
+    val currentPosition by audioController.currentPosition.collectAsState()
     val duration by audioController.duration.collectAsState()
     val selected = currentBook?.id == book.id
     val position = if (selected) currentPosition.coerceIn(0f, 1f) else 0f
@@ -803,7 +835,14 @@ private fun BookCommentsSection(
     onSendComment: () -> Unit,
     userId: String,
     bookId: String,
-    bookTitle: String
+    bookTitle: String,
+    onEditComment: (String, String) -> Unit,
+    onDeleteComment: (String) -> Unit,
+    onToggleLike: (String) -> Unit,
+    onAddReply: (String, String) -> Unit,
+    onLoadReplies: (String) -> Unit,
+    repliesByComment: Map<String, List<Comment>>,
+    loadingRepliesFor: Set<String>
 ) {
     Column(modifier = Modifier.padding(horizontal = 24.dp)) {
         Text(text = "Yorumlar (${comments.size})", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -835,17 +874,17 @@ private fun BookCommentsSection(
         comments.forEach { comment ->
             CommentItem(
                 comment = comment,
-                currentUserId = userId,
+                currentUserId = userId.takeIf { it.isNotBlank() },
                 bookId = bookId,
                 bookTitle = bookTitle,
                 isPremium = comment.isPremium,
-                onEditComment = { _, _ -> },
-                onDeleteComment = {},
-                onToggleLike = {},
-                onAddReply = {},
-                onLoadReplies = {},
-                replies = emptyList(),
-                isLoadingReplies = false
+                onEditComment = onEditComment,
+                onDeleteComment = onDeleteComment,
+                onToggleLike = onToggleLike,
+                onAddReply = { replyText -> onAddReply(comment.id, replyText) },
+                onLoadReplies = onLoadReplies,
+                replies = repliesByComment[comment.id].orEmpty(),
+                isLoadingReplies = comment.id in loadingRepliesFor
             )
             Spacer(Modifier.height(16.dp))
         }

@@ -271,9 +271,10 @@ object IOSBuildConfig {
     var SUPABASE_URL: String = "https://hojyvyuoafjogefhtrgg.supabase.co"
     var SUPABASE_KEY: String = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhvanl2eXVvYWZqb2dlZmh0cmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNTg2NzIsImV4cCI6MjA4NjkzNDY3Mn0.8Ia4a5wwzL_XYbhMW7pOztZfqwoGKoK_Mom1cqv7z2Q"
     var CF_ACCOUNT_ID: String = "50b81abf28d218b3b9858e9c69d4ae03"
-    var CF_PUBLIC_URL: String = "https://pub-7327d7da4dcf4c1bbf6d53bacbbe276c.r2.dev"
-    var CF_WORKER_URL: String = "https://ancient-shape-df97.samatya231.workers.dev"
-    var CF_UPLOAD_TOKEN: String = "DUMMY_TOKEN"
+    var CF_PUBLIC_URL: String = "https://ses.kitapduy.com.tr"
+    var CF_WORKER_URL: String = "https://ses.kitapduy.com.tr"
+    var CF_UPLOAD_TOKEN: String = ""
+    var R2_UPLOAD_TICKET_URL: String = "https://us-central1-kitapduy.cloudfunctions.net/createR2UploadHttp"
     val isCiSmokeTest: Boolean
         get() = platform.Foundation.NSProcessInfo.processInfo.environment["KITAPDUY_CI_SMOKE_TEST"] == "1"
 }

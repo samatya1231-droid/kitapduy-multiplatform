@@ -6,15 +6,24 @@ import com.semtinazizi.kitapduy.util.UrlSanitizer
 
 internal fun resolveFeedUrl(url: String?): String {
     if (url.isNullOrBlank()) return ""
-    val resolved = if (url.startsWith("http")) url else "${AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
-    return UrlSanitizer.sanitizeUrl(resolved)
+    val clean = url.trim()
+    val resolved = if (
+        clean.startsWith("http", ignoreCase = true) ||
+        clean.startsWith("file:", ignoreCase = true) ||
+        clean.startsWith("/")
+    ) {
+        clean
+    } else {
+        "${AppConfig.cfPublicUrl.trimEnd('/')}/${clean.trimStart('/')}"
+    }
+    return UrlSanitizer.normalizeMediaUrl(resolved)
 }
 
 internal fun mapSupabasePostToFeedItem(post: SupabasePost): FeedItem {
-    val isBookPost = !post.bookId.isNullOrEmpty()
+    val isBookPost = !post.bookId.isNullOrBlank()
     val isAutoStatus = post.comment?.contains("dinlemeye başladı \uD83C\uDFA7") == true
-    val isQuotePost = post.startPos != null
-    val hasImage = !post.imageUrl.isNullOrEmpty()
+    val isQuotePost = post.startPos != null && !post.audioUrl.isNullOrBlank()
+    val hasImage = !post.imageUrl.isNullOrBlank()
 
     val feedType = when {
         !post.pollOptions.isNullOrEmpty() || post.bookName == "Anket" -> FeedType.POLL
@@ -40,7 +49,7 @@ internal fun mapSupabasePostToFeedItem(post: SupabasePost): FeedItem {
         likedBy = post.likedBy.orEmpty().split(",").filter { it.isNotBlank() },
         type = feedType,
         isPremium = post.isPremium ?: false,
-        postImageUrl = if (!isBookPost) resolveFeedUrl(post.imageUrl) else null,
+        postImageUrl = if (!isBookPost) resolveFeedUrl(post.imageUrl).ifBlank { null } else null,
         audioUrl = resolveFeedUrl(post.audioUrl),
         commentCount = post.commentCount ?: 0,
         pollOptions = post.pollOptions ?: emptyList(),

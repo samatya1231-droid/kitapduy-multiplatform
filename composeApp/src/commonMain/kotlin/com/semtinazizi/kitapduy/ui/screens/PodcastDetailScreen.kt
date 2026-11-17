@@ -29,8 +29,8 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.semtinazizi.kitapduy.util.root
-import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.model.PodcastEpisode
+import com.semtinazizi.kitapduy.ui.components.SmartImage
 import com.semtinazizi.kitapduy.ui.theme.BrandGold
 import com.semtinazizi.kitapduy.ui.theme.PremiumAccent
 import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
@@ -65,24 +65,6 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
             audioController.setFullPlayerVisible(true, fullPlayerToken)
             onDispose { audioController.setFullPlayerVisible(false, fullPlayerToken) }
         }
-        val isPlaying by audioController.isPlaying.collectAsState()
-        val currentPosition by audioController.currentPosition.collectAsState()
-        val durationMs by audioController.duration.collectAsState()
-        val currentEpisode by audioController.currentEpisode.collectAsState()
-        
-        // Saniye ve Dakika formatlama fonksiyonu
-        val formatTime: (Long) -> String = { ms ->
-            val totalSeconds = ms / 1000
-            val minutes = totalSeconds / 60
-            val seconds = totalSeconds % 60
-            "${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
-        }
-
-        val selectedEpisode = currentEpisode?.id == episode.id
-        val displayPosition = if (selectedEpisode) currentPosition.coerceIn(0f, 1f) else 0f
-        val displayDuration = if (selectedEpisode) durationMs else 0f
-        val currentTimeMs = (displayPosition * displayDuration).toLong()
-        
         var showAtmosphereDialog by remember { mutableStateOf(false) }
         var showSpeedDialog by remember { mutableStateOf(false) }
         var showTimerDialog by remember { mutableStateOf(false) }
@@ -126,15 +108,16 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
 
         Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             // Ambient Glow (Arkaplan Aurası)
-            AsyncImage(
-                model = displayImageUrl,
+            SmartImage(
+                imageUrl = displayImageUrl,
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxSize()
                     .scale(1.2f)
                     .blur(120.dp)
                     .alpha(0.15f),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                fallbackText = episode.title
             )
 
             // Collapsing Parallax Header
@@ -145,11 +128,12 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                     .height(480.dp)
                     .graphicsLayer { translationY = parallaxOffset }
             ) {
-                AsyncImage(
-                    model = displayImageUrl,
+                SmartImage(
+                    imageUrl = displayImageUrl,
                     contentDescription = episode.title,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    fallbackText = episode.title
                 )
                 // Vignette Karartma
                 Box(
@@ -238,76 +222,7 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
 
                         Spacer(Modifier.height(24.dp))
 
-                        // Player Kontrolleri
-                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-                            // Slider
-                            Slider(
-                                value = displayPosition,
-                                enabled = selectedEpisode && displayDuration > 0f,
-                                onValueChange = { audioController.seekTo(it, expectedEpisodeId = episode.id) },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = SliderDefaults.colors(
-                                    thumbColor = SleekChampagne,
-                                    activeTrackColor = SleekChampagne,
-                                    inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                                )
-                            )
-                            
-                            // Saniye Göstergesi (Yeni!)
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = formatTime(currentTimeMs),
-                                    modifier = Modifier.testTag("podcast-elapsed"),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = SleekGray
-                                )
-                                Text(
-                                    text = formatTime(displayDuration.toLong()),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = SleekGray
-                                )
-                            }
-                            
-                            Spacer(Modifier.height(8.dp))
-
-                            // Butonlar
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                IconButton(enabled = selectedEpisode && displayDuration > 0f, onClick = { audioController.skipBy(-15_000, expectedEpisodeId = episode.id) }) {
-                                    Icon(Icons.Default.FastRewind, contentDescription = "15 saniye geri", tint = MaterialTheme.colorScheme.onSurface)
-                                }
-                                Spacer(modifier = Modifier.width(16.dp))
-                                FloatingActionButton(
-                                    onClick = { 
-                                        if (currentEpisode?.id == episode.id) {
-                                            audioController.togglePlayPause()
-                                        } else {
-                                            audioController.playPodcastEpisode(episode, podcastTitle)
-                                        }
-                                    },
-                                    containerColor = SleekChampagne,
-                                    shape = CircleShape,
-                                    modifier = Modifier.size(64.dp).testTag("podcast-play-pause")
-                                ) {
-                                    Icon(
-                                        imageVector = if (isPlaying && currentEpisode?.id == episode.id) Icons.Default.Pause else Icons.Default.PlayArrow, 
-                                        contentDescription = "Oynat/Duraklat", 
-                                        tint = Color.Black,
-                                        modifier = Modifier.size(32.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(16.dp))
-                                IconButton(enabled = selectedEpisode && displayDuration > 0f, onClick = { audioController.skipBy(15_000, expectedEpisodeId = episode.id) }) {
-                                    Icon(Icons.Default.FastForward, contentDescription = "15 saniye ileri", tint = MaterialTheme.colorScheme.onSurface)
-                                }
-                            }
-                        }
+                        PodcastPlaybackControls(audioController, episode, podcastTitle)
 
                         Spacer(Modifier.height(32.dp))
 
@@ -416,6 +331,100 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                     onTimerSelected = { audioController.startSleepTimer(it) },
                     onCancelTimer = { audioController.cancelSleepTimer() }
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PodcastPlaybackControls(
+    audioController: GlobalAudioController,
+    episode: PodcastEpisode,
+    podcastTitle: String
+) {
+    val isPlaying by audioController.isPlaying.collectAsState()
+    val currentPosition by audioController.currentPosition.collectAsState()
+    val durationMs by audioController.duration.collectAsState()
+    val currentEpisode by audioController.currentEpisode.collectAsState()
+
+    val formatTime: (Long) -> String = { ms ->
+        val totalSeconds = ms / 1000
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        "${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
+    }
+
+    val selectedEpisode = currentEpisode?.id == episode.id
+    val displayPosition = if (selectedEpisode) currentPosition.coerceIn(0f, 1f) else 0f
+    val displayDuration = if (selectedEpisode) durationMs else 0f
+    val currentTimeMs = (displayPosition * displayDuration).toLong()
+
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+        // Slider
+        Slider(
+            value = displayPosition,
+            enabled = selectedEpisode && displayDuration > 0f,
+            onValueChange = { audioController.seekTo(it, expectedEpisodeId = episode.id) },
+            modifier = Modifier.fillMaxWidth(),
+            colors = SliderDefaults.colors(
+                thumbColor = SleekChampagne,
+                activeTrackColor = SleekChampagne,
+                inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+            )
+        )
+
+        // Saniye Göstergesi (Yeni!)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = formatTime(currentTimeMs),
+                modifier = Modifier.testTag("podcast-elapsed"),
+                style = MaterialTheme.typography.labelSmall,
+                color = SleekGray
+            )
+            Text(
+                text = formatTime(displayDuration.toLong()),
+                style = MaterialTheme.typography.labelSmall,
+                color = SleekGray
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Butonlar
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(enabled = selectedEpisode && displayDuration > 0f, onClick = { audioController.skipBy(-15_000, expectedEpisodeId = episode.id) }) {
+                Icon(Icons.Default.FastRewind, contentDescription = "15 saniye geri", tint = MaterialTheme.colorScheme.onSurface)
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            FloatingActionButton(
+                onClick = {
+                    if (currentEpisode?.id == episode.id) {
+                        audioController.togglePlayPause()
+                    } else {
+                        audioController.playPodcastEpisode(episode, podcastTitle)
+                    }
+                },
+                containerColor = SleekChampagne,
+                shape = CircleShape,
+                modifier = Modifier.size(64.dp).testTag("podcast-play-pause")
+            ) {
+                Icon(
+                    imageVector = if (isPlaying && currentEpisode?.id == episode.id) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = "Oynat/Duraklat",
+                    tint = Color.Black,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            IconButton(enabled = selectedEpisode && displayDuration > 0f, onClick = { audioController.skipBy(15_000, expectedEpisodeId = episode.id) }) {
+                Icon(Icons.Default.FastForward, contentDescription = "15 saniye ileri", tint = MaterialTheme.colorScheme.onSurface)
             }
         }
     }

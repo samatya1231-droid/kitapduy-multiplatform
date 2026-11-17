@@ -10,10 +10,10 @@ interface QuizMultiplayerRepository {
     
     suspend fun createMatch(userId: String, userName: String, roomCode: String? = null): QuizMatch?
     suspend fun joinMatch(matchId: String, userId: String, userName: String): QuizMatch?
-    suspend fun findWaitingMatch(): QuizMatch?
+    suspend fun findWaitingMatch(excludingUserId: String): QuizMatch?
     
     suspend fun updateMatchProgress(matchId: String, isPlayer1: Boolean, progress: Int, score: Int)
-    suspend fun finishMatch(matchId: String)
+    suspend fun cancelWaitingMatch(matchId: String, hostId: String)
     
     fun observeMatch(matchId: String): Flow<QuizMatch>
 }

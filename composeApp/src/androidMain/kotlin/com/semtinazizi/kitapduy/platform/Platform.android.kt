@@ -22,6 +22,7 @@ actual object AppConfig {
     actual val cfPublicUrl: String = BuildConfig.CF_PUBLIC_URL
     actual val cfWorkerUrl: String = BuildConfig.CF_WORKER_URL
     actual val cfUploadToken: String = BuildConfig.CF_UPLOAD_TOKEN
+    actual val r2UploadTicketUrl: String = "https://us-central1-kitapduy.cloudfunctions.net/createR2UploadHttp"
     actual val cfAccessKey: String = BuildConfig.CF_ACCESS_KEY
     actual val cfSecretKey: String = BuildConfig.CF_SECRET_KEY
     actual val isCiSmokeTest: Boolean = false

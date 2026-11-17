@@ -90,4 +90,26 @@ class LiteraryAdvisorScreenModelTest {
         assertTrue(model.initialPromptHandled)
         assertTrue(model.messages.isEmpty())
     }
+
+    @Test
+    fun namedWorkQuestionsStayOnTheAskedWorkBeforeAndAfterTheCatalogLoads() {
+        val model = LiteraryAdvisorScreenModel()
+        val orwell = Book(id = "animal_farm", title = "Hayvan Çiftliği", author = "George Orwell", viewCount = 9999)
+        val sabahattinAli = Book(id = "seytan", title = "İçimizdeki Şeytan", author = "Sabahattin Ali")
+
+        model.submitPrompt("icimizdeki seytani anlat", null, listOf(orwell))
+        val brief = model.messages.last()
+        assertTrue(brief.content.contains("Sabahattin Ali"))
+        assertTrue(brief.content.contains("Macide"))
+        assertTrue(brief.recommendedBooks.isEmpty())
+
+        model.submitPrompt("İçimizdeki Şeytan'ı anlat", null, listOf(orwell, sabahattinAli))
+        assertEquals(listOf(sabahattinAli), model.messages.last().recommendedBooks)
+        model.submitPrompt("Bu eserdeki temayı inceleyelim", null, listOf(orwell, sabahattinAli))
+        assertEquals("İçimizdeki Şeytan", model.messages.last().analyzedTitle)
+
+        model.submitPrompt("Şeker Portakalı'nı anlat", null, listOf(orwell))
+        assertFalse(model.messages.last().content.contains(orwell.title))
+        assertTrue(model.messages.last().recommendedBooks.isEmpty())
+    }
 }

@@ -4,8 +4,6 @@ import androidx.compose.ui.platform.testTag
 import com.semtinazizi.kitapduy.ui.screens.LiteraryAdvisorScreen
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -20,7 +18,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -28,21 +25,25 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.semtinazizi.kitapduy.util.root
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
-import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.model.SupabaseBookshelf
+import com.semtinazizi.kitapduy.ui.components.SmartImage
 import com.semtinazizi.kitapduy.ui.viewmodel.LibraryScreenModel
 import org.koin.compose.viewmodel.koinViewModel
 import com.semtinazizi.kitapduy.ui.screens.BookDetailScreen
+import com.semtinazizi.kitapduy.ui.screens.PodcastDetailScreen
+import com.semtinazizi.kitapduy.ui.viewmodel.FeedContentTarget
 import cafe.adriel.voyager.koin.koinScreenModel
 import com.semtinazizi.kitapduy.ui.components.PremiumUpgradeCard
 import com.semtinazizi.kitapduy.ui.screens.SubscriptionPaywallScreen
 import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import com.semtinazizi.kitapduy.platform.BannerAdView
+import kotlinx.coroutines.launch
 
 object LibraryTab : Tab {
 
@@ -63,9 +64,17 @@ object LibraryTab : Tab {
 
     @Composable
     override fun Content() {
+        TabRootNavigator(LibraryRootScreen())
+    }
+}
+
+private class LibraryRootScreen : Screen {
+    @Composable
+    override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        // Koin üzerinden ViewModel oluşturuyoruz
+        // Koin üzerinden ScreenModel oluşturuyoruz
         val viewModel = koinScreenModel<LibraryScreenModel>()
+        val scope = rememberCoroutineScope()
 
         var showShelves by remember { mutableStateOf(false) }
         var selectedTab by remember { mutableIntStateOf(0) }
@@ -100,7 +109,7 @@ object LibraryTab : Tab {
                     fontWeight = FontWeight.Bold
                 )
                 Surface(
-                    onClick = { (navigator.parent ?: navigator).push(LiteraryAdvisorScreen()) },
+                    onClick = { navigator.push(LiteraryAdvisorScreen()) },
                     shape = RoundedCornerShape(20.dp),
                     color = Color(0xFF6D4C2D).copy(alpha = 0.14f),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6D4C2D).copy(alpha = 0.28f)),
@@ -128,7 +137,7 @@ object LibraryTab : Tab {
                     listOf("READING" to "Dinliyorum", "FINISHED" to "Bitirdiklerim", "WISHLIST" to "Dinleyeceklerim").forEach { (type, title) ->
                         DropdownMenuItem(text = { Text(title) }, onClick = {
                             showShelves = false
-                            (navigator.parent ?: navigator).push(com.semtinazizi.kitapduy.ui.screens.PrideShelfScreen(type, title))
+                            navigator.push(com.semtinazizi.kitapduy.ui.screens.PrideShelfScreen(type, title))
                         })
                     }
                 }
@@ -214,7 +223,13 @@ object LibraryTab : Tab {
                             LibraryCoverCard(
                                 item = item,
                                 onClick = {
-                                    viewModel.bookFor(item)?.let { (navigator.parent ?: navigator).push(BookDetailScreen(it)) }
+                                    scope.launch {
+                                        when (val target = viewModel.resolveNavigationTarget(item)) {
+                                            is FeedContentTarget.BookTarget -> navigator.push(BookDetailScreen(target.book))
+                                            is FeedContentTarget.PodcastTarget -> navigator.push(PodcastDetailScreen(target.episode, target.podcastTitle))
+                                            is FeedContentTarget.NotFound -> Unit
+                                        }
+                                    }
                                 }
                             )
                         }
@@ -253,11 +268,12 @@ fun BookshelfItemCard(item: SupabaseBookshelf, onClick: () -> Unit) {
             ) {
                 val coverUrl = item.bookCoverUrl
                 if (!coverUrl.isNullOrBlank()) {
-                    AsyncImage(
-                        model = coverUrl,
+                    SmartImage(
+                        imageUrl = coverUrl,
                         contentDescription = item.bookTitle,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Crop,
+                        fallbackText = item.bookTitle ?: ""
                     )
                 } else {
                     Icon(
@@ -288,10 +304,14 @@ fun BookshelfItemCard(item: SupabaseBookshelf, onClick: () -> Unit) {
 @Composable
 private fun LibraryCoverCard(item: SupabaseBookshelf, onClick: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
-        AsyncImage(model = item.bookCoverUrl, contentDescription = item.bookTitle,
+        SmartImage(
+            imageUrl = item.bookCoverUrl,
+            contentDescription = item.bookTitle,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxWidth().aspectRatio(0.72f).clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            fallbackText = item.bookTitle ?: ""
+        )
         Spacer(Modifier.height(10.dp))
         Text(item.bookTitle.orEmpty(), style = MaterialTheme.typography.titleMedium,
             maxLines = 2, overflow = TextOverflow.Ellipsis)

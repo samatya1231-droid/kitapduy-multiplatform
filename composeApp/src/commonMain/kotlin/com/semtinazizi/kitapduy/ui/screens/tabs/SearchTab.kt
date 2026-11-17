@@ -5,7 +5,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
-import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import com.semtinazizi.kitapduy.ui.screens.SearchScreen
@@ -16,5 +15,5 @@ object SearchTab : Tab {
             val icon = rememberVectorPainter(Icons.Default.Search)
             return remember { TabOptions(index = 5u, title = "Keşfet", icon = icon) }
         }
-    @Composable override fun Content() { Navigator(SearchScreen()) }
+    @Composable override fun Content() { TabRootNavigator(SearchScreen()) }
 }

@@ -201,6 +201,76 @@ class GlobalAudioControllerTest {
         advanceTimeBy(501)
         assertEquals(45_000, progress.getProgress("a"))
     }
+
+    @Test fun authenticatedPlaybackEmitsListenPostSafelyAndSurvivesFeedErrors() = runTest {
+        val created = mutableListOf<String>()
+        val failingAuth = object : com.semtinazizi.kitapduy.domain.repository.AuthRepository by com.semtinazizi.kitapduy.data.repository.DummyAuthRepository() {
+            override val currentUserUid: String? = "user-123"
+            override suspend fun getUserProfile(uid: String) = com.semtinazizi.kitapduy.model.UserProfile(
+                uid = uid, name = "Ayşe Okur", username = "ayse"
+            )
+        }
+        val throwingFeed = object : com.semtinazizi.kitapduy.domain.repository.FeedRepository {
+            override suspend fun getFeedItems(excludeListen: Boolean, limit: Long, offset: Long) = emptyList<com.semtinazizi.kitapduy.model.FeedItem>()
+            override suspend fun createPost(
+                userId: String, userName: String, userPhoto: String?, bookId: String, bookName: String,
+                comment: String, isPremium: Boolean, imageUrl: String?, audioUrl: String?, pollOptions: List<String>?
+            ): Boolean {
+                created.add("$bookId:$comment")
+                if (bookId == "fail-book") throw RuntimeException("Simulated network error")
+                return true
+            }
+            override fun startRealtimeListening(onNewPost: (com.semtinazizi.kitapduy.model.FeedItem) -> Unit) {}
+            override fun stopRealtimeListening() {}
+        }
+
+        val controller = GlobalAudioController(
+            audioPlayer = FakePlayer(),
+            fileDownloader = FakeDownloader(),
+            progressManager = progress(),
+            scope = backgroundScope,
+            isCiSmokeTest = { false },
+            feedRepository = throwingFeed,
+            authRepository = failingAuth
+        )
+
+        controller.playTrack(book.copy(id = "fail-book"), isPremium = true)
+        runCurrent()
+        // Throwing feed repository must not crash playback or scope
+        controller.playTrack(book, isPremium = true)
+        controller.playTrack(book, isPremium = true) // same content deduped
+        runCurrent()
+        assertEquals(listOf("fail-book:Bu kitabı dinlemeye başladı \uD83C\uDFA7", "a:Bu kitabı dinlemeye başladı \uD83C\uDFA7"), created)
+    }
+
+    @Test fun ciSmokeModeAndGuestUsersDoNotEmitListenPosts() = runTest {
+        var calls = 0
+        val guestAuth = object : com.semtinazizi.kitapduy.domain.repository.AuthRepository by com.semtinazizi.kitapduy.data.repository.DummyAuthRepository() {
+            override val currentUserUid: String? = "guest_999999"
+        }
+        val spyFeed = object : com.semtinazizi.kitapduy.domain.repository.FeedRepository {
+            override suspend fun getFeedItems(excludeListen: Boolean, limit: Long, offset: Long) = emptyList<com.semtinazizi.kitapduy.model.FeedItem>()
+            override suspend fun createPost(
+                userId: String, userName: String, userPhoto: String?, bookId: String, bookName: String,
+                comment: String, isPremium: Boolean, imageUrl: String?, audioUrl: String?, pollOptions: List<String>?
+            ): Boolean {
+                calls++
+                return true
+            }
+            override fun startRealtimeListening(onNewPost: (com.semtinazizi.kitapduy.model.FeedItem) -> Unit) {}
+            override fun stopRealtimeListening() {}
+        }
+
+        val guestController = GlobalAudioController(FakePlayer(), FakeDownloader(), progress(), backgroundScope, { false }, spyFeed, guestAuth)
+        guestController.playTrack(book, isPremium = true)
+        runCurrent()
+
+        val ciController = GlobalAudioController(FakePlayer(), FakeDownloader(), progress(), backgroundScope, { true }, spyFeed, guestAuth)
+        ciController.playTrack(book, isPremium = true)
+        runCurrent()
+
+        assertEquals(0, calls)
+    }
 }
 
 private class FakeDownloader : FileDownloader {

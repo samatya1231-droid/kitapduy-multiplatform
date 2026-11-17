@@ -13,6 +13,58 @@ package com.semtinazizi.kitapduy.util
  * - KMP commonMain uyumludur (Android ve iOS'ta harici bağımlılık gerektirmeden çalışır).
  */
 object UrlSanitizer {
+    const val CUSTOM_R2_BASE_URL = "https://ses.kitapduy.com.tr"
+
+    fun normalizeMediaUrl(rawUrl: String?, defaultBaseUrl: String = CUSTOM_R2_BASE_URL): String {
+        val trimmed = rawUrl?.trim().orEmpty()
+        if (trimmed.isEmpty()) return ""
+        if (trimmed.startsWith("data:image", ignoreCase = true)) return trimmed
+
+        val isLoopback = trimmed.startsWith("http://localhost", ignoreCase = true) ||
+            trimmed.startsWith("http://127.0.0.1", ignoreCase = true)
+        val isLocalUri = trimmed.startsWith("file://", ignoreCase = true) ||
+            trimmed.startsWith("content://", ignoreCase = true) ||
+            trimmed.startsWith("asset://", ignoreCase = true)
+        if (isLoopback || isLocalUri) return sanitizeUrl(trimmed)
+
+        var targetUrl = if (trimmed.startsWith("http://", ignoreCase = true)) {
+            "https://" + trimmed.removePrefix("http://")
+        } else if (trimmed.startsWith("https://", ignoreCase = true)) {
+            trimmed
+        } else {
+            val cleanBase = defaultBaseUrl.trim().trimEnd('/').let {
+                if (it.isBlank() || (!it.startsWith("http://localhost") && !it.startsWith("http://127.0.0.1") &&
+                        (it.contains("workers.dev") || it.contains(".r2.dev") || it.contains("r2.cloudflarestorage.com")))) {
+                    CUSTOM_R2_BASE_URL
+                } else it
+            }
+            "$cleanBase/${trimmed.trimStart('/')}"
+        }
+
+        val isLegacyR2 = targetUrl.contains("r2.cloudflarestorage.com", ignoreCase = true) ||
+            targetUrl.contains(".r2.dev", ignoreCase = true) ||
+            targetUrl.contains("workers.dev", ignoreCase = true)
+
+        if (isLegacyR2) {
+            var cleanPath = when {
+                targetUrl.contains("r2.cloudflarestorage.com/", ignoreCase = true) ->
+                    targetUrl.substringAfter("r2.cloudflarestorage.com/")
+                targetUrl.contains(".r2.dev/", ignoreCase = true) ->
+                    targetUrl.substringAfter(".r2.dev/")
+                targetUrl.contains("workers.dev/", ignoreCase = true) ->
+                    targetUrl.substringAfter("workers.dev/")
+                else -> targetUrl.substringAfter("://").substringAfter('/', "")
+            }
+            cleanPath = cleanPath.substringBefore("?t=").substringBefore("?").trimStart('/')
+            val bucket = "kitapduyprofiller/"
+            if (cleanPath.startsWith(bucket)) {
+                cleanPath = cleanPath.removePrefix(bucket)
+            }
+            targetUrl = "$CUSTOM_R2_BASE_URL/${cleanPath.trimStart('/')}"
+        }
+
+        return sanitizeUrl(targetUrl)
+    }
 
     fun sanitizeUrl(url: String?): String {
         if (url.isNullOrBlank()) return ""

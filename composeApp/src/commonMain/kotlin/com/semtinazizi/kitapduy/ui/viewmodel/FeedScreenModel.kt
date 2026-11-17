@@ -2,23 +2,64 @@ package com.semtinazizi.kitapduy.ui.viewmodel
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import com.semtinazizi.kitapduy.domain.repository.BookRepository
 import com.semtinazizi.kitapduy.domain.repository.FeedRepository
 import com.semtinazizi.kitapduy.data.repository.StorageRepository
+import com.semtinazizi.kitapduy.model.Book
 import com.semtinazizi.kitapduy.model.FeedItem
 import com.semtinazizi.kitapduy.model.FeedType
+import com.semtinazizi.kitapduy.model.PodcastEpisode
 import com.semtinazizi.kitapduy.model.UserProfile
 import io.github.vinceglb.filekit.core.PlatformFile
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 
+sealed interface FeedContentTarget {
+    data class BookTarget(val book: Book) : FeedContentTarget
+    data class PodcastTarget(val episode: PodcastEpisode, val podcastTitle: String) : FeedContentTarget
+    data class NotFound(val message: String) : FeedContentTarget
+}
+
 class FeedScreenModel(
     private val feedRepository: FeedRepository,
     private val storageRepository: StorageRepository,
-    private val actions: com.semtinazizi.kitapduy.data.repository.FeedActionsRepository
+    private val actions: com.semtinazizi.kitapduy.data.repository.FeedActionsRepository,
+    private val bookRepository: BookRepository? = null
 ) : ScreenModel {
+
+    companion object {
+        private const val LIVE_WINDOW_MS = 24L * 60L * 60L * 1000L
+        private val WHITESPACE_REGEX = Regex("\\s+")
+        private val GENERIC_LISTENER_NAMES = setOf("okur", "kullanıcı", "kullanici", "isimsiz", "misafir")
+
+        internal fun computeListeningRibbon(
+            items: List<FeedItem>,
+            nowMs: Long = Clock.System.now().toEpochMilliseconds()
+        ): List<FeedItem> {
+            val cutoff = nowMs - LIVE_WINDOW_MS
+            val seenIds = mutableSetOf<String>()
+            val seenNames = mutableSetOf<String>()
+            return items
+                .filter { it.type == FeedType.LISTEN && (it.userId.isNotBlank() || it.userName.isNotBlank()) && it.timestamp >= cutoff }
+                .sortedByDescending { it.timestamp }
+                .filter { item ->
+                    val uid = item.userId.trim().lowercase()
+                    val uname = item.userName.trim().replace(WHITESPACE_REGEX, " ").lowercase()
+                    val isGenericName = uname.isBlank() || uname in GENERIC_LISTENER_NAMES
+                    if (uid.isNotEmpty() && uid in seenIds) return@filter false
+                    if (!isGenericName && uname in seenNames) return@filter false
+                    if (uid.isNotEmpty()) seenIds.add(uid)
+                    if (!isGenericName) seenNames.add(uname)
+                    true
+                }
+        }
+    }
 
     val actionError = MutableStateFlow<String?>(null)
     private val pendingActions = mutableSetOf<String>()
@@ -26,7 +67,7 @@ class FeedScreenModel(
         if (!pendingActions.add(id)) return
         screenModelScope.launch {
             try { action(); loadFeed(true) }
-            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: CancellationException) { throw e }
             catch (e: Exception) { actionError.value = e.message ?: "İşlem tamamlanamadı." }
             finally { pendingActions.remove(id) }
         }
@@ -41,25 +82,32 @@ class FeedScreenModel(
     private val _listeningFeedItems = MutableStateFlow<List<FeedItem>>(emptyList())
     val listeningFeedItems: StateFlow<List<FeedItem>> = _listeningFeedItems.asStateFlow()
 
+    private val _listeningRibbonItems = MutableStateFlow<List<FeedItem>>(emptyList())
+    val listeningRibbonItems: StateFlow<List<FeedItem>> = _listeningRibbonItems.asStateFlow()
+
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _isLoadingMore = MutableStateFlow(false)
     val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
 
+    private val _canLoadMoreGeneral = MutableStateFlow(true)
+    private val _canLoadMoreListening = MutableStateFlow(true)
     private val _canLoadMore = MutableStateFlow(true)
     val canLoadMore: StateFlow<Boolean> = _canLoadMore.asStateFlow()
+
+    private var generalOffset = 0L
+    private var listeningOffset = 0L
 
     init {
         feedRepository.startRealtimeListening { newFeedItem ->
             if (newFeedItem.type == FeedType.LISTEN) {
-                val current = _listeningFeedItems.value.toMutableList()
-                current.add(0, newFeedItem)
-                _listeningFeedItems.value = current
+                val updated = listOf(newFeedItem) + _listeningFeedItems.value.filterNot { it.id == newFeedItem.id }
+                _listeningFeedItems.value = updated
+                _listeningRibbonItems.value = computeListeningRibbon(updated)
             } else {
-                val current = _generalFeedItems.value.toMutableList()
-                current.add(0, newFeedItem)
-                _generalFeedItems.value = current
+                val updated = listOf(newFeedItem) + _generalFeedItems.value.filterNot { it.id == newFeedItem.id }
+                _generalFeedItems.value = updated
             }
         }
     }
@@ -72,72 +120,141 @@ class FeedScreenModel(
     fun loadFeed(isRefresh: Boolean = false) {
         if (isRefresh) {
             _isLoading.value = true
+            _canLoadMoreGeneral.value = true
+            _canLoadMoreListening.value = true
             _canLoadMore.value = true
+            generalOffset = 0L
+            listeningOffset = 0L
         }
 
         screenModelScope.launch {
             try {
-                // Mısralar için dinlemeleri hariç tutarak son 50 öğeyi getir
-                val mappedItems = feedRepository.getFeedItems(excludeListen = true)
-                _generalFeedItems.value = mappedItems.filter { it.type != FeedType.LISTEN }
-                
-                // Etkinlik sekmesi için tüm öğeleri getir
-                if (isRefresh || _listeningFeedItems.value.isEmpty()) {
-                    val listeningItems = feedRepository.getFeedItems(excludeListen = false)
-                    _listeningFeedItems.value = listeningItems.filter { it.type == FeedType.LISTEN }
-                }
+                coroutineScope {
+                    val generalDeferred = async { feedRepository.getFeedItems(excludeListen = true, limit = 50, offset = 0) }
+                    val listeningDeferred = async { feedRepository.getListeningFeedItems(limit = 50, offset = 0) }
 
-                _isLoading.value = false
+                    val generalRaw = generalDeferred.await()
+                    val listeningRaw = listeningDeferred.await()
+
+                    generalOffset = generalRaw.size.toLong()
+                    listeningOffset = listeningRaw.size.toLong()
+                    _canLoadMoreGeneral.value = generalRaw.size >= 50
+                    _canLoadMoreListening.value = listeningRaw.size >= 50
+                    _canLoadMore.value = _canLoadMoreGeneral.value || _canLoadMoreListening.value
+
+                    _generalFeedItems.value = generalRaw.filter { it.type != FeedType.LISTEN }
+                    val listeningOnly = listeningRaw.filter { it.type == FeedType.LISTEN }
+                    _listeningFeedItems.value = listeningOnly
+                    _listeningRibbonItems.value = computeListeningRibbon(listeningOnly)
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Throwable) {
                 println("Feed yüklenirken hata oluştu: ${e.message}")
+                if (_generalFeedItems.value.isEmpty() && _listeningFeedItems.value.isEmpty()) {
+                    actionError.value = "Akış yüklenemedi. Lütfen tekrar deneyin."
+                }
             } finally {
                 _isLoading.value = false
             }
         }
     }
 
+    fun refreshListeningStreamSilently() {
+        screenModelScope.launch {
+            try {
+                val latest = feedRepository.getListeningFeedItems(limit = 50, offset = 0)
+                    .filter { it.type == FeedType.LISTEN }
+                if (latest.isNotEmpty()) {
+                    val latestIds = latest.map { it.id }.toSet()
+                    val merged = latest + _listeningFeedItems.value.filterNot { it.id in latestIds }
+                    _listeningFeedItems.value = merged
+                    _listeningRibbonItems.value = computeListeningRibbon(merged)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Throwable) {
+                // Silent background refresh should never disrupt reading UX
+            }
+        }
+    }
+
     fun loadMore(isListeningTab: Boolean = false) {
-        if (_isLoading.value || _isLoadingMore.value || !_canLoadMore.value) return
+        if (_isLoading.value || _isLoadingMore.value) return
+        if (isListeningTab && !_canLoadMoreListening.value) return
+        if (!isListeningTab && !_canLoadMoreGeneral.value) return
         val currentItems = if (isListeningTab) _listeningFeedItems.value else _generalFeedItems.value
         if (currentItems.isEmpty()) return
 
         screenModelScope.launch {
             _isLoadingMore.value = true
             try {
-                val offset = currentItems.size.toLong()
-                val newItems = feedRepository.getFeedItems(excludeListen = !isListeningTab, limit = 20, offset = offset)
                 if (isListeningTab) {
-                    val filtered = newItems.filter { it.type == FeedType.LISTEN }
-                    if (filtered.isEmpty()) {
-                        _canLoadMore.value = false
-                    } else {
-                        val existingIds = _listeningFeedItems.value.map { it.id }.toSet()
-                        val uniqueNew = filtered.filterNot { it.id in existingIds }
-                        if (uniqueNew.isEmpty()) {
-                            _canLoadMore.value = false
-                        } else {
-                            _listeningFeedItems.value = _listeningFeedItems.value + uniqueNew
-                        }
+                    val raw = feedRepository.getListeningFeedItems(limit = 20, offset = listeningOffset)
+                    listeningOffset += raw.size.toLong()
+                    if (raw.size < 20) {
+                        _canLoadMoreListening.value = false
+                    }
+                    val filtered = raw.filter { it.type == FeedType.LISTEN }
+                    val existingIds = _listeningFeedItems.value.map { it.id }.toSet()
+                    val uniqueNew = filtered.filterNot { it.id in existingIds }
+                    if (uniqueNew.isEmpty() && raw.size < 20) {
+                        _canLoadMoreListening.value = false
+                    } else if (uniqueNew.isNotEmpty()) {
+                        val updated = _listeningFeedItems.value + uniqueNew
+                        _listeningFeedItems.value = updated
+                        _listeningRibbonItems.value = computeListeningRibbon(updated)
                     }
                 } else {
-                    val filtered = newItems.filter { it.type != FeedType.LISTEN }
-                    if (filtered.isEmpty()) {
-                        _canLoadMore.value = false
-                    } else {
-                        val existingIds = _generalFeedItems.value.map { it.id }.toSet()
-                        val uniqueNew = filtered.filterNot { it.id in existingIds }
-                        if (uniqueNew.isEmpty()) {
-                            _canLoadMore.value = false
-                        } else {
-                            _generalFeedItems.value = _generalFeedItems.value + uniqueNew
-                        }
+                    val raw = feedRepository.getFeedItems(excludeListen = true, limit = 20, offset = generalOffset)
+                    generalOffset += raw.size.toLong()
+                    if (raw.size < 20) {
+                        _canLoadMoreGeneral.value = false
+                    }
+                    val filtered = raw.filter { it.type != FeedType.LISTEN }
+                    val existingIds = _generalFeedItems.value.map { it.id }.toSet()
+                    val uniqueNew = filtered.filterNot { it.id in existingIds }
+                    if (uniqueNew.isEmpty() && raw.size < 20) {
+                        _canLoadMoreGeneral.value = false
+                    } else if (uniqueNew.isNotEmpty()) {
+                        _generalFeedItems.value = _generalFeedItems.value + uniqueNew
                     }
                 }
+                _canLoadMore.value = if (isListeningTab) _canLoadMoreListening.value else _canLoadMoreGeneral.value
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Throwable) {
                 println("Feed loadMore hatası: ${e.message}")
             } finally {
                 _isLoadingMore.value = false
             }
+        }
+    }
+
+    suspend fun resolveContentTarget(item: FeedItem): FeedContentTarget {
+        val repo = bookRepository ?: return FeedContentTarget.NotFound("İçerik şu anda açılamıyor.")
+        val targetId = item.bookId.trim()
+        if (targetId.isBlank()) return FeedContentTarget.NotFound("Bağlı bir kitap bulunamadı.")
+        if (targetId.startsWith("podcast_")) {
+            val resolved = repo.resolvePodcastEpisode(
+                bookId = targetId,
+                fallbackTitle = item.bookTitle,
+                fallbackCover = item.bookCoverUrl,
+                fallbackAudioUrl = item.audioUrl.orEmpty(),
+                fallbackAuthor = item.userName
+            )
+            return if (resolved != null) {
+                FeedContentTarget.PodcastTarget(resolved.first, resolved.second)
+            } else {
+                FeedContentTarget.NotFound("Bu podcast bölümü bulunamadı.")
+            }
+        }
+        val direct = repo.getBookById(targetId)
+            ?: repo.getBooks().firstOrNull { it.id == targetId }
+        return if (direct != null) {
+            FeedContentTarget.BookTarget(direct)
+        } else {
+            FeedContentTarget.NotFound("Bu kitap artık katalogda bulunamıyor.")
         }
     }
 
@@ -157,7 +274,12 @@ class FeedScreenModel(
                 audioUrl = null,
                 pollOptions = null
             )
-            if (success) loadFeed(true) else _isLoading.value = false
+            if (success) {
+                loadFeed(true)
+            } else {
+                actionError.value = "Gönderi paylaşılamadı. Lütfen tekrar deneyin."
+                _isLoading.value = false
+            }
         }
     }
 
@@ -177,7 +299,12 @@ class FeedScreenModel(
                 audioUrl = null,
                 pollOptions = null
             )
-            if (success) loadFeed(true) else _isLoading.value = false
+            if (success) {
+                loadFeed(true)
+            } else {
+                actionError.value = "Mısra paylaşılamadı. Lütfen tekrar deneyin."
+                _isLoading.value = false
+            }
         }
     }
 
@@ -190,14 +317,19 @@ class FeedScreenModel(
                 userName = user.name.ifBlank { user.username ?: "Kullanıcı" },
                 userPhoto = user.photoUrl,
                 bookId = "",
-                bookName = "",
+                bookName = "Anket",
                 comment = question,
                 isPremium = user.hasPremium(),
                 imageUrl = null,
                 audioUrl = null,
                 pollOptions = options
             )
-            if (success) loadFeed(true) else _isLoading.value = false
+            if (success) {
+                loadFeed(true)
+            } else {
+                actionError.value = "Anket paylaşılamadı. Lütfen tekrar deneyin."
+                _isLoading.value = false
+            }
         }
     }
 
@@ -207,37 +339,66 @@ class FeedScreenModel(
             _isLoading.value = true
             try {
                 val fileBytes = file.readBytes()
-                // Use substringAfterLast instead of extension, similar to AskidaViewModel
                 val extension = file.name.substringAfterLast('.', "")
-                val imageUrlResult = storageRepository.uploadImage(
-                    "social_feed",
-                    "post_${Clock.System.now().toEpochMilliseconds()}",
-                    fileBytes,
-                    extension
-                )
-                val imageUrl = imageUrlResult.getOrNull()
-                
-                val success = feedRepository.createPost(
-                    userId = user.uid,
-                    userName = user.name.ifBlank { user.username ?: "Kullanıcı" },
-                    userPhoto = user.photoUrl,
-                    bookId = "",
-                    bookName = "",
-                    comment = text,
-                    isPremium = user.hasPremium(),
-                    imageUrl = imageUrl,
-                    audioUrl = null,
-                    pollOptions = null
-                )
-                if (success) loadFeed(true) else _isLoading.value = false
+                uploadAndCreateImagePost(text, fileBytes, extension, user)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Throwable) {
-                println("Resim yükleme/paylaşma hatası: ${e.message}")
+                actionError.value = e.message ?: "Fotoğraf yüklenirken bir hata oluştu."
                 _isLoading.value = false
             }
         }
     }
 
-    fun createDummyPost() {
-        shareUserPost("Bu bir test gönderisidir!", null)
+    internal suspend fun uploadAndCreateImagePost(
+        text: String,
+        fileBytes: ByteArray,
+        extension: String,
+        user: UserProfile
+    ): Boolean {
+        _isLoading.value = true
+        return try {
+            val imageUrlResult = storageRepository.uploadImage(
+                "feed_images",
+                "post_${Clock.System.now().toEpochMilliseconds()}",
+                fileBytes,
+                extension
+            )
+            imageUrlResult.fold(
+                onSuccess = { uploadedUrl ->
+                    val success = feedRepository.createPost(
+                        userId = user.uid,
+                        userName = user.name.ifBlank { user.username ?: "Kullanıcı" },
+                        userPhoto = user.photoUrl,
+                        bookId = "",
+                        bookName = "",
+                        comment = text,
+                        isPremium = user.hasPremium(),
+                        imageUrl = uploadedUrl,
+                        audioUrl = null,
+                        pollOptions = null
+                    )
+                    if (success) {
+                        loadFeed(true)
+                        true
+                    } else {
+                        actionError.value = "Görsel gönderi paylaşılamadı. Lütfen tekrar deneyin."
+                        _isLoading.value = false
+                        false
+                    }
+                },
+                onFailure = { err ->
+                    actionError.value = err.message ?: "Fotoğraf yüklenemedi. Lütfen tekrar deneyin."
+                    _isLoading.value = false
+                    false
+                }
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            actionError.value = e.message ?: "Fotoğraf yüklenirken bir hata oluştu."
+            _isLoading.value = false
+            false
+        }
     }
 }

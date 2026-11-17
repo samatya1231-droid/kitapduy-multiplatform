@@ -98,7 +98,7 @@ internal fun canonicalCategoryKey(name: String): String =
         "siir", "şiir" -> "şiir"
         "turk edebiyati", "türk edebiyatı" -> "türk edebiyatı"
         "dunya edebiyati", "dünya edebiyatı" -> "dünya edebiyatı"
-        "ingilizce", "ingilizce kitaplar" -> "ingilizce kitaplar"
+        "ingilizce", "english", "ingilizce sesli kitap", "ingilizce sesli kitaplar", "ingilizce kitap", "ingilizce kitaplar" -> "ingilizce kitaplar"
         "klasik", "klasikler" -> "klasik"
         else -> normalizeCategoryName(name)
     }
@@ -114,6 +114,9 @@ internal fun categoryMatches(actual: String, target: String): Boolean {
 
 internal fun bookMatchesCategory(book: Book, category: String): Boolean {
     if (category.trim().equals("Tümü", ignoreCase = true)) return true
+    if (canonicalCategoryKey(category) == "ingilizce kitaplar" && book.language.equals("en", ignoreCase = true)) {
+        return true
+    }
     if (categoryMatches(book.category, category)) return true
     return book.tags.any { tag -> categoryMatches(tag, category) }
 }
@@ -127,7 +130,12 @@ internal fun buildActiveDiscoveryCategories(
 
     val distinctCategories = linkedMapOf<String, String>()
     for (book in books) {
-        val rawCategories = listOf(book.category) + book.tags
+        val languageCategories = if (book.language.equals("en", ignoreCase = true)) {
+            listOf("İngilizce Kitaplar")
+        } else {
+            emptyList()
+        }
+        val rawCategories = listOf(book.category) + book.tags + languageCategories
         for (raw in rawCategories) {
             val trimmed = raw.trim()
             if (trimmed.isBlank()) continue

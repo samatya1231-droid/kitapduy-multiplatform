@@ -52,10 +52,41 @@ class FeedActionsRepository(private val client: SupabaseClient, private val auth
     suspend fun bookComments(bookId: String): List<Comment> = client.postgrest["posts"].select {
         filter { eq("book_id", bookId) }
         order("created_at", Order.DESCENDING)
-    }.decodeList<SupabasePost>().filter { it.startPos == null && it.comment?.contains("dinlemeye başladı") != true }
-        .map { Comment(id = it.id.toString(), userId = it.userId.orEmpty(), userName = it.userName.orEmpty(),
-            userPhotoUrl = it.userPhoto, text = it.comment.orEmpty(), isPremium = it.isPremium == true,
-            timestamp = it.createdAt?.let { date -> runCatching { kotlinx.datetime.Instant.parse(date).toEpochMilliseconds() }.getOrNull() } ?: 0L) }
+    }.decodeList<SupabasePost>()
+        .filter { it.startPos == null && !it.comment.isNullOrBlank() && it.comment?.contains("dinlemeye başladı") != true }
+        .map {
+            val normalizedLikes = it.likedBy.orEmpty()
+                .split(',')
+                .map { token -> token.substringBefore(':').trim() }
+                .filter { uid -> uid.isNotBlank() }
+                .distinct()
+            Comment(
+                id = it.id.toString(),
+                userId = it.userId.orEmpty(),
+                userName = it.userName.orEmpty(),
+                userPhotoUrl = resolveFeedUrl(it.userPhoto).ifBlank { null },
+                text = it.comment.orEmpty(),
+                isPremium = it.isPremium == true,
+                timestamp = it.createdAt?.let { date -> runCatching { kotlinx.datetime.Instant.parse(date).toEpochMilliseconds() }.getOrNull() } ?: 0L,
+                likedBy = normalizedLikes,
+                replyCount = it.commentCount ?: 0
+            )
+        }
+
+    suspend fun editPostComment(postId: String, text: String) {
+        val userId = uid()
+        val body = text.trim()
+        require(body.isNotEmpty() && body.length <= 2000) { "Yorum 1–2000 karakter olmalı." }
+        val admin = auth.getUserProfile(userId)?.badges?.contains("admin") == true
+        val updated = client.postgrest["posts"].update({ set("comment", body) }) {
+            filter {
+                eq("id", postId.toLong())
+                if (!admin) eq("user_id", userId)
+            }
+            select()
+        }.decodeSingleOrNull<SupabasePost>()
+        checkNotNull(updated) { "Yorum güncellenemedi; silinmiş veya başka bir kullanıcıya ait olabilir." }
+    }
 
     suspend fun addToShelf(book: Book, shelfType: String) {
         val userId = uid()

@@ -27,7 +27,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.semtinazizi.kitapduy.util.root
-import coil3.compose.AsyncImage
+import com.semtinazizi.kitapduy.ui.components.SmartImage
 import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import com.semtinazizi.kitapduy.ui.components.GoogleIcon
 import com.semtinazizi.kitapduy.ui.components.AppleIcon
@@ -82,13 +82,14 @@ class WelcomeScreen : Screen {
         )
 
         Box(modifier = Modifier.fillMaxSize()) {
-            AsyncImage(
-                model = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=1080",
+            SmartImage(
+                imageUrl = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=1080",
                 contentDescription = "Background",
                 modifier = Modifier
                     .fillMaxSize()
                     .scale(scale),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                fallbackText = "KitapDuy"
             )
 
             Box(

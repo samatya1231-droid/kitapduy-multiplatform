@@ -37,6 +37,10 @@ final class ReaderJourneyTests: XCTestCase {
         try launchAndSignIn()
         try step("22-home-catalog") {
             try visible(text("Yeni hikâyeler keşfet"))
+            try tap(element("home-featured-book"), scroll: true)
+            try visible(element("book-play-pause"), scroll: true)
+            try tap(element("tab-home"))
+            try visible(element("home-featured-book"), scroll: true)
             audit("22-home-catalog")
             inspectScreen("22-home-catalog")
         }
@@ -66,8 +70,15 @@ final class ReaderJourneyTests: XCTestCase {
             inspectScreen("05-book-detail")
         }
         try step("08-book-back-to-search") {
-            try tap(text("Geri"))
+            try tap(element("tab-discover"))
             try visible(element("discover-query"))
+            recordProbe(
+                screen: "08-book-back-to-search",
+                category: "Navigation",
+                status: "PASS",
+                summary: "Alt sekme düğmeleri (Ana Sayfa ve Keşfet) detay ekranından sekme köküne döndürdü",
+                detail: ""
+            )
         }
     }
 
@@ -385,6 +396,7 @@ final class ReaderJourneyTests: XCTestCase {
         }
         try step("35-arena-playing") {
             try tap(element("quiz-start-classic"))
+            try tap(element("quiz-briefing-start"))
             try visible(element("quiz-question-text"))
             try visible(element("quiz-option-0"))
         }
@@ -456,13 +468,14 @@ final class ReaderJourneyTests: XCTestCase {
             }
             if element("advisor-followup-0").exists {
                 try tap(element("advisor-followup-0"))
-                try visible(text("Sahaf tavsiyesi", contains: true), scroll: true)
+                try visible(text("Eser hakkında", contains: true), scroll: true)
+                try visible(text("Suç ve Ceza", contains: true), scroll: true)
                 recordProbe(
                     screen: "48-advisor-analysis-and-reading",
                     category: "Functional",
-                    status: "INFO",
-                    summary: "Analiz takip çipi 'Sahaf tavsiyesi' kartına yönlendi",
-                    detail: "'Suç ve Ceza'yı konuşalım' takip sorusu karakter/tema analizi yerine öneri yanıtı üretti."
+                    status: "PASS",
+                    summary: "Analiz takip çipi ('Suç ve Ceza'yı konuşalım') doğrudan eser analizi üretti",
+                    detail: "Edebi Danışman takip sorusunda karakter/tema analizi yanıtı döndürdü."
                 )
             }
             audit("48-advisor-analysis-and-reading")
@@ -529,6 +542,23 @@ final class ReaderJourneyTests: XCTestCase {
             try tap(element("advisor-new-chat"))
             try tap(element("advisor-reading-route"), scroll: true)
             try visible(text("Isınma Durağı", contains: true), scroll: true)
+
+            try tap(element("advisor-new-chat"))
+            try type("icimizdeki seytani anlat", into: element("advisor-input"))
+            try tap(element("advisor-send"))
+            try visible(text("İçimizdeki Şeytan", contains: true), scroll: true)
+            try visible(text("Sabahattin Ali", contains: true), scroll: true)
+            if self.text("Hayvan Çiftliği", contains: true).exists {
+                throw JourneyError("'İçimizdeki Şeytanı anlat' sorgusunda ilgisiz 'Hayvan Çiftliği' yanıtı göründü")
+            }
+            recordProbe(
+                screen: "50-advisor-custom-query-and-book",
+                category: "Functional",
+                status: "PASS",
+                summary: "'İçimizdeki Şeytanı anlat' sorgusu Sabahattin Ali eser analizi döndürdü (Hayvan Çiftliği hatası yok)",
+                detail: ""
+            )
+
             inspectScreen("50-advisor-custom-query-and-book")
             recordProbe(
                 screen: "50-advisor-custom-query-and-book",
@@ -830,37 +860,28 @@ final class ReaderJourneyTests: XCTestCase {
             audit("63-arena-leaderboard-and-modes")
             inspectScreen("63-arena-leaderboard-and-modes")
             try tap(text("Geri"))
-            if !element("quiz-tournament-button").exists {
-                recordProbe(
-                    screen: "63-arena-leaderboard-and-modes",
-                    category: "Navigation",
-                    status: "WARN",
-                    summary: "Arena üst 'Geri' düğmesi alt ekrandan menüye dönmek yerine doğrudan Keşfet'e çıkıyor",
-                    detail: "QuizScreen.kt üst çubuk Geri tuşu gameState kontrolü yapmadan navigator.pop() çağırıyor."
-                )
-                try tap(element("discover-arena-card"), scroll: true)
-            }
-            try scrollToTop(target: element("quiz-tournament-button"))
+            try visible(element("quiz-start-classic"), scroll: true)
+            try tap(element("quiz-challenges-button"), scroll: true)
             try tap(element("quiz-tournament-button"))
-            try visible(text("Çok Yakında", contains: true))
-            inspectScreen("63-arena-leaderboard-and-modes")
-            try tap(text("Tamam"))
-
-            try scrollToVisible(element("quiz-duel-button"))
-            try tap(element("quiz-duel-button"))
-            try visible(text("Çok Yakında", contains: true))
-            try tap(text("Tamam"))
-
-            try scrollToVisible(element("quiz-start-blitz"))
+            try tap(element("quiz-briefing-start"))
+            try visible(text("Soru 1/10"))
+            try visible(element("quiz-question-text"))
+            try tap(text("Geri"))
             try tap(element("quiz-start-blitz"))
+            try tap(element("quiz-briefing-start"))
+            try visible(text("Soru 1/10"))
+            try visible(element("quiz-option-0"))
+            try tap(text("Geri"))
+            try tap(text("Geri"))
+            try tap(element("quiz-duel-button"), scroll: true)
             try visible(text("Çok Oyunculu Arena"))
             try visible(text("Oda Oluşturuldu", contains: true))
             recordProbe(
                 screen: "63-arena-leaderboard-and-modes",
                 category: "Functional",
                 status: "WARN",
-                summary: "Blitz Arena canlı eşleşme bekliyor (Realtime devre dışı / çevrimdışı bot yok)",
-                detail: "QuizScreen 'Blitz Arena' quiz_matches tablosuna oda oluşturuyor ancak observeMatch() boş Flow döndürdüğü için gerçek eşleşme bildirimi gelmiyor."
+                summary: "Düello oda oluşturdu ve rakip bekliyor",
+                detail: "Bu senaryoda tek simülatör oynuyor. İki oyunculu bir maç ayrıca test edilmeli."
             )
             try tap(text("İptal Et"))
             try tap(text("Geri"))
@@ -1339,6 +1360,16 @@ final class ReaderJourneyTests: XCTestCase {
                 )
             }
             let lower = trimmed.lowercased()
+            if lower.contains("14 gün") || lower.contains("14 gun") {
+                recordProbe(
+                    screen: screen,
+                    theme: theme,
+                    category: "Content",
+                    status: "FAIL",
+                    summary: "Eski '14 gün ücretsiz' metni tespit edildi: '\(trimmed)'",
+                    detail: "Ücretsiz deneme metni 7 gün kuralıyla uyumlu olmalı."
+                )
+            }
             if lower.contains("kullanılamıyor") {
                 recordProbe(
                     screen: screen,

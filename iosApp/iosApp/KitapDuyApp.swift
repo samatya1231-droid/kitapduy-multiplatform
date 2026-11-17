@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 import ComposeApp
 import OneSignalFramework
+import UserNotifications
 
 @MainActor
 class AppDelegate: NSObject, UIApplicationDelegate {
@@ -42,7 +43,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {}
     
-    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {}
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NSLog("KitapDuy: APNs registration failed (code %ld)", (error as NSError).code)
+    }
 }
 
 @main
@@ -97,6 +100,7 @@ struct KitapDuyApp: App {
 final class PushService: NSObject, OSNotificationPermissionObserver, OSPushSubscriptionObserver {
     static let shared = PushService()
     private var configured = false
+    private var checkedInitialPermission = false
 
     func configure(launchOptions: [UIApplication.LaunchOptionsKey: Any]?) {
         guard !configured,
@@ -116,6 +120,9 @@ final class PushService: NSObject, OSNotificationPermissionObserver, OSPushSubsc
                 }
             }
         }
+        PushNotificationBridge.shared.requestInitialNotifications = {
+            Task { @MainActor in await PushService.shared.requestInitialPermission() }
+        }
         PushNotificationBridge.shared.enableNotifications = {
             DispatchQueue.main.async { PushService.shared.enable() }
         }
@@ -131,13 +138,21 @@ final class PushService: NSObject, OSNotificationPermissionObserver, OSPushSubsc
         refreshPermission()
     }
 
-    private func enable() {
+    private func requestInitialPermission() async {
+        guard configured, !checkedInitialPermission else { return }
+        checkedInitialPermission = true
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        guard settings.authorizationStatus == .notDetermined else { return }
+        enable(fallbackToSettings: false)
+    }
+
+    private func enable(fallbackToSettings: Bool = true) {
         OneSignal.Notifications.requestPermission({ accepted in
             DispatchQueue.main.async {
                 if accepted { OneSignal.User.pushSubscription.optIn() }
                 PushService.shared.refreshPermission()
             }
-        }, fallbackToSettings: true)
+        }, fallbackToSettings: fallbackToSettings)
     }
 
     func refreshPermission() {

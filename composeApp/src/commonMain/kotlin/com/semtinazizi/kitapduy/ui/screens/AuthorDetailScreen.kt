@@ -28,8 +28,8 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.lifecycle.ViewModel
-import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.model.Book
+import com.semtinazizi.kitapduy.ui.components.SmartImage
 import com.semtinazizi.kitapduy.ui.viewmodel.HomeViewModel
 import com.semtinazizi.kitapduy.ui.theme.PlayfairDisplayFamily
 
@@ -118,13 +118,14 @@ fun AuthorBookItem(book: Book, onClick: () -> Unit) {
         modifier = Modifier.clickable { onClick() }.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        AsyncImage(
-            model = book.coverUrl,
-            contentDescription = null,
+        SmartImage(
+            imageUrl = book.coverUrl,
+            contentDescription = book.title,
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .aspectRatio(0.66f)
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(8.dp)),
+            fallbackText = book.title
         )
         Spacer(Modifier.height(8.dp))
         Text(

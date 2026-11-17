@@ -56,6 +56,13 @@ Referans: `../kitapduy3` çalışma ağacındaki Android kodu. Android referans 
 
 Resmi kaynaklar: [iOS kurulum](https://documentation.onesignal.com/docs/en/ios-sdk-setup), [SDK kimlik ve abonelik API'leri](https://documentation.onesignal.com/docs/en/mobile-sdk-reference), [5.7.0 sürümü](https://github.com/OneSignal/OneSignal-iOS-SDK/releases/tag/5.7.0).
 
+### Yeni kitap ve 22.00 bildirimleri
+
+- iOS, Ana Sayfa ilk açıldığında henüz karar vermemiş kullanıcıdan sistem bildirim iznini ister. Kullanıcı daha sonra Ayarlar → Bildirimler üzerinden tercihini değiştirebilir.
+- Kitap üreticisi, Android’e Firebase `all` konusundan gönderiyor. KitapDuy3 sunucusundaki `pushPublishedBookToIos` aynı yayını OneSignal üzerinden iOS’a iletir. Yalnızca kitap yayıncısının doğrulanmış hizmet hesabı olayı tetikleyebilir. Bildirim, kitap iOS kataloğundan okunabildikten sonra gönderilir.
+- `pushEveningReminderToIos`, Türkiye saatiyle her gün 22.00’de OneSignal üzerinden iOS’a gönderir. Mevcut zamanlanmış bildirimin başlığını ve metnini kullanmak için `eveningTitle` ve `eveningBody` alanlarını doldurun. Aynı bildirimi iOS’a gönderiyorsa eski zamanlamayı devre dışı bırakın.
+- Firebase Secret Manager’da `IOS_ONESIGNAL_PUSH_CONFIG` için `apiKey` (OneSignal App API Key), `segment` (doğrulanmış OneSignal hedef segmenti), `publisherAuthId` (Firestore CloudEvent’teki yayıncı hizmet hesabı kimliği), `supabaseAnonKey` (iOS uygulamasının herkese açık katalog anahtarı), `eveningTitle` ve `eveningBody` alanlarını içeren bir JSON tanımlayın. Firebase’e sadece bu iki fonksiyon yayımlanabilir. Önce iOS test cihazını içeren bir segment ve doğrulanmış OneSignal APNs bağlantısı ile teslimi sınayın.
+
 ## Oturum ve hesap silme hata yönetimi (26 Eylül 2026)
 
 - Supabase çıkış hatası artık repository içinde yutulmaz. Başarılı çıkışta oturumun kapandığı kontrol edilir ve OneSignal kimliği temizlenir. Ayarlar ekranı hata gösterir; art arda çıkış istekleri ve eşzamanlı hesap silme engellenir. AuthViewModel başarısızlıkta yerel profil durumunu sahte olarak temizlemez.

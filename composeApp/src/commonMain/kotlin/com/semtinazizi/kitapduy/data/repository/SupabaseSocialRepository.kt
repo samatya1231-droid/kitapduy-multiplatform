@@ -24,9 +24,13 @@ class SupabaseSocialRepository(
     private val localStore = LocalUserStore(settings)
 
     private fun fixUrl(url: String?): String {
-        if (url.isNullOrBlank()) return ""
-        val resolved = if (url.startsWith("http")) url else "${AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
-        return UrlSanitizer.sanitizeUrl(resolved)
+        val publicBase = AppConfig.cfPublicUrl.trim().trimEnd('/')
+        val defaultBase = if (publicBase.startsWith("http://localhost") || publicBase.startsWith("http://127.0.0.1")) {
+            publicBase
+        } else {
+            UrlSanitizer.CUSTOM_R2_BASE_URL
+        }
+        return UrlSanitizer.normalizeMediaUrl(url, defaultBase)
     }
 
     override suspend fun getUserProfile(userId: String): UserProfile? {

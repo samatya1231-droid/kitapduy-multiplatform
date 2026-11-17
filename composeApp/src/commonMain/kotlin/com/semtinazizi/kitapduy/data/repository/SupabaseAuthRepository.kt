@@ -169,9 +169,13 @@ class SupabaseAuthRepository(
     private fun fixUrl(url: String?): String {
         if (url.isNullOrBlank()) return ""
         if (url.startsWith("data:image")) return url
-        val resolved = if (url.startsWith("http://") || url.startsWith("https://")) url
-        else "${AppConfig.cfPublicUrl.trimEnd('/')}/${url.trimStart('/')}"
-        return UrlSanitizer.sanitizeUrl(resolved)
+        val publicBase = AppConfig.cfPublicUrl.trim().trimEnd('/')
+        val defaultBase = if (publicBase.startsWith("http://localhost") || publicBase.startsWith("http://127.0.0.1")) {
+            publicBase
+        } else {
+            UrlSanitizer.CUSTOM_R2_BASE_URL
+        }
+        return UrlSanitizer.normalizeMediaUrl(url, defaultBase)
     }
 
     override val currentUserUid: String?
@@ -399,15 +403,22 @@ class SupabaseAuthRepository(
     override suspend fun updateProfile(uid: String, name: String, bio: String, username: String?): Boolean {
         val cleanUid = uid.trim()
         if (cleanUid.isEmpty()) return false
+        val cleanName = name.trim()
+        val cleanBio = bio.trim()
+        val cleanUsername = username?.trim()
         return try {
-            localStore.putString(nameKey(cleanUid), name.trim())
-            localStore.putString(bioKey(cleanUid), bio.trim())
-            if (username != null) {
-                localStore.putString(usernameKey(cleanUid), username.trim())
+            localStore.putString(nameKey(cleanUid), cleanName)
+            localStore.putString(bioKey(cleanUid), cleanBio)
+            if (cleanUsername != null) {
+                localStore.putString(usernameKey(cleanUid), cleanUsername)
             }
             try {
-                val updateMap = mapOf("name" to name, "bio" to bio, "username" to username)
+                val updateMap = mapOf("name" to cleanName, "bio" to cleanBio, "username" to cleanUsername)
                 supabaseClient.postgrest["users"].update(updateMap) { filter { eq("uid", cleanUid) } }
+                if (cleanName.isNotEmpty()) {
+                    supabaseClient.postgrest["posts"].update(mapOf("user_name" to cleanName)) { filter { eq("user_id", cleanUid) } }
+                    supabaseClient.postgrest["feed_comments"].update(mapOf("user_name" to cleanName)) { filter { eq("user_id", cleanUid) } }
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (e: Throwable) {
@@ -447,11 +458,14 @@ class SupabaseAuthRepository(
     override suspend fun updateProfilePhoto(uid: String, photoUrl: String?): Boolean {
         val cleanUid = uid.trim()
         if (cleanUid.isEmpty()) return false
+        val normalizedPhoto = photoUrl?.let { fixUrl(it) }?.ifBlank { null }
         return try {
-            localStore.putString(photoKey(cleanUid), photoUrl.orEmpty())
+            localStore.putString(photoKey(cleanUid), normalizedPhoto.orEmpty())
             try {
-                val updateMap = mapOf("photo_url" to photoUrl)
+                val updateMap = mapOf("photo_url" to normalizedPhoto)
                 supabaseClient.postgrest["users"].update(updateMap) { filter { eq("uid", cleanUid) } }
+                supabaseClient.postgrest["posts"].update(mapOf("user_photo" to normalizedPhoto)) { filter { eq("user_id", cleanUid) } }
+                supabaseClient.postgrest["feed_comments"].update(mapOf("user_photo" to normalizedPhoto)) { filter { eq("user_id", cleanUid) } }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (e: Throwable) {

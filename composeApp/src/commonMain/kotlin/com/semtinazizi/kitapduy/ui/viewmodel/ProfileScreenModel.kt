@@ -60,6 +60,28 @@ class ProfileScreenModel(
     private var books: List<Book> = emptyList()
     fun bookFor(shelf: SupabaseBookshelf): Book? = books.find { it.id == shelf.bookId }
 
+    suspend fun resolveShelfTarget(shelf: SupabaseBookshelf): FeedContentTarget {
+        if (shelf.bookId.startsWith("podcast_")) {
+            val resolved = bookRepository.resolvePodcastEpisode(
+                bookId = shelf.bookId,
+                fallbackTitle = shelf.bookTitle.orEmpty(),
+                fallbackCover = shelf.bookCoverUrl.orEmpty()
+            )
+            return if (resolved != null) {
+                FeedContentTarget.PodcastTarget(resolved.first, resolved.second)
+            } else {
+                FeedContentTarget.NotFound("Bu podcast bölümü artık bulunamıyor.")
+            }
+        }
+        val book = books.find { it.id == shelf.bookId }
+            ?: runCatching { bookRepository.getBookById(shelf.bookId) }.getOrNull()
+        return if (book != null) {
+            FeedContentTarget.BookTarget(book)
+        } else {
+            FeedContentTarget.NotFound("Bu kitap artık katalogda bulunamıyor.")
+        }
+    }
+
     fun loadUserProfile(userId: String?) = loadProfileData(userId)
 
     fun loadProfileData(targetUserId: String?) {

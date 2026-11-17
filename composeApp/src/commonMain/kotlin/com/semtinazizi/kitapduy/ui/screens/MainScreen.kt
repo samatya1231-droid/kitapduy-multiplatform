@@ -38,6 +38,7 @@ import com.semtinazizi.kitapduy.ui.screens.tabs.EntertainmentTab
 import com.semtinazizi.kitapduy.ui.screens.tabs.ProfileTab
 import com.semtinazizi.kitapduy.ui.screens.tabs.AskidaTab
 import com.semtinazizi.kitapduy.ui.screens.tabs.FeedTab
+import com.semtinazizi.kitapduy.ui.screens.tabs.LocalTabRootRequest
 import com.semtinazizi.kitapduy.ui.components.MiniPlayerSection
 import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import com.semtinazizi.kitapduy.ui.viewmodel.GlobalAudioController
@@ -66,6 +67,7 @@ class MainScreen : Screen {
         val isFullPlayerVisible by audioController.isFullPlayerVisible.collectAsState()
         val isPlaying by audioController.isPlaying.collectAsState()
         val rootNavigator = LocalNavigator.currentOrThrow
+        val tabRootRequests = remember { mutableStateMapOf<Tab, Int>() }
 
         TabNavigator(HomeTab) { tabNavigator ->
             Scaffold(
@@ -112,19 +114,26 @@ class MainScreen : Screen {
                             )
                         }
                         
-                        KitapDuyFloatingNavigation()
+                        KitapDuyFloatingNavigation { tab ->
+                            tabRootRequests[tab] = (tabRootRequests[tab] ?: 0) + 1
+                            tabNavigator.current = tab
+                        }
                     }
                 }
             ) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues)) {
-                    CurrentTab()
+                    CompositionLocalProvider(
+                        LocalTabRootRequest provides (tabRootRequests[tabNavigator.current] ?: 0)
+                    ) {
+                        CurrentTab()
+                    }
                 }
             }
         }
     }
 
     @Composable
-    private fun KitapDuyFloatingNavigation() {
+    private fun KitapDuyFloatingNavigation(onSelect: (Tab) -> Unit) {
         val tabNavigator = LocalTabNavigator.current
         NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
             listOf(
@@ -136,7 +145,7 @@ class MainScreen : Screen {
             ).forEach { (name, tab) ->
                 NavigationBarItem(selected = tabNavigator.current == tab,
                     modifier = Modifier.testTag("tab-$name"),
-                    onClick = { tabNavigator.current = tab },
+                    onClick = { onSelect(tab) },
                     icon = { tab.options.icon?.let { Icon(painter = it, contentDescription = null) } },
                     label = { Text(tab.options.title, maxLines = 1) }, alwaysShowLabel = true)
             }

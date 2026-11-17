@@ -13,6 +13,7 @@ actual object AppConfig {
     actual val cfPublicUrl: String get() = IOSBuildConfig.CF_PUBLIC_URL
     actual val cfWorkerUrl: String get() = IOSBuildConfig.CF_WORKER_URL
     actual val cfUploadToken: String get() = IOSBuildConfig.CF_UPLOAD_TOKEN
+    actual val r2UploadTicketUrl: String get() = IOSBuildConfig.R2_UPLOAD_TICKET_URL
     actual val cfAccessKey: String = "" // iOS'ta ileride eklenebilir
     actual val cfSecretKey: String = ""
     actual val isCiSmokeTest: Boolean get() = IOSBuildConfig.isCiSmokeTest

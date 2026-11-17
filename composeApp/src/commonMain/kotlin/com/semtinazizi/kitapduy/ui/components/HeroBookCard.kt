@@ -11,7 +11,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import com.semtinazizi.kitapduy.model.Book
 
 @Composable
@@ -29,14 +28,15 @@ fun HeroBookCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Row(modifier = Modifier.fillMaxSize()) {
-            AsyncImage(
-                model = book.coverUrl,
+            SmartImage(
+                imageUrl = book.coverUrl,
                 contentDescription = book.title,
                 modifier = Modifier
                     .width(130.dp)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                fallbackText = book.title
             )
             Column(
                 modifier = Modifier
