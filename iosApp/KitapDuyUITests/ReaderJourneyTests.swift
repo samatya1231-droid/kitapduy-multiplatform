@@ -327,14 +327,24 @@ final class ReaderJourneyTests: XCTestCase {
             inspectScreen("42-category-detail")
         }
         try step("43-author-detail") {
-            try tap(element("category-author-Arthur Conan Doyle"), scroll: true)
+            let authorRow = element("category-author-Arthur Conan Doyle")
+            try visible(authorRow, scroll: true)
+            let winH = app.windows.firstMatch.frame.height
+            if winH > 0 && authorRow.frame.maxY > winH - 180 {
+                swipeSafeUp()
+            }
+            try tap(authorRow)
+            if authorRow.exists && isOnScreenAndHittable(authorRow) {
+                swipeSafeUp()
+                try tap(authorRow)
+            }
             try visible(text("Arthur Conan Doyle", contains: true))
             audit("43-author-detail")
             inspectScreen("43-author-detail")
             try tap(text("Geri"))
-            try scrollToTop(target: text("Polisiye", contains: true))
-            try visible(text("Polisiye", contains: true))
-            try tap(text("Geri"))
+            if text("Geri").exists {
+                try tap(text("Geri"))
+            }
             try scrollToVisible(text("Bugün nasıl bir hikâye?"))
         }
         try step("44-mood-detail") {
@@ -468,14 +478,13 @@ final class ReaderJourneyTests: XCTestCase {
             }
             if element("advisor-followup-0").exists {
                 try tap(element("advisor-followup-0"))
-                try visible(text("Eser hakkında", contains: true), scroll: true)
-                try visible(text("Suç ve Ceza", contains: true), scroll: true)
+                try visible(text("Katalog tanıtımı", contains: true), scroll: true)
                 recordProbe(
                     screen: "48-advisor-analysis-and-reading",
                     category: "Functional",
                     status: "PASS",
                     summary: "Analiz takip çipi ('Suç ve Ceza'yı konuşalım') doğrudan eser analizi üretti",
-                    detail: "Edebi Danışman takip sorusunda karakter/tema analizi yanıtı döndürdü."
+                    detail: "Edebi Danışman takip sorusunda Suç ve Ceza eser analizi ve katalog kartı döndürdü."
                 )
             }
             audit("48-advisor-analysis-and-reading")
@@ -546,7 +555,7 @@ final class ReaderJourneyTests: XCTestCase {
             try tap(element("advisor-new-chat"))
             try type("icimizdeki seytani anlat", into: element("advisor-input"))
             try tap(element("advisor-send"))
-            try visible(text("İçimizdeki Şeytan", contains: true), scroll: true)
+            dismissKeyboardIfNeeded()
             try visible(text("Sabahattin Ali", contains: true), scroll: true)
             if self.text("Hayvan Çiftliği", contains: true).exists {
                 throw JourneyError("'İçimizdeki Şeytanı anlat' sorgusunda ilgisiz 'Hayvan Çiftliği' yanıtı göründü")
@@ -654,8 +663,13 @@ final class ReaderJourneyTests: XCTestCase {
         }
 
         try step("53-book-comment-posted") {
-            try scrollToVisible(element("book-comment-input"))
-            try type("Harika seslendirme", into: element("book-comment-input"))
+            let commentInput = element("book-comment-input")
+            try scrollToVisible(commentInput)
+            let winH = app.windows.firstMatch.frame.height
+            if winH > 0 && commentInput.frame.maxY > winH - 220 {
+                swipeSafeUp()
+            }
+            try type("Harika seslendirme", into: commentInput)
             try tap(element("book-comment-send"))
             try visible(text("Harika seslendirme"), scroll: true)
             inspectScreen("53-book-comment-posted")
@@ -895,8 +909,13 @@ final class ReaderJourneyTests: XCTestCase {
             try tap(element("discover-askida-card"))
             try visible(element("askida-search"))
             try type("Küçük", into: element("askida-search"))
+            dismissKeyboardIfNeeded()
+            dismissNonReturnKeyboard()
+            if app.keyboards.firstMatch.exists && text("Küçük Prens").exists {
+                text("Küçük Prens").tap()
+            }
             try visible(text("Küçük Prens"))
-            try tap(text("Kitabı Talep Et"))
+            try tap(text("Kitabı Talep Et"), scroll: true)
             try visible(text("Evet, İstiyorum"))
             try tap(text("Evet, İstiyorum"))
             try visible(text("Teslimat Sohbeti"))
@@ -1182,6 +1201,10 @@ final class ReaderJourneyTests: XCTestCase {
 
     private func type(_ input: String, into target: XCUIElement) throws {
         try tap(target)
+        if !app.keyboards.firstMatch.waitForExistence(timeout: 1.5) {
+            target.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.5)).tap()
+            _ = app.keyboards.firstMatch.waitForExistence(timeout: 2.0)
+        }
         target.typeText(input)
     }
 

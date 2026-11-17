@@ -17,6 +17,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -31,7 +33,9 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -232,6 +236,7 @@ fun AskidaKitaplarList(viewModel: AskidaViewModel, onClaimSuccess: () -> Unit, o
     var selectedCategory by remember { mutableStateOf("Hepsi") }
     val categories = listOf("Hepsi", "Roman", "Eğitim", "Akademik", "Çocuk", "Dini", "Diğer")
 
+    val focusManager = LocalFocusManager.current
     var claimingBookId by remember { mutableStateOf<String?>(null) }
     var showClaimConfirmation by remember { mutableStateOf<AskidaKitap?>(null) }
 
@@ -256,7 +261,12 @@ fun AskidaKitaplarList(viewModel: AskidaViewModel, onClaimSuccess: () -> Unit, o
                     focusedBorderColor = Color(0xFFFFD700),
                     unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(0.1f)
                 ),
-                singleLine = true
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(
+                    onSearch = { focusManager.clearFocus() },
+                    onDone = { focusManager.clearFocus() }
+                )
             )
             
             Spacer(modifier = Modifier.height(12.dp))
