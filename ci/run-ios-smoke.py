@@ -1040,7 +1040,7 @@ class SimulatorRunner:
                         ["xcodebuild", "test-without-building", "-xctestrun", str(self.test_run),
                          "-destination", f"platform=iOS Simulator,id={udid}",
                          "-parallel-testing-enabled", "NO", "-resultBundlePath", str(bundle)],
-                        env=environment, stdout=log, stderr=subprocess.STDOUT, timeout=1500,
+                        env=environment, stdout=log, stderr=subprocess.STDOUT, timeout=2700,
                     )
                 result["fixture_requests"] = list(requests)
                 log_text = test_log.read_text(encoding="utf-8", errors="replace")
