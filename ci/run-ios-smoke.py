@@ -740,7 +740,7 @@ def write_gallery(results, output, review_note=None, families=None):
                         f'{details}{video}<p>{" · ".join(links)}</p></section>')
 
     # Align the same step across devices and make gaps visible even on a failed run.
-    fallback_families = [family for family in ("iPhone", "iPad") if not families or family in families] or ["iPhone", "iPad"]
+    fallback_families = [family for family in ("iPhone", "iPad") if families and family in families] or ["iPhone"]
     active_families = [family for family in ("iPhone", "iPad") if family in devices] or fallback_families
     groups = []
     family_headers = "".join(f'<th scope="col">{family}</th>' for family in active_families)
@@ -774,6 +774,11 @@ def write_gallery(results, output, review_note=None, families=None):
            for index, (title, _, _) in enumerate(SCREEN_GROUPS, start=1)]
     )
     device_scope = " ve ".join(active_families)
+    subtitle = (
+        f"Gerçek {device_scope} simülatörü görüntülerini KitapDuy3 ile karşılaştırmak için ekranlara tıkla."
+        if has_android
+        else f"Gerçek {device_scope} simülatörü görüntülerini incelemek için ekranlara tıkla."
+    )
     page = f"""<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>KitapDuy iOS kullanıcı deneyimi</title><style>
 body{{font:16px system-ui;max-width:1080px;margin:32px auto;padding:0 16px;color:#29251f;background:#faf7f1}}
@@ -786,7 +791,7 @@ th:first-child{{width:24%}}td a{{display:block;margin:6px 0}}img{{display:block;
 .copy-btn{{background:#704527;color:#fff;border:0;border-radius:6px;padding:8px 14px;font:600 14px system-ui;cursor:pointer}}
 .review-note{{max-height:440px;overflow:auto;background:#faf7f1;border:1px solid #dfd6cb;border-radius:6px;padding:12px;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}}
 </style><h1>KitapDuy iOS kullanıcı deneyimi</h1>
-<p>Gerçek {device_scope} simülatörü görüntülerini KitapDuy3 ile karşılaştırmak için ekranlara tıkla.</p>
+<p>{subtitle}</p>
 <p>Senaryolar yerel örnek veriyle çalışır. Canlı hesap girişi, mağaza işlemleri ve fiziksel cihaz davranışı ayrı doğrulama gerektirir.</p>"""
     reference_info = reference / "source.txt"
     provenance = ""
@@ -1133,11 +1138,11 @@ def main(argv=None):
     parser.add_argument("--app", type=Path, required=True)
     parser.add_argument("--test-run", type=Path, required=True)
     parser.add_argument("--output", type=Path, default=Path("build/ios-smoke"))
-    parser.add_argument("--android-reference", type=Path, default=Path("ci/kitapduy3-reference"),
-                        help="Directory of Android reference PNGs named after report steps.")
+    parser.add_argument("--android-reference", type=Path, default=None,
+                        help="Optional directory of Android reference PNGs named after report steps.")
     parser.add_argument("--duration", type=int, default=125)
-    parser.add_argument("--devices", default=(os.environ.get("IOS_SMOKE_DEVICES") or "both"),
-                        help="Device families to test: both, iphone, or ipad (or IOS_SMOKE_DEVICES).")
+    parser.add_argument("--devices", default=(os.environ.get("IOS_SMOKE_DEVICES") or "iphone"),
+                        help="Device families to test: iphone, both, or ipad (or IOS_SMOKE_DEVICES).")
     parser.add_argument("--https-url", default=os.environ.get("IOS_SMOKE_HTTPS_URL", "https://www.apple.com/library/test/success.html"))
     args = parser.parse_args(argv)
     if args.duration < 1:
@@ -1164,7 +1169,7 @@ def main(argv=None):
     except Exception as failure:
         results = [{"name": "Simulator setup", "passed": False, "error": f"{type(failure).__name__}: {failure}"}]
         print(results[0]["error"], file=sys.stderr)
-    if args.android_reference.is_dir():
+    if args.android_reference and args.android_reference.is_dir():
         reference = output / "Android"
         try:
             reference.mkdir(parents=True, exist_ok=True)

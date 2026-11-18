@@ -403,7 +403,8 @@ class RunnerTest(unittest.TestCase):
                 patch.object(smoke.SimulatorRunner, "run_device", side_effect=fake_run_device) as run_mock:
             code = smoke.main(["--app", str(self.app), "--test-run", str(test_run), "--output", str(self.output)])
         self.assertEqual(code, 0)
-        self.assertEqual([c.args[0]["family"] for c in run_mock.call_args_list], ["iPhone", "iPad"])
+        self.assertEqual([c.args[0]["family"] for c in run_mock.call_args_list], ["iPhone"])
+        self.assertFalse((self.output / "Android").exists())
 
         with patch.dict(os.environ, {"IOS_SMOKE_DEVICES": "ipad"}, clear=False), \
                 patch.object(smoke.SimulatorRunner, "command", return_value=devices_payload), \
@@ -480,7 +481,8 @@ class RunnerTest(unittest.TestCase):
     def test_main_both_mode_fails_when_only_one_device_result_returned(self):
         test_run = self.root / "test.xctestrun"
         test_run.touch()
-        with patch.object(smoke, "SimulatorRunner") as runner_cls:
+        with patch.dict(os.environ, {"IOS_SMOKE_DEVICES": "both"}, clear=False), \
+                patch.object(smoke, "SimulatorRunner") as runner_cls:
             runner_cls.return_value.run.return_value = [{"name": "iPhone", "family": "iPhone", "passed": True, "error": ""}]
             code = smoke.main(["--app", str(self.app), "--test-run", str(test_run), "--output", str(self.output)])
         self.assertEqual(code, 1)

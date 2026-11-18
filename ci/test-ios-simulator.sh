@@ -26,7 +26,7 @@ info.setdefault("NSAppTransportSecurity", {})["NSAllowsLocalNetworking"] = True
 info_path.write_bytes(plistlib.dumps(info, fmt=plistlib.FMT_BINARY))
 PY
 
-devices="${IOS_SMOKE_DEVICES:-both}"
+devices="${IOS_SMOKE_DEVICES:-iphone}"
 smoke_args=(
   --app "$app"
   --test-run "${test_runs[0]}"
