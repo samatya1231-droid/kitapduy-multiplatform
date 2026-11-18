@@ -12,6 +12,7 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.postgrest.postgrest
+import io.ktor.client.HttpClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -128,7 +129,8 @@ private fun JsonObject?.stringOrNull(vararg keys: String): String? {
 
 class SupabaseAuthRepository(
     private val supabaseClient: SupabaseClient,
-    settings: Settings? = runCatching { Settings() }.getOrNull()
+    settings: Settings? = runCatching { Settings() }.getOrNull(),
+    private val httpClient: HttpClient? = null
 ) : AuthRepository {
     private val localStore = LocalUserStore(settings)
 
@@ -400,6 +402,16 @@ class SupabaseAuthRepository(
         }
     }
 
+    private suspend fun upsertUserRowIfMissing(cleanUid: String, buildFallback: (UserProfile) -> UserProfile): Boolean {
+        val existing = supabaseClient.postgrest["users"]
+            .select { filter { eq("uid", cleanUid) }; limit(1) }
+            .decodeSingleOrNull<UserProfile>()
+        if (existing != null) return false
+        val base = getUserProfile(cleanUid) ?: UserProfile(uid = cleanUid)
+        supabaseClient.postgrest["users"].upsert(buildFallback(base))
+        return true
+    }
+
     override suspend fun updateProfile(uid: String, name: String, bio: String, username: String?): Boolean {
         val cleanUid = uid.trim()
         if (cleanUid.isEmpty()) return false
@@ -413,8 +425,17 @@ class SupabaseAuthRepository(
                 localStore.putString(usernameKey(cleanUid), cleanUsername)
             }
             try {
-                val updateMap = mapOf("name" to cleanName, "bio" to cleanBio, "username" to cleanUsername)
-                supabaseClient.postgrest["users"].update(updateMap) { filter { eq("uid", cleanUid) } }
+                val inserted = upsertUserRowIfMissing(cleanUid) { base ->
+                    base.copy(
+                        name = cleanName.ifBlank { base.name },
+                        bio = cleanBio,
+                        username = cleanUsername ?: base.username
+                    )
+                }
+                if (!inserted) {
+                    val updateMap = mapOf("name" to cleanName, "bio" to cleanBio, "username" to cleanUsername)
+                    supabaseClient.postgrest["users"].update(updateMap) { filter { eq("uid", cleanUid) } }
+                }
                 if (cleanName.isNotEmpty()) {
                     supabaseClient.postgrest["posts"].update(mapOf("user_name" to cleanName)) { filter { eq("user_id", cleanUid) } }
                     supabaseClient.postgrest["feed_comments"].update(mapOf("user_name" to cleanName)) { filter { eq("user_id", cleanUid) } }
@@ -424,6 +445,13 @@ class SupabaseAuthRepository(
             } catch (e: Throwable) {
                 e.printStackTrace()
             }
+            CrossPlatformBridgeHelper.syncUserProfileToFirestore(
+                httpClient = httpClient,
+                uid = cleanUid,
+                name = cleanName.takeIf { it.isNotEmpty() },
+                username = cleanUsername,
+                bio = cleanBio
+            )
             true
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -436,17 +464,29 @@ class SupabaseAuthRepository(
     override suspend fun updateCoverPhoto(uid: String, photoUrl: String?): Boolean {
         val cleanUid = uid.trim()
         if (cleanUid.isEmpty() || cleanUid != currentUserUid) return false
+        val normalizedCover = photoUrl?.let { fixUrl(it) }?.ifBlank { null }
         return try {
-            localStore.putString(coverKey(cleanUid), photoUrl.orEmpty())
+            localStore.putString(coverKey(cleanUid), normalizedCover.orEmpty())
             try {
-                supabaseClient.postgrest["users"].update(mapOf("cover_photo_url" to photoUrl)) {
-                    filter { eq("uid", cleanUid) }
+                val inserted = upsertUserRowIfMissing(cleanUid) { base ->
+                    base.copy(coverPhotoUrl = normalizedCover)
+                }
+                if (!inserted) {
+                    supabaseClient.postgrest["users"].update(mapOf("cover_photo_url" to normalizedCover)) {
+                        filter { eq("uid", cleanUid) }
+                    }
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (e: Throwable) {
                 e.printStackTrace()
             }
+            CrossPlatformBridgeHelper.syncUserProfileToFirestore(
+                httpClient = httpClient,
+                uid = cleanUid,
+                coverPhotoUrl = normalizedCover,
+                includeCoverPhotoUrl = true
+            )
             true
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -462,8 +502,13 @@ class SupabaseAuthRepository(
         return try {
             localStore.putString(photoKey(cleanUid), normalizedPhoto.orEmpty())
             try {
-                val updateMap = mapOf("photo_url" to normalizedPhoto)
-                supabaseClient.postgrest["users"].update(updateMap) { filter { eq("uid", cleanUid) } }
+                val inserted = upsertUserRowIfMissing(cleanUid) { base ->
+                    base.copy(photoUrl = normalizedPhoto)
+                }
+                if (!inserted) {
+                    val updateMap = mapOf("photo_url" to normalizedPhoto)
+                    supabaseClient.postgrest["users"].update(updateMap) { filter { eq("uid", cleanUid) } }
+                }
                 supabaseClient.postgrest["posts"].update(mapOf("user_photo" to normalizedPhoto)) { filter { eq("user_id", cleanUid) } }
                 supabaseClient.postgrest["feed_comments"].update(mapOf("user_photo" to normalizedPhoto)) { filter { eq("user_id", cleanUid) } }
             } catch (cancelled: CancellationException) {
@@ -471,6 +516,12 @@ class SupabaseAuthRepository(
             } catch (e: Throwable) {
                 e.printStackTrace()
             }
+            CrossPlatformBridgeHelper.syncUserProfileToFirestore(
+                httpClient = httpClient,
+                uid = cleanUid,
+                photoUrl = normalizedPhoto,
+                includePhotoUrl = true
+            )
             true
         } catch (cancelled: CancellationException) {
             throw cancelled

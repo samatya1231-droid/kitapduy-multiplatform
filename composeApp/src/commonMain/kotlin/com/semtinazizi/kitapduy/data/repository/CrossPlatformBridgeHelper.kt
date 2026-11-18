@@ -272,4 +272,36 @@ internal object CrossPlatformBridgeHelper {
             null
         }
     }
+
+    suspend fun syncUserProfileToFirestore(
+        httpClient: HttpClient?,
+        uid: String,
+        name: String? = null,
+        username: String? = null,
+        bio: String? = null,
+        photoUrl: String? = null,
+        coverPhotoUrl: String? = null,
+        includePhotoUrl: Boolean = false,
+        includeCoverPhotoUrl: Boolean = false
+    ) {
+        val cleanUid = uid.trim()
+        if (isLocalFixture() || httpClient == null || cleanUid.isBlank()) return
+        try {
+            val payload = buildJsonObject {
+                put("uid", cleanUid)
+                if (name != null) put("name", name)
+                if (username != null) put("username", username)
+                if (bio != null) put("bio", bio)
+                if (includePhotoUrl) put("photoUrl", photoUrl.orEmpty())
+                if (includeCoverPhotoUrl) put("coverPhotoUrl", coverPhotoUrl.orEmpty())
+            }.toString()
+            httpClient.post("$BRIDGE_URL?action=sync_user_profile") {
+                contentType(ContentType.Application.Json)
+                setBody(payload)
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+        }
+    }
 }

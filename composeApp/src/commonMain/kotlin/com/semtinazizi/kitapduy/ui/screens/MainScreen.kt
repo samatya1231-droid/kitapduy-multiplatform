@@ -115,6 +115,13 @@ class MainScreen : Screen {
                         }
                         
                         KitapDuyFloatingNavigation { tab ->
+                            if (rootNavigator.canPop) {
+                                val mainRoot = rootNavigator.items.firstOrNull { it is MainScreen }
+                                    ?: rootNavigator.items.firstOrNull()
+                                if (mainRoot != null) {
+                                    rootNavigator.popUntil { it == mainRoot }
+                                }
+                            }
                             tabRootRequests[tab] = (tabRootRequests[tab] ?: 0) + 1
                             tabNavigator.current = tab
                         }

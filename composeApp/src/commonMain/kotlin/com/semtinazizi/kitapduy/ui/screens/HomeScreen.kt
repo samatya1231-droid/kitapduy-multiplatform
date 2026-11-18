@@ -91,6 +91,11 @@ class HomeScreen : Screen {
         val lazyListState = rememberLazyListState()
         val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
 
+        val showStickySearchBar by remember {
+            derivedStateOf {
+                lazyListState.firstVisibleItemIndex > 0 || lazyListState.firstVisibleItemScrollOffset > 15
+            }
+        }
         val searchBarAlpha by remember {
             derivedStateOf {
                 if (lazyListState.firstVisibleItemIndex > 0) 1f
@@ -160,7 +165,7 @@ class HomeScreen : Screen {
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 120.dp)
                     ) {
-                        item {
+                        item(key = "header_search") {
                             GreetingAndProfileBar(photoUrl, isPremium,
                                 onProfileClick = { navigator.push(UserProfileScreen()) },
                                 onPremiumClick = { navigator.root.push(SubscriptionPaywallScreen()) })
@@ -170,7 +175,7 @@ class HomeScreen : Screen {
                                     .graphicsLayer { alpha = (1f - searchBarAlpha).coerceIn(0f, 1f) }
                             ) { navigator.push(SearchScreen()) }
                         }
-                        item {
+                        item(key = "category_chips") {
                             val visibleCategories = remember(groupedBooks) {
                                 val allShownBooks = groupedBooks.values.flatten()
                                 val preferred = listOf("Türk Edebiyatı", "Polisiye", "Roman", "Dünya Edebiyatı")
@@ -189,7 +194,7 @@ class HomeScreen : Screen {
                                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                item {
+                                item(key = "cat_all") {
                                     FilterChip(
                                         selected = true,
                                         onClick = {},
@@ -201,7 +206,7 @@ class HomeScreen : Screen {
                                         border = null
                                     )
                                 }
-                                items(visibleCategories) { category ->
+                                items(visibleCategories, key = { "cat_$it" }) { category ->
                                     FilterChip(
                                         selected = false,
                                         onClick = { navigator.push(CategoryDetailScreen(category)) },
@@ -219,7 +224,7 @@ class HomeScreen : Screen {
                                 }
                             }
                         }
-                        item {
+                        item(key = "beyond_books") {
                             BeyondBooksCardsRow(
                                 onArenaClick = { navigator.push(QuizScreen()) },
                                 onAskidaClick = { navigator.push(AskidaKitapScreen()) },
@@ -229,7 +234,7 @@ class HomeScreen : Screen {
                             )
                         }
                         displayBook?.let { book ->
-                            item {
+                            item(key = "continue_listening") {
                                 val listeningMinutes = when {
                                     continueListeningBook == null -> 0L
                                     playingBook?.id == book.id -> {
@@ -253,7 +258,7 @@ class HomeScreen : Screen {
                                     listeningMinutes = listeningMinutes, onClick = { navigator.push(BookDetailScreen(book)) })
                             }
                         }
-                        if (recommendedBooks.isNotEmpty()) item {
+                        if (recommendedBooks.isNotEmpty()) item(key = "recommended_books") {
                             SpotifySectionHeader("Yeni hikâyeler keşfet")
                             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                 items(recommendedBooks, key = { it.id }) { book ->
@@ -261,7 +266,7 @@ class HomeScreen : Screen {
                                 }
                             }
                         }
-                        item {
+                        item(key = "moods") {
                             SpotifySectionHeader("Bugün nasıl bir hikâye?")
                             LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 items(moods, key = { it.id }) { mood ->
@@ -269,7 +274,7 @@ class HomeScreen : Screen {
                                 }
                             }
                         }
-                        if (englishBooks.isNotEmpty()) item {
+                        if (englishBooks.isNotEmpty()) item(key = "english_books") {
                             SpotifySectionHeader("İngilizce Sesli Kitaplar")
                             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                 items(englishBooks, key = { "en_${it.id}" }) { book ->
@@ -277,13 +282,13 @@ class HomeScreen : Screen {
                                 }
                             }
                         }
-                        if (podcasts.isNotEmpty()) item {
+                        if (podcasts.isNotEmpty()) item(key = "podcasts") {
                             SpotifySectionHeader("Podcast dünyası")
                             PodcastRow(podcasts.take(6)) {
                                 navigator.push(PodcastEpisodesScreen(it.id, it.name, it.rssUrl, it.imageUrl))
                             }
                         }
-                        if (!isPremium) item {
+                        if (!isPremium) item(key = "premium_upgrade") {
                             PremiumUpgradeCard(modifier = Modifier.padding(horizontal = 16.dp, vertical = 32.dp),
                                 isPremium = false, onClick = { navigator.root.push(SubscriptionPaywallScreen()) })
                         }
@@ -294,7 +299,7 @@ class HomeScreen : Screen {
                                     onBookClick = { navigator.push(BookDetailScreen(it)) })
                             }
                         }
-                        if (articles.isNotEmpty()) item {
+                        if (articles.isNotEmpty()) item(key = "articles") {
                             SpotifySectionHeader("Bilim & Düşünce")
                             ArticlesRow(articles) { navigator.push(ArticleDetailScreen(it.link, it.title)) }
                         }
@@ -303,14 +308,14 @@ class HomeScreen : Screen {
                 }
 
                 // Sticky Compact Search Bar
-                if (searchBarAlpha > 0.05f) {
+                if (showStickySearchBar) {
                     Surface(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .fillMaxWidth()
                             .graphicsLayer { alpha = searchBarAlpha },
                         color = MaterialTheme.colorScheme.background,
-                        shadowElevation = (8f * searchBarAlpha).dp
+                        shadowElevation = 4.dp
                     ) {
                         Box(modifier = Modifier.statusBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp)) {
                             SearchBarSection(

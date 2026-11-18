@@ -96,7 +96,18 @@ class AuthViewModel(
                     storageRepository.uploadProfilePicture(uid, photo.bytes, photo.extension).getOrThrow()
                 }
                 check(authRepository.currentUserUid == uid)
-                if (isCover) authRepository.updateCoverPhoto(uid, url) else authRepository.updateProfilePhoto(uid, url)
+                val updated = if (isCover) authRepository.updateCoverPhoto(uid, url) else authRepository.updateProfilePhoto(uid, url)
+                if (updated) {
+                    val current = _userProfile.value
+                    if (current?.uid == uid) {
+                        _userProfile.value = if (isCover) {
+                            current.copy(coverPhotoUrl = url)
+                        } else {
+                            current.copy(photoUrl = url)
+                        }
+                    }
+                }
+                updated
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {

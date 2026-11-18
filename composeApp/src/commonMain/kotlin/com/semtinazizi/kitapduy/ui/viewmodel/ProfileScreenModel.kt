@@ -102,22 +102,37 @@ class ProfileScreenModel(
         loadJob = (testScope ?: screenModelScope).launch {
             isLoading.value = true
             try {
-                val profile = try {
+                val isOwn = uid == authRepository.currentUserUid
+                val remoteProfile = try {
                     socialRepository.getUserProfile(uid)
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (e: Exception) {
                     null
-                } ?: try {
+                }
+                val authProfile = try {
                     authRepository.getUserProfile(uid)
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (e: Exception) {
                     null
-                } ?: UserProfile(
-                    uid = uid,
-                    name = if (uid == authRepository.currentUserUid) "KitapDuy Okuru" else "Okur"
-                )
+                }
+                val profile = when {
+                    isOwn && authProfile != null && remoteProfile != null -> remoteProfile.copy(
+                        name = authProfile.name.ifBlank { remoteProfile.name },
+                        bio = authProfile.bio.ifBlank { remoteProfile.bio },
+                        username = authProfile.username?.takeIf { it.isNotBlank() } ?: remoteProfile.username,
+                        photoUrl = authProfile.photoUrl ?: remoteProfile.photoUrl,
+                        coverPhotoUrl = authProfile.coverPhotoUrl ?: remoteProfile.coverPhotoUrl
+                    )
+                    isOwn && authProfile != null -> authProfile
+                    remoteProfile != null -> remoteProfile
+                    authProfile != null -> authProfile
+                    else -> UserProfile(
+                        uid = uid,
+                        name = if (isOwn) "KitapDuy Okuru" else "Okur"
+                    )
+                }
                 _targetUserProfile.value = profile
                 val posts = socialRepository.fetchUserPosts(uid)
                 val shelves = socialRepository.fetchUserShelves(uid).distinctBy { it.bookId to it.shelfType }

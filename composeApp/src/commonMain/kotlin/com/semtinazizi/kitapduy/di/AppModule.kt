@@ -22,7 +22,7 @@ val coreModule = module {
 
     // Gerçek Supabase Repositorileri
     single<com.semtinazizi.kitapduy.domain.repository.AuthRepository> {
-        com.semtinazizi.kitapduy.data.repository.SupabaseAuthRepository(get())
+        com.semtinazizi.kitapduy.data.repository.SupabaseAuthRepository(get(), httpClient = getOrNull())
     }
     single<com.semtinazizi.kitapduy.domain.repository.BookRepository> {
         com.semtinazizi.kitapduy.data.repository.SupabaseBookRepository(get(), get())
