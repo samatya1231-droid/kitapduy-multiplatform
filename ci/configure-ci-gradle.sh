@@ -37,9 +37,9 @@ fi
   fi
   if [[ "${mem_bytes:-0}" -gt 0 && "${mem_bytes:-0}" -le 8589934592 ]]; then
     # 7-8 GB runners (e.g. GitHub macos-26): cap JVM heaps and serialize workers to prevent OOM/swap thrashing.
-    printf 'org.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8 -XX:+UseG1GC\n'
-    printf 'kotlin.daemon.jvmargs=-Xmx1536m -XX:+UseG1GC\n'
-    printf 'kotlin.native.jvmArgs=-Xmx3584m -XX:+UseG1GC\n'
+    printf 'org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8 -XX:+UseG1GC\n'
+    printf 'kotlin.daemon.jvmargs=-Xmx2048m -XX:+UseG1GC\n'
+    printf 'kotlin.native.jvmArgs=-Xmx4096m -XX:+UseG1GC\n'
     printf 'org.gradle.parallel=false\n'
     printf 'org.gradle.tooling.parallel=false\n'
     printf 'org.gradle.workers.max=1\n'

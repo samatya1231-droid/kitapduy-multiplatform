@@ -21,13 +21,13 @@ if [[ "$current_opts" != *"-Xmx"* ]]; then
     fi
   fi
   if [[ "${mem_bytes:-0}" -gt 0 && "${mem_bytes:-0}" -le 8589934592 ]]; then
-    export GRADLE_OPTS="${current_opts:+$current_opts }\"-Dorg.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8 -XX:+UseG1GC\""
+    export GRADLE_OPTS="${current_opts:+$current_opts }\"-Dorg.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8 -XX:+UseG1GC\""
     extra_gradle_args=(
       --no-parallel
       --max-workers=1
-      "-Dorg.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8 -XX:+UseG1GC"
-      "-Pkotlin.daemon.jvmargs=-Xmx1536m -XX:+UseG1GC"
-      "-Pkotlin.native.jvmArgs=-Xmx3584m -XX:+UseG1GC"
+      "-Dorg.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8 -XX:+UseG1GC"
+      "-Pkotlin.daemon.jvmargs=-Xmx2048m -XX:+UseG1GC"
+      "-Pkotlin.native.jvmArgs=-Xmx4096m -XX:+UseG1GC"
     )
   else
     export GRADLE_OPTS="${current_opts:+$current_opts }\"-Dorg.gradle.jvmargs=-Xmx6g -Dfile.encoding=UTF-8 -XX:+UseG1GC\""

@@ -50,12 +50,12 @@ test('low-memory runner caps heap instead of forcing -Xmx6g and preserves custom
     });
   assert.ifError(lowMem.error);
   assert.equal(lowMem.status, 0, lowMem.stdout + lowMem.stderr);
-  assert.ok(lowMem.stdout.includes('"-Dorg.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8 -XX:+UseG1GC"'), lowMem.stdout);
+  assert.ok(lowMem.stdout.includes('"-Dorg.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8 -XX:+UseG1GC"'), lowMem.stdout);
   assert.ok(lowMem.stdout.includes('ARG=--no-parallel'), lowMem.stdout);
   assert.ok(lowMem.stdout.includes('ARG=--max-workers=1'), lowMem.stdout);
-  assert.ok(lowMem.stdout.includes('ARG=-Dorg.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8 -XX:+UseG1GC'), lowMem.stdout);
-  assert.ok(lowMem.stdout.includes('ARG=-Pkotlin.daemon.jvmargs=-Xmx1536m -XX:+UseG1GC'), lowMem.stdout);
-  assert.ok(lowMem.stdout.includes('ARG=-Pkotlin.native.jvmArgs=-Xmx3584m -XX:+UseG1GC'), lowMem.stdout);
+  assert.ok(lowMem.stdout.includes('ARG=-Dorg.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8 -XX:+UseG1GC'), lowMem.stdout);
+  assert.ok(lowMem.stdout.includes('ARG=-Pkotlin.daemon.jvmargs=-Xmx2048m -XX:+UseG1GC'), lowMem.stdout);
+  assert.ok(lowMem.stdout.includes('ARG=-Pkotlin.native.jvmArgs=-Xmx4096m -XX:+UseG1GC'), lowMem.stdout);
   assert.ok(!lowMem.stdout.includes('-Xmx6g'), lowMem.stdout);
 
   const customOpts = spawnSync(process.env.BASH_EXE || 'bash',
@@ -97,8 +97,8 @@ test('configure-ci-gradle.sh writes idempotent 7 GB runner settings without eras
   const content = fs.readFileSync(propsPath, 'utf8');
   assert.ok(content.includes('custom.user.prop=keep-me'), content);
   assert.ok(content.includes('org.gradle.java.home=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home'), content);
-  assert.ok(content.includes('org.gradle.jvmargs=-Xmx1536m'), content);
-  assert.ok(content.includes('kotlin.native.jvmArgs=-Xmx3584m'), content);
+  assert.ok(content.includes('org.gradle.jvmargs=-Xmx4096m'), content);
+  assert.ok(content.includes('kotlin.native.jvmArgs=-Xmx4096m'), content);
   assert.ok(content.includes('org.gradle.workers.max=1'), content);
   assert.equal((content.match(/# BEGIN KITAPDUY CI GRADLE/g) || []).length, 1, content);
 
