@@ -20,6 +20,7 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.*
 import androidx.compose.ui.text.style.*
 import androidx.compose.ui.unit.*
@@ -270,15 +271,21 @@ class CategoryDetailScreen(val categoryName: String) : Screen {
                                 
                                 Column(modifier = Modifier.fillMaxWidth()) {
                                     // Author Header
-                                    Row(
+                                    Surface(
+                                        onClick = { navigator.push(AuthorDetailScreen(author)) },
+                                        color = Color.Transparent,
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clickable { navigator.push(AuthorDetailScreen(author)) }
-                                            .padding(horizontal = 20.dp, vertical = 8.dp)
-                                            .testTag("category-author-$author"),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
+                                            .testTag("category-author-$author")
+                                            .semantics(mergeDescendants = true) {}
                                     ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 20.dp, vertical = 8.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Box(
                                                 modifier = Modifier
@@ -317,6 +324,7 @@ class CategoryDetailScreen(val categoryName: String) : Screen {
                                                 tint = Color.Gray,
                                                 modifier = Modifier.size(16.dp)
                                             )
+                                        }
                                         }
                                     }
                                     

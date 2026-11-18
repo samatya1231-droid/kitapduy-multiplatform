@@ -332,13 +332,9 @@ final class ReaderJourneyTests: XCTestCase {
         try step("43-author-detail") {
             let authorRow = element("category-author-Arthur Conan Doyle")
             try visible(authorRow, scroll: true)
-            let winH = app.windows.firstMatch.frame.height
-            if winH > 0 && authorRow.frame.maxY > winH - 180 {
-                swipeSafeUp()
-            }
             try tap(authorRow)
-            if authorRow.exists && isOnScreenAndHittable(authorRow) {
-                swipeSafeUp()
+            if !text("Popüler Eserleri", contains: true).waitForExistence(timeout: 2.5), authorRow.exists {
+                try visible(authorRow, scroll: true)
                 try tap(authorRow)
             }
             try visible(text("Arthur Conan Doyle", contains: true))
@@ -885,18 +881,24 @@ final class ReaderJourneyTests: XCTestCase {
             try tap(text("Geri"))
             try visible(element("quiz-start-classic"), scroll: true)
             try tap(element("quiz-challenges-button"), scroll: true)
-            try tap(element("quiz-tournament-button"))
+            if !element("quiz-tournament-button").waitForExistence(timeout: 2.5), element("quiz-challenges-button").exists {
+                try tap(element("quiz-challenges-button"), scroll: true)
+            }
+            try tap(element("quiz-tournament-button"), scroll: true)
             try tap(element("quiz-briefing-start"))
             try visible(text("Soru 1/10"))
             try visible(element("quiz-question-text"))
             try tap(text("Geri"))
-            try tap(element("quiz-start-blitz"))
+            try tap(element("quiz-start-blitz"), scroll: true)
             try tap(element("quiz-briefing-start"))
             try visible(text("Soru 1/10"))
             try visible(element("quiz-option-0"))
             try tap(text("Geri"))
             try tap(text("Geri"))
             try tap(element("quiz-duel-button"), scroll: true)
+            if !text("Çok Oyunculu Arena").waitForExistence(timeout: 2.5), element("quiz-duel-button").exists {
+                try tap(element("quiz-duel-button"), scroll: true)
+            }
             try visible(text("Çok Oyunculu Arena"))
             try visible(text("Oda Oluşturuldu", contains: true))
             recordProbe(
@@ -1192,7 +1194,15 @@ final class ReaderJourneyTests: XCTestCase {
         if scroll {
             for _ in 0..<8 {
                 if isOnScreenAndHittable(target) { return }
-                swipeSafeUp()
+                if target.exists && !target.frame.isEmpty && target.frame.minY < 60 {
+                    swipeSafeDown()
+                } else {
+                    swipeSafeUp()
+                }
+            }
+            for _ in 0..<6 {
+                if isOnScreenAndHittable(target) { return }
+                swipeSafeDown()
             }
         }
         do {

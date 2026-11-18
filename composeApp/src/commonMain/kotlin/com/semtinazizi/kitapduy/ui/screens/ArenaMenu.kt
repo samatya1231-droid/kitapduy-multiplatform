@@ -3,6 +3,7 @@ package com.semtinazizi.kitapduy.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -37,6 +38,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -256,24 +258,23 @@ private fun ArenaCard(
         onClick = onClick,
         shape = RoundedCornerShape(24.dp),
         border = BorderStroke(1.dp, accent.copy(alpha = 0.40f)),
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth().semantics(mergeDescendants = true) {}
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().background(gradient).padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             if (!badge.isNullOrBlank()) {
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = accent.copy(alpha = 0.16f),
-                    border = BorderStroke(0.5.dp, accent.copy(alpha = 0.35f))
+                Box(
+                    modifier = Modifier
+                        .background(accent.copy(alpha = 0.16f), RoundedCornerShape(50))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text(
                         text = badge,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = accent,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        color = accent
                     )
                 }
             }
