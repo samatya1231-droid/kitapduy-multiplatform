@@ -147,8 +147,97 @@ def serve_fixture():
             "bio": "Bilim ve sesli kitap meraklısı",
             "is_premium": False,
         },
+        {
+            "uid": "community_donor_3",
+            "name": "Zeynep Demir",
+            "username": "zeynep_okur",
+            "bio": "Rus klasikleri ve felsefe",
+            "is_premium": True,
+        },
+        {
+            "uid": "community_listener_1",
+            "name": "Asya Karahan",
+            "username": "asya_okur",
+            "bio": "Akşamları sesli kitap & kahve",
+            "is_premium": True,
+        },
     ]
-    posts = []
+    now_ts = datetime.now(timezone.utc)
+    now = now_ts.isoformat()
+    seeded_ts_1 = datetime.fromtimestamp(now_ts.timestamp() - 3600, timezone.utc).isoformat()
+    seeded_ts_2 = datetime.fromtimestamp(now_ts.timestamp() - 2400, timezone.utc).isoformat()
+    seeded_ts_3 = datetime.fromtimestamp(now_ts.timestamp() - 1800, timezone.utc).isoformat()
+    seeded_ts_4 = datetime.fromtimestamp(now_ts.timestamp() - 900, timezone.utc).isoformat()
+    posts = [
+        {
+            "id": 1,
+            "user_id": "community_donor_2",
+            "user_name": "Mert Kaya",
+            "user_photo": f"http://localhost/covers/cat_bilimkurgu_frankenstein.jpg",
+            "book_id": "DXRmYsBl10qfocIjJQYj",
+            "book_name": "Suç ve Ceza",
+            "comment": "Bu kitabı dinlemeye başladı 🎧",
+            "likes": 2,
+            "liked_by": "community_donor_1:0,community_donor_3:0",
+            "comment_count": 0,
+            "is_premium": False,
+            "image_url": f"http://localhost/covers/top_DXRmYsBl10qfocIjJQYj.jpg",
+            "poll_votes": {},
+            "poll_voters": [],
+            "created_at": seeded_ts_1,
+        },
+        {
+            "id": 2,
+            "user_id": "community_listener_1",
+            "user_name": "Asya Karahan",
+            "user_photo": f"http://localhost/covers/cat_kurk.jpg" if "cat_kurk.jpg" in covers else "",
+            "book_id": "lX29B2MpxEshEZY0ihlA",
+            "book_name": "Kürk Mantolu Madonna",
+            "comment": "Bu kitabı dinlemeye başladı 🎧",
+            "likes": 4,
+            "liked_by": "community_donor_1:0,community_donor_2:0",
+            "comment_count": 0,
+            "is_premium": True,
+            "image_url": f"http://localhost/covers/top_lX29B2MpxEshEZY0ihlA.jpg",
+            "poll_votes": {},
+            "poll_voters": [],
+            "created_at": seeded_ts_2,
+        },
+        {
+            "id": 3,
+            "user_id": "community_donor_3",
+            "user_name": "Zeynep Demir",
+            "user_photo": "",
+            "book_id": "DXRmYsBl10qfocIjJQYj",
+            "book_name": "Suç ve Ceza",
+            "comment": "Dostoyevski'nin vicdan çözümlemeleri her dinleyişte insanı yeniden düşündürüyor.",
+            "likes": 7,
+            "liked_by": "community_donor_1:0,community_donor_2:0,community_listener_1:0",
+            "comment_count": 0,
+            "is_premium": True,
+            "image_url": "",
+            "poll_votes": {},
+            "poll_voters": [],
+            "created_at": seeded_ts_3,
+        },
+        {
+            "id": 4,
+            "user_id": "community_donor_1",
+            "user_name": "Elif Yılmaz",
+            "user_photo": "",
+            "book_id": "",
+            "book_name": "Genel Paylaşım",
+            "comment": "Akşam sessizliğinde Kürk Mantolu Madonna dinlemek güne harika bir dinginlik katıyor.",
+            "likes": 5,
+            "liked_by": "community_donor_3:0,community_listener_1:0",
+            "comment_count": 0,
+            "is_premium": True,
+            "image_url": "",
+            "poll_votes": {},
+            "poll_voters": [],
+            "created_at": seeded_ts_4,
+        },
+    ]
     feed_comments = []
     user_bookshelves = []
     favorites = []
@@ -210,13 +299,12 @@ def serve_fixture():
     quiz_matches = []
     requests = []
     state_lock = Lock()
-    now = datetime.now(timezone.utc).isoformat()
     notifications = [
         {"id": 1, "receiver_id": USER_ID, "message": "Deneme bildirimi", "is_read": False,
          "created_at": now, "type": "book", "book_id": BOOK_ID}
     ]
     id_counters = {
-        "posts": 0,
+        "posts": 10,
         "feed_comments": 0,
         "user_bookshelves": 0,
         "favorites": 0,
@@ -360,7 +448,25 @@ def serve_fixture():
                     <duration>00:24:10</duration></item>
                     <item><title>Geleceğin Okuma Kültürü</title><description>Sesli kitaplar ve dijital hafıza.</description>
                     <enclosure url="{base}/audio.mp3?episode=2" type="audio/mpeg" length="{len(audio)}"/>
-                    <duration>00:18:45</duration></item></channel></rss>"""
+                    <duration>00:18:45</duration></item>
+                    <item><title>Yapay Zeka ve İnsan Aklı</title><description>Üretken zeka çağında özgün düşünmek.</description>
+                    <enclosure url="{base}/audio.mp3?episode=3" type="audio/mpeg" length="{len(audio)}"/>
+                    <duration>00:27:30</duration></item>
+                    <item><title>Evrendeki Yalnızlığımız</title><description>Fermi paradoksu ve derin uzay gözlemleri.</description>
+                    <enclosure url="{base}/audio.mp3?episode=4" type="audio/mpeg" length="{len(audio)}"/>
+                    <duration>00:31:15</duration></item>
+                    <item><title>Altın Oran ve Tasarım</title><description>Doğanın matematiği ve estetik ilkeler.</description>
+                    <enclosure url="{base}/audio.mp3?episode=5" type="audio/mpeg" length="{len(audio)}"/>
+                    <duration>00:22:05</duration></item>
+                    <item><title>Zinciri Kırma Sanatı</title><description>Günlük üretkenlik ve sürdürülebilir alışkanlıklar.</description>
+                    <enclosure url="{base}/audio.mp3?episode=6" type="audio/mpeg" length="{len(audio)}"/>
+                    <duration>00:19:50</duration></item>
+                    <item><title>Görünmeyen Renkler</title><description>Işık spektrumu, algı ve insan gözünün sınırları.</description>
+                    <enclosure url="{base}/audio.mp3?episode=7" type="audio/mpeg" length="{len(audio)}"/>
+                    <duration>00:25:40</duration></item>
+                    <item><title>Leonardo da Vinci'nin Defterleri</title><description>Merak, gözlem ve disiplinler arası düşünme.</description>
+                    <enclosure url="{base}/audio.mp3?episode=8" type="audio/mpeg" length="{len(audio)}"/>
+                    <duration>00:29:10</duration></item></channel></rss>"""
                 elif feed == "kuran":
                     rss = f"""<rss version="2.0"><channel><title>Kur'an-ı Kerim Türkçe Meali</title>
                     <item><title>Fatiha ve Bakara Seçkisi</title><description>Anlam odaklı sesli meal dinletisi.</description>
@@ -431,7 +537,14 @@ def serve_fixture():
                 elif table == "users":
                     rows = [dict(profile), *(dict(u) for u in community_users)]
                 elif table == "posts":
-                    rows = [dict(post) for post in reversed(posts)]
+                    rows = []
+                    for post in reversed(posts):
+                        resolved = dict(post)
+                        for url_key in ("user_photo", "image_url"):
+                            val = resolved.get(url_key) or ""
+                            if val.startswith("http://localhost/covers/"):
+                                resolved[url_key] = val.replace("http://localhost/covers/", f"{base}/covers/", 1)
+                        rows.append(resolved)
                 elif table == "feed_comments":
                     rows = [dict(comment) for comment in reversed(feed_comments)]
                 elif table == "user_bookshelves":
@@ -653,6 +766,7 @@ def serve_fixture():
             parsed = urlsplit(self.path)
             allowed = (
                 "/rest/v1/users",
+                "/rest/v1/books",
                 "/rest/v1/posts",
                 "/rest/v1/feed_comments",
                 "/rest/v1/notifications",
@@ -675,6 +789,11 @@ def serve_fixture():
                         profile.update(body)
                         updated.append(dict(profile))
                         requests.append("update_profile")
+                elif parsed.path == "/rest/v1/books":
+                    for item in catalog_templates:
+                        if matches_filters(item, query):
+                            item.update(body)
+                            updated.append(dict(item))
                 elif parsed.path == "/rest/v1/posts":
                     for post in posts:
                         if matches_filters(post, query):

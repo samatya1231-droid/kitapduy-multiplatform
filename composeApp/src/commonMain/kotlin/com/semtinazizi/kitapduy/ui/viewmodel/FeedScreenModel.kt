@@ -14,9 +14,11 @@ import io.github.vinceglb.filekit.core.PlatformFile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 
@@ -96,6 +98,9 @@ class FeedScreenModel(
     private val _canLoadMore = MutableStateFlow(true)
     val canLoadMore: StateFlow<Boolean> = _canLoadMore.asStateFlow()
 
+    private val _unreadNotificationCount = MutableStateFlow(0)
+    val unreadNotificationCount: StateFlow<Int> = _unreadNotificationCount.asStateFlow()
+
     private var generalOffset = 0L
     private var listeningOffset = 0L
 
@@ -110,11 +115,45 @@ class FeedScreenModel(
                 _generalFeedItems.value = updated
             }
         }
+        screenModelScope.launch {
+            while (isActive) {
+                delay(12_000L)
+                refreshFeedSilently()
+            }
+        }
     }
 
     override fun onDispose() {
         feedRepository.stopRealtimeListening()
         super.onDispose()
+    }
+
+    suspend fun refreshFeedSilently() {
+        if (_isLoading.value || _isLoadingMore.value) return
+        try {
+            coroutineScope {
+                val generalDeferred = async { feedRepository.getFeedItems(excludeListen = true, limit = 50, offset = 0) }
+                val listeningDeferred = async { feedRepository.getListeningFeedItems(limit = 50, offset = 0) }
+                val unreadDeferred = async { actions.unreadNotificationCount() }
+
+                val freshGeneral = generalDeferred.await().filter { it.type != FeedType.LISTEN }
+                val freshListening = listeningDeferred.await().filter { it.type == FeedType.LISTEN }
+                val unread = unreadDeferred.await()
+
+                if (freshGeneral.isNotEmpty()) {
+                    _generalFeedItems.value = (freshGeneral + _generalFeedItems.value).distinctBy { it.id }
+                }
+                if (freshListening.isNotEmpty()) {
+                    val mergedListening = (freshListening + _listeningFeedItems.value).distinctBy { it.id }
+                    _listeningFeedItems.value = mergedListening
+                    _listeningRibbonItems.value = computeListeningRibbon(mergedListening)
+                }
+                _unreadNotificationCount.value = unread
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+        }
     }
 
     fun loadFeed(isRefresh: Boolean = false) {
@@ -132,9 +171,11 @@ class FeedScreenModel(
                 coroutineScope {
                     val generalDeferred = async { feedRepository.getFeedItems(excludeListen = true, limit = 50, offset = 0) }
                     val listeningDeferred = async { feedRepository.getListeningFeedItems(limit = 50, offset = 0) }
+                    val unreadDeferred = async { actions.unreadNotificationCount() }
 
                     val generalRaw = generalDeferred.await()
                     val listeningRaw = listeningDeferred.await()
+                    _unreadNotificationCount.value = unreadDeferred.await()
 
                     generalOffset = generalRaw.size.toLong()
                     listeningOffset = listeningRaw.size.toLong()

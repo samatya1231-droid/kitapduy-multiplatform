@@ -9,21 +9,53 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /** Uses the same posts and shelf records as the Android application. */
-class FeedActionsRepository(private val client: SupabaseClient, private val auth: AuthRepository) {
+class FeedActionsRepository(
+    private val client: SupabaseClient,
+    private val auth: AuthRepository,
+    private val httpClient: io.ktor.client.HttpClient? = null
+) {
     private val mutationLock = Mutex()
     private fun uid(): String = auth.currentUserUid?.takeIf { it.isNotBlank() }
         ?: error("Lütfen giriş yapın.")
 
-    suspend fun toggleLike(postId: String, reaction: Int) = mutationLock.withLock {
-        val userId = uid()
-        val post = client.postgrest["posts"].select { filter { eq("id", postId.toLong()) } }.decodeSingle<SupabasePost>()
-        val likes = post.likedBy.orEmpty().split(',').filter { it.isNotBlank() }.toMutableList()
-        val previous = likes.firstOrNull { it.substringBefore(':') == userId }
-        likes.removeAll { it.substringBefore(':') == userId }
-        if (previous == null || (previous != userId && previous != "$userId:$reaction")) likes.add("$userId:$reaction")
-        client.postgrest["posts"].update({
-            set("liked_by", likes.joinToString(",")); set("likes", likes.size)
-        }) { filter { eq("id", postId.toLong()) } }
+    suspend fun unreadNotificationCount(): Int {
+        val userId = auth.currentUserUid?.takeIf { it.isNotBlank() } ?: return 0
+        return CrossPlatformBridgeHelper.unreadNotificationCount(client, userId)
+    }
+
+    suspend fun toggleLike(postId: String, reaction: Int) {
+        var notifyReceiver: String? = null
+        var notifySenderName = "Bir okur"
+        var notifySenderId = ""
+        mutationLock.withLock {
+            val userId = uid()
+            notifySenderId = userId
+            val post = client.postgrest["posts"].select { filter { eq("id", postId.toLong()) } }.decodeSingle<SupabasePost>()
+            val likes = post.likedBy.orEmpty().split(',').filter { it.isNotBlank() }.toMutableList()
+            val previous = likes.firstOrNull { it.substringBefore(':') == userId }
+            likes.removeAll { it.substringBefore(':') == userId }
+            val newlyLiked = previous == null
+            if (previous == null || (previous != userId && previous != "$userId:$reaction")) likes.add("$userId:$reaction")
+            client.postgrest["posts"].update({
+                set("liked_by", likes.joinToString(",")); set("likes", likes.size)
+            }) { filter { eq("id", postId.toLong()) } }
+            if (newlyLiked && !post.userId.isNullOrBlank() && post.userId != userId) {
+                notifyReceiver = post.userId
+                notifySenderName = auth.getUserProfile(userId)?.name?.takeIf { it.isNotBlank() } ?: "Bir okur"
+            }
+        }
+        notifyReceiver?.let { receiverId ->
+            CrossPlatformBridgeHelper.sendSocialNotification(
+                supabaseClient = client,
+                httpClient = httpClient,
+                receiverId = receiverId,
+                senderId = notifySenderId,
+                senderName = notifySenderName,
+                type = "like",
+                message = "$notifySenderName gönderini beğendi! ❤️",
+                targetId = postId
+            )
+        }
     }
 
     suspend fun vote(postId: String, option: Int) = mutationLock.withLock {

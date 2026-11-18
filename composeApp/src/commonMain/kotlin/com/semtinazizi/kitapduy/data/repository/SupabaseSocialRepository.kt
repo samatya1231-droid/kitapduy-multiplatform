@@ -19,7 +19,8 @@ import kotlinx.coroutines.CancellationException
 class SupabaseSocialRepository(
     private val supabaseClient: SupabaseClient,
     private val authRepository: AuthRepository,
-    settings: Settings? = runCatching { Settings() }.getOrNull()
+    settings: Settings? = runCatching { Settings() }.getOrNull(),
+    private val httpClient: io.ktor.client.HttpClient? = null
 ) : SocialRepository {
     private val localStore = LocalUserStore(settings)
 
@@ -34,7 +35,30 @@ class SupabaseSocialRepository(
     }
 
     override suspend fun getUserProfile(userId: String): UserProfile? {
-        return authRepository.getUserProfile(userId)
+        authRepository.getUserProfile(userId)?.let { return it }
+        CrossPlatformBridgeHelper.fetchBridgeUserProfile(httpClient, userId)?.let { return it }
+        return try {
+            val post = supabaseClient.postgrest["posts"]
+                .select {
+                    filter { eq("user_id", userId) }
+                    order("created_at", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+                    limit(1)
+                }
+                .decodeList<SupabasePost>()
+                .firstOrNull() ?: return null
+            UserProfile(
+                uid = userId,
+                name = post.userName?.takeIf { it.isNotBlank() } ?: "KitapDuy Okuru",
+                username = "okur_${userId.take(5)}",
+                bio = "Merhaba, ben bir KitapDuy okuruyum!",
+                photoUrl = fixUrl(post.userPhoto),
+                isPremium = post.isPremium ?: false
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            null
+        }
     }
 
     override suspend fun searchUsers(query: String): List<UserProfile> {
@@ -170,6 +194,18 @@ class SupabaseSocialRepository(
     override suspend fun follow(followerId: String, followingId: String) {
         try {
             supabaseClient.postgrest["followers"].insert(SupabaseFollowRecord(followerId, followingId))
+            val senderName = runCatching { authRepository.getUserProfile(followerId)?.name }
+                .getOrNull()?.takeIf { it.isNotBlank() } ?: "Bir okur"
+            CrossPlatformBridgeHelper.sendSocialNotification(
+                supabaseClient = supabaseClient,
+                httpClient = httpClient,
+                receiverId = followingId,
+                senderId = followerId,
+                senderName = senderName,
+                type = "follow",
+                message = "$senderName seni takip etmeye başladı! 👋",
+                targetId = followerId
+            )
         } catch (e: Exception) {
             throw e
         }

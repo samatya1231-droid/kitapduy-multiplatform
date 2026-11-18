@@ -34,6 +34,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Explore
@@ -133,6 +135,7 @@ data class AdvisorMessage(
 
 class LiteraryAdvisorScreenModel : ScreenModel {
     val messages = mutableStateListOf<AdvisorMessage>()
+    val savedMessageIds = mutableStateListOf<String>()
     var currentInput by mutableStateOf("")
     var showDiscovery by mutableStateOf(true)
     var responseDepth by mutableStateOf("auto")
@@ -142,6 +145,11 @@ class LiteraryAdvisorScreenModel : ScreenModel {
     var initialPromptHandled by mutableStateOf(false)
     var messageSeq by mutableStateOf(0)
         private set
+
+    fun toggleSaveMessage(messageId: String) {
+        if (messageId.isBlank()) return
+        if (messageId in savedMessageIds) savedMessageIds.remove(messageId) else savedMessageIds.add(messageId)
+    }
 
     fun submitPrompt(rawPrompt: String, explicitIntent: String?, catalog: List<Book>): Boolean {
         val cleanPrompt = rawPrompt.trim()
@@ -319,8 +327,9 @@ class LiteraryAdvisorScreen(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
+                            val userTurns = messages.count { it.sender == AdvisorSender.USER }
                             Text(
-                                text = if (isPremium) "Bilge Sahaf • Premium rehberlik" else "Bilge Sahaf • Sesli kitap rehberi",
+                                text = if (isPremium) "Bilge Sahaf • 👑 Premium Sınırsız ($userTurns/50)" else "Bilge Sahaf • Günlük Rehber ($userTurns/3)",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -417,6 +426,8 @@ class LiteraryAdvisorScreen(
                         } else {
                             AdvisorMessageBubble(
                                 message = message,
+                                isSaved = message.id in advisorModel.savedMessageIds,
+                                onToggleSave = { advisorModel.toggleSaveMessage(message.id) },
                                 onBookClick = { book -> navigator.push(BookDetailScreen(book)) },
                                 onRead = { advisorModel.readingMessage = message },
                                 onFollowUp = { followUpPrompt ->
@@ -725,6 +736,8 @@ private fun UserMessageBubble(message: AdvisorMessage) {
 @Composable
 private fun AdvisorMessageBubble(
     message: AdvisorMessage,
+    isSaved: Boolean = false,
+    onToggleSave: () -> Unit = {},
     onBookClick: (Book) -> Unit,
     onRead: () -> Unit,
     onFollowUp: (String) -> Unit
@@ -794,6 +807,14 @@ private fun AdvisorMessageBubble(
                 Text("Okuma görünümü", style = MaterialTheme.typography.labelMedium)
             }
             Spacer(Modifier.weight(1f))
+            IconButton(onClick = onToggleSave) {
+                Icon(
+                    imageVector = if (isSaved) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
+                    contentDescription = if (isSaved) "Kaydedildi" else "Yanıtı kaydet",
+                    modifier = Modifier.size(19.dp),
+                    tint = if (isSaved) SleekChampagne else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             IconButton(onClick = { clipboard.setText(AnnotatedString(message.content)) }) {
                 Icon(
                     imageVector = Icons.Filled.ContentCopy,
@@ -1082,20 +1103,7 @@ internal fun parseBasicMarkdown(text: String): AnnotatedString = buildAnnotatedS
 }
 
 private fun normalizeAdvisorText(input: String): String =
-    input.replace('İ', 'i').lowercase()
-        .replace("\u0307", "")
-        .replace('ç', 'c')
-        .replace('ğ', 'g')
-        .replace('ı', 'i')
-        .replace('ö', 'o')
-        .replace('ş', 's')
-        .replace('ü', 'u')
-        .replace('â', 'a')
-        .replace('î', 'i')
-        .replace('û', 'u')
-        .replace(Regex("[^a-z0-9\\s]"), " ")
-        .replace(Regex("\\s+"), " ")
-        .trim()
+    KmpLiteraryAdvisorKnowledge.normalize(input)
 
 private const val ICIMIZDEKI_SEYTAN = "İçimizdeki Şeytan"
 private val analysisRequest = Regex("\\b(?:anlat\\w*|ozet\\w*|incele\\w*|yorumla\\w*|analiz\\w*|konusu|konus\\w*|hakkinda|kimdir|nedir|degerlendir\\w*)\\b")
@@ -1117,24 +1125,38 @@ private fun buildWorkReply(
     spoilerNote: String
 ): AdvisorMessage {
     val catalogBooks = catalog.filter { !it.category.equals("Podcast", ignoreCase = true) }
-    val titles = (catalogBooks.map { it.title } + ICIMIZDEKI_SEYTAN)
+    val titles = (catalogBooks.map { it.title } + KmpLiteraryAdvisorKnowledge.allKnownWorkTitles + ICIMIZDEKI_SEYTAN)
         .distinctBy(::normalizeAdvisorText)
         .filter { mentionsTitle(normalizedPrompt, it) }
         .sortedByDescending { it.length }
-    val title = titles.firstOrNull() ?: previousTitle?.takeIf { previousWorkReference.containsMatchIn(normalizedPrompt) }
+    val matchedMp = KmpLiteraryAdvisorKnowledge.findMasterpieceAnalysis(normalizedPrompt, titles.firstOrNull(), depth)
+    val title = titles.firstOrNull()
+        ?: matchedMp?.title
+        ?: previousTitle?.takeIf { previousWorkReference.containsMatchIn(normalizedPrompt) }
     val selectedBook = catalogBooks.firstOrNull { normalizeAdvisorText(it.title) == title?.let(::normalizeAdvisorText) }
+    val extraMp = KmpLiteraryAdvisorKnowledge.findMasterpieceAnalysis(normalizedPrompt, selectedBook?.title ?: title, depth)
+
+    val recs = if (selectedBook != null) {
+        listOf(selectedBook)
+    } else if (extraMp != null && extraMp.suggestedTags.isNotEmpty()) {
+        findCatalogMatches(extraMp.suggestedTags.joinToString(" "), catalog, limit = 2)
+    } else {
+        emptyList()
+    }
+
     val synopsis = when {
         title == null -> "İncelemek istediğin eseri belirleyemedim. Tam adını ve biliyorsan yazarını yazar mısın?"
-        normalizeAdvisorText(title) == normalizeAdvisorText(ICIMIZDEKI_SEYTAN) -> {
-            // https://kitap.ykykultur.com.tr/kitaplar/icimizdeki-seytan-butun-yapitlari
-            val introduction = "**İçimizdeki Şeytan**, Sabahattin Ali’nin Ömer ile Macide’nin ilişkisi üzerinden insanın kendi seçimlerinin sorumluluğunu sorguladığı bir roman. Ömer, savunamadığı davranışlarını ‘içindeki şeytana’ yükler. Roman, bu bahaneyi irade ve çevre baskısı üzerinden tartışır."
-            if (depth != "deep") introduction else "$introduction\n\nEseri okurken Ömer’in kendisi hakkında söyledikleriyle Macide’ye karşı yaptıklarını yan yana düşün. Aralarındaki mesafe, romanın kişinin kendini nasıl aldattığına dair en güçlü ipuçlarından biri."
-        }
         selectedBook != null -> {
             val heading = "**${selectedBook.title}** — ${selectedBook.author}"
             val description = selectedBook.description.trim()
-            if (description.isEmpty()) "$heading\n\nBu eser için ayrıntılı bir tanıtım bulamadım." else "$heading\n\nKatalog tanıtımı\n\n$description"
+            val catalogBlock = if (description.isEmpty()) heading else "$heading\n\nKatalog tanıtımı\n\n$description"
+            if (extraMp != null) {
+                "$catalogBlock\n\n${KmpLiteraryAdvisorKnowledge.formatMasterpieceReply(extraMp, depth)}"
+            } else {
+                catalogBlock
+            }
         }
+        extraMp != null -> KmpLiteraryAdvisorKnowledge.formatMasterpieceReply(extraMp, depth)
         else -> "**$title** için ayrıntılı bir tanıtım bulamadım. İncelemek istediğin bölümden kısa bir parça paylaşabilirsin."
     }
     return AdvisorMessage(
@@ -1143,7 +1165,7 @@ private fun buildWorkReply(
         content = synopsis + spoilerNote,
         intent = "analysis",
         answerKind = "Eser hakkında",
-        recommendedBooks = listOfNotNull(selectedBook),
+        recommendedBooks = recs,
         analyzedTitle = title
     )
 }
@@ -1299,11 +1321,33 @@ private fun buildAdvisorReply(
         )
     }
 
+    val mentionsKnownWork = catalog.any { mentionsTitle(q, it.title) } ||
+        KmpLiteraryAdvisorKnowledge.allKnownWorkTitles.any { mentionsTitle(q, it) } ||
+        KmpLiteraryAdvisorKnowledge.findMasterpieceAnalysis(q, null, depth) != null
     val asksAboutWork = explicitIntent == "analysis" || analysisRequest.containsMatchIn(q) ||
-        previousWorkReference.containsMatchIn(q) || catalog.any { mentionsTitle(q, it.title) } ||
-        mentionsTitle(q, ICIMIZDEKI_SEYTAN)
+        previousWorkReference.containsMatchIn(q) || mentionsKnownWork
     if (asksAboutWork && explicitIntent != "recommendation" && !recommendationRequest.containsMatchIn(q)) {
-        return buildWorkReply(q, catalog, previousTitle, depth, spoilerNote)
+        val workReply = buildWorkReply(q, catalog, previousTitle, depth, spoilerNote)
+        if (workReply.analyzedTitle != null) return workReply
+    }
+
+    val conceptMatch = KmpLiteraryAdvisorKnowledge.findConceptReply(q, depth)
+    if (conceptMatch != null && explicitIntent != "recommendation") {
+        val (concept, bodyText) = conceptMatch
+        val queryForCatalog = if (concept.recommendedAuthors.isNotEmpty()) {
+            "$prompt ${concept.recommendedAuthors.joinToString(" ")}"
+        } else {
+            prompt
+        }
+        val conceptRecs = findCatalogMatches(queryForCatalog, catalog, limit = 2)
+        return AdvisorMessage(
+            id = "",
+            sender = AdvisorSender.ADVISOR,
+            content = "$bodyText$spoilerNote",
+            intent = explicitIntent ?: "analysis",
+            answerKind = concept.categoryLabel,
+            recommendedBooks = conceptRecs
+        )
     }
 
     val recs = findCatalogMatches(prompt, catalog, limit = 2)

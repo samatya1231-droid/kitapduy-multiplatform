@@ -36,10 +36,13 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import com.semtinazizi.kitapduy.platform.BillingManager
 import com.semtinazizi.kitapduy.platform.PurchaseResult
 import com.semtinazizi.kitapduy.platform.SubscriptionProduct
 import com.semtinazizi.kitapduy.ui.theme.PlayfairDisplayFamily
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -163,8 +166,28 @@ class SubscriptionPaywallScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val billing = koinInject<BillingManager>()
+        val authRepository = koinInject<AuthRepository>()
+        val supabaseClient = koinInject<SupabaseClient>()
         val scope = rememberCoroutineScope()
         val premium by billing.isPremium.collectAsState()
+
+        suspend fun syncPremiumStatusToBackend(active: Boolean) {
+            val uid = authRepository.currentUserUid?.takeIf { it.isNotBlank() } ?: return
+            runCatching {
+                supabaseClient.postgrest["users"].update({ set("is_premium", active) }) {
+                    filter { eq("uid", uid) }
+                }
+            }
+            runCatching {
+                supabaseClient.postgrest["posts"].update({ set("is_premium", active) }) {
+                    filter { eq("user_id", uid) }
+                }
+            }
+        }
+
+        LaunchedEffect(premium) {
+            if (premium) syncPremiumStatusToBackend(true)
+        }
         var products by remember { mutableStateOf<List<SubscriptionProduct>>(emptyList()) }
         var loading by remember { mutableStateOf(true) }
         var busy by remember { mutableStateOf(false) }
@@ -537,9 +560,12 @@ class SubscriptionPaywallScreen : Screen {
                             fontSize = 16.sp
                         )
                         listOf(
-                            "Premium odak sesleri",
-                            "Detaylı dinleme analizi",
-                            "Özel okur rozeti"
+                            "Reklamsız ve kesintisiz dinleme deneyimi",
+                            "Sınırsız Edebi Danışman & Kişisel Okuma Rotası",
+                            "Sosyal Akışta Altın Premium Rozeti",
+                            "KitapDuy Arena Sınırsız Düello Bileti",
+                            "Premium odak sesleri ve çevrimdışı indirme",
+                            "7 Gün Ücretsiz Deneme ile dilediğin an iptal et"
                         ).forEach { feature ->
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -586,7 +612,10 @@ class SubscriptionPaywallScreen : Screen {
                             scope.launch {
                                 try {
                                     when (billing.startSubscription(product.id)) {
-                                        PurchaseResult.SUCCESS -> message = "Satın alma tamamlandı. Premium erişiminiz güncellendi."
+                                        PurchaseResult.SUCCESS -> {
+                                            syncPremiumStatusToBackend(true)
+                                            message = "Satın alma tamamlandı. Premium erişiminiz güncellendi."
+                                        }
                                         PurchaseResult.CANCELLED -> message = "Satın alma iptal edildi."
                                         PurchaseResult.ERROR -> {
                                             message = "Satın alma tamamlanamadı. Lütfen tekrar deneyin."
@@ -653,6 +682,7 @@ class SubscriptionPaywallScreen : Screen {
                         scope.launch {
                             try {
                                 billing.restorePurchases()
+                                if (billing.isPremium.value) syncPremiumStatusToBackend(true)
                                 message = if (billing.isPremium.value) "Premium aboneliğiniz geri yüklendi."
                                 else "Bu mağaza hesabında aktif abonelik bulunamadı."
                             } catch (cancelled: CancellationException) { throw cancelled }

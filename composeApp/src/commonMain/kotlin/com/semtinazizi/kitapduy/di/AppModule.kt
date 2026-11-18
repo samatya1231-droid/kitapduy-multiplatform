@@ -31,15 +31,15 @@ val coreModule = module {
         com.semtinazizi.kitapduy.data.repository.SupabaseFeedRepository(get(), get())
     }
     single<com.semtinazizi.kitapduy.domain.repository.SocialRepository> {
-        com.semtinazizi.kitapduy.data.repository.SupabaseSocialRepository(get(), get())
+        com.semtinazizi.kitapduy.data.repository.SupabaseSocialRepository(get(), get(), httpClient = getOrNull())
     }
 
     single<com.semtinazizi.kitapduy.domain.repository.QuizMultiplayerRepository> {
-        com.semtinazizi.kitapduy.data.repository.SupabaseQuizMultiplayerRepository(get())
+        com.semtinazizi.kitapduy.data.repository.SupabaseQuizMultiplayerRepository(get(), getOrNull())
     }
     single { io.ktor.client.HttpClient() }
-    single<com.semtinazizi.kitapduy.domain.repository.PostDetailRepository> { com.semtinazizi.kitapduy.data.repository.SupabasePostDetailRepository(get(), get()) }
-    single { com.semtinazizi.kitapduy.data.repository.FeedActionsRepository(get(), get()) }
+    single<com.semtinazizi.kitapduy.domain.repository.PostDetailRepository> { com.semtinazizi.kitapduy.data.repository.SupabasePostDetailRepository(get(), get(), getOrNull()) }
+    single { com.semtinazizi.kitapduy.data.repository.FeedActionsRepository(get(), get(), getOrNull()) }
 
     single<com.semtinazizi.kitapduy.data.repository.StorageRepository> {
         com.semtinazizi.kitapduy.data.repository.R2StorageRepository(get())

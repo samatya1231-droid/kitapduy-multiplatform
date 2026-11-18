@@ -10,7 +10,11 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-class SupabasePostDetailRepository(private val client: SupabaseClient, private val auth: AuthRepository) : PostDetailRepository {
+class SupabasePostDetailRepository(
+    private val client: SupabaseClient,
+    private val auth: AuthRepository,
+    private val httpClient: io.ktor.client.HttpClient? = null
+) : PostDetailRepository {
     private val lock = Mutex()
     private fun uid() = auth.currentUserUid?.takeIf { it.isNotBlank() } ?: error("Lütfen giriş yapın.")
     private fun clean(text: String): String = text.trim().also { require(it.isNotEmpty() && it.length <= 2000) { "Yorum 1–2000 karakter olmalı." } }
@@ -36,6 +40,22 @@ class SupabasePostDetailRepository(private val client: SupabaseClient, private v
         val row = SupabaseInsertFeedComment(postId.toLong(), userId, profile.name, profile.photoUrl, profile.hasPremium(), body)
         val saved = map(client.postgrest["feed_comments"].insert(row) { select() }.decodeSingle<SupabaseComment>())
         refreshCommentCount(postId)
+        val targetPostOwner = runCatching {
+            client.postgrest["posts"].select { filter { eq("id", postId.toLong()) } }.decodeSingleOrNull<SupabasePost>()?.userId
+        }.getOrNull()
+        if (!targetPostOwner.isNullOrBlank() && targetPostOwner != userId) {
+            val senderName = profile.name.takeIf { it.isNotBlank() } ?: "Bir okur"
+            CrossPlatformBridgeHelper.sendSocialNotification(
+                supabaseClient = client,
+                httpClient = httpClient,
+                receiverId = targetPostOwner,
+                senderId = userId,
+                senderName = senderName,
+                type = "comment",
+                message = "$senderName gönderine yorum yaptı! 💬",
+                targetId = postId
+            )
+        }
         return saved
     }
 
@@ -56,17 +76,41 @@ class SupabasePostDetailRepository(private val client: SupabaseClient, private v
         refreshCommentCount(postId)
     }
 
-    override suspend fun likeComment(postId: String, commentId: String): Comment = lock.withLock {
-        val userId = uid()
-        val row = client.postgrest["feed_comments"].select {
-            filter { eq("id", commentId.toLong()); eq("post_id", postId.toLong()) }
-        }.decodeSingle<SupabaseComment>()
-        val likes = row.likedBy.orEmpty().split(',').filter { it.isNotBlank() }.toMutableSet()
-        if (!likes.remove(userId)) likes.add(userId)
-        val updated = client.postgrest["feed_comments"].update({ set("likes", likes.size); set("liked_by", likes.joinToString(",")) }) {
-            filter { eq("id", commentId.toLong()); eq("post_id", postId.toLong()) }; select()
-        }.decodeSingleOrNull<SupabaseComment>() ?: error("Beğeni kaydedilemedi.")
-        map(updated)
+    override suspend fun likeComment(postId: String, commentId: String): Comment {
+        var commentOwnerId: String? = null
+        var currentUserId = ""
+        var newlyLiked = false
+        val updated = lock.withLock {
+            val userId = uid()
+            currentUserId = userId
+            val row = client.postgrest["feed_comments"].select {
+                filter { eq("id", commentId.toLong()); eq("post_id", postId.toLong()) }
+            }.decodeSingle<SupabaseComment>()
+            commentOwnerId = row.userId
+            val likes = row.likedBy.orEmpty().split(',').filter { it.isNotBlank() }.toMutableSet()
+            if (!likes.remove(userId)) {
+                likes.add(userId)
+                newlyLiked = true
+            }
+            val savedRow = client.postgrest["feed_comments"].update({ set("likes", likes.size); set("liked_by", likes.joinToString(",")) }) {
+                filter { eq("id", commentId.toLong()); eq("post_id", postId.toLong()) }; select()
+            }.decodeSingleOrNull<SupabaseComment>() ?: error("Beğeni kaydedilemedi.")
+            map(savedRow)
+        }
+        if (newlyLiked && !commentOwnerId.isNullOrBlank() && commentOwnerId != currentUserId) {
+            val senderName = runCatching { auth.getUserProfile(currentUserId)?.name }.getOrNull()?.takeIf { it.isNotBlank() } ?: "Bir okur"
+            CrossPlatformBridgeHelper.sendSocialNotification(
+                supabaseClient = client,
+                httpClient = httpClient,
+                receiverId = commentOwnerId!!,
+                senderId = currentUserId,
+                senderName = senderName,
+                type = "like",
+                message = "$senderName yorumunu beğendi! ❤️",
+                targetId = postId
+            )
+        }
+        return updated
     }
 
     private suspend fun refreshCommentCount(postId: String) {

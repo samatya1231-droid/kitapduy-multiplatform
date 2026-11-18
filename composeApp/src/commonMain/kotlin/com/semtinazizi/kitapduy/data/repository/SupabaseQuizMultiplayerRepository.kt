@@ -17,38 +17,53 @@ import kotlinx.serialization.json.put
 import kotlin.time.Duration.Companion.minutes
 
 class SupabaseQuizMultiplayerRepository(
-    private val supabaseClient: SupabaseClient
+    private val supabaseClient: SupabaseClient,
+    private val httpClient: io.ktor.client.HttpClient? = null
 ) : QuizMultiplayerRepository {
 
     override suspend fun getLeaderboard(): List<QuizLeaderboardEntry> {
-        return try {
+        val supabaseRows = try {
             supabaseClient.postgrest["quiz_leaderboard"]
                 .select {
                     order("total_score", Order.DESCENDING)
                     limit(100)
                 }
                 .decodeList<QuizLeaderboardEntry>()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Throwable) {
             e.printStackTrace()
             emptyList()
         }
+
+        val bridgeRows = CrossPlatformBridgeHelper.fetchBridgeLeaderboard(httpClient)
+        if (bridgeRows.isEmpty()) return supabaseRows
+
+        return (supabaseRows + bridgeRows)
+            .filter { it.userId.isNotBlank() }
+            .groupBy { entry -> CrossPlatformBridgeHelper.deterministicArenaUuid(entry.userId) }
+            .values
+            .map { group -> group.maxBy { it.totalScore } }
+            .sortedByDescending { it.totalScore }
+            .take(100)
     }
 
     override suspend fun updateLeaderboard(userId: String, userName: String, scoreToAdd: Long) {
         try {
+            val safeUserId = CrossPlatformBridgeHelper.deterministicArenaUuid(userId)
             // First try to fetch the current score
             val existing = supabaseClient.postgrest["quiz_leaderboard"]
-                .select { filter { eq("user_id", userId) } }
+                .select { filter { eq("user_id", safeUserId) } }
                 .decodeSingleOrNull<QuizLeaderboardEntry>()
-                
+
             val newScore = (existing?.totalScore ?: 0) + scoreToAdd
-            
+
             val newEntry = QuizLeaderboardEntry(
-                userId = userId,
+                userId = safeUserId,
                 userName = userName,
                 totalScore = newScore
             )
-            
+
             supabaseClient.postgrest["quiz_leaderboard"].upsert(newEntry)
         } catch (e: Throwable) {
             e.printStackTrace()

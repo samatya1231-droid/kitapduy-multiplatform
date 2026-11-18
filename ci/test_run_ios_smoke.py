@@ -684,17 +684,19 @@ class FixtureTest(unittest.TestCase):
             self.assertEqual(self.request_json(posts)[0]["comment"], "Test")
             self.assertEqual(events, ["guest_signup", "update_profile", "create_post"])
         with smoke.serve_fixture() as (url, events):
-            self.assertEqual(self.request_json(url + "/rest/v1/posts"), [])
+            seeded_posts = self.request_json(url + "/rest/v1/posts")
+            self.assertGreaterEqual(len(seeded_posts), 4)
             self.assertEqual(events, [])
 
     def test_invalid_post_rows_do_not_write_or_record_an_event(self):
         with smoke.serve_fixture() as (url, events):
             posts = url + "/rest/v1/posts"
+            initial_count = len(self.request_json(posts))
             with self.assertRaises(HTTPError) as rejected:
                 self.request_json(posts, [{"comment": "Do not save"}, "invalid row"])
             self.assertEqual(rejected.exception.code, 400)
             rejected.exception.close()
-            self.assertEqual(self.request_json(posts), [])
+            self.assertEqual(len(self.request_json(posts)), initial_count)
             self.assertEqual(events, [])
 
     def test_empty_search_and_audio_range(self):

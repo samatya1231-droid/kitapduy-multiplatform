@@ -94,9 +94,21 @@ data class BookDetailScreen(val book: Book) : Screen {
         val repliesByComment by viewModel.repliesByComment.collectAsState()
         val loadingRepliesFor by viewModel.loadingRepliesFor.collectAsState()
         val actionError by viewModel.error.collectAsState()
-        actionError?.let { message ->
-            AlertDialog(onDismissRequest = { viewModel.error.value = null }, text = { Text(message) },
-                confirmButton = { TextButton(onClick = { viewModel.error.value = null }) { Text("Tamam") } })
+        val actionMessage by viewModel.actionMessage.collectAsState()
+        (actionMessage ?: actionError)?.let { message ->
+            AlertDialog(
+                onDismissRequest = {
+                    viewModel.error.value = null
+                    viewModel.actionMessage.value = null
+                },
+                text = { Text(message) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        viewModel.error.value = null
+                        viewModel.actionMessage.value = null
+                    }) { Text("Tamam") }
+                }
+            )
         }
 
         var showShelfDialog by remember { mutableStateOf(false) }

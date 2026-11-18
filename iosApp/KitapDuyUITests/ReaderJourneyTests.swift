@@ -628,7 +628,7 @@ final class ReaderJourneyTests: XCTestCase {
 
             try scrollToTop(target: element("book-like"))
             try tap(element("book-like"))
-            try visible(text("Kitap beğenileri şu anda kullanılamıyor."))
+            try visible(text("Kitap beğenilenlere eklendi."))
             inspectScreen("51-book-summary-and-like")
             try tap(text("Tamam"))
         }
@@ -761,6 +761,8 @@ final class ReaderJourneyTests: XCTestCase {
 
         try step("58-library-populated") {
             try tap(element("tab-library"))
+            try tap(element("library-tab-0"))
+            try visible(text("Kızıl Dosya", contains: true))
             try tap(element("library-tab-2"))
             try visible(text("Kızıl Dosya", contains: true))
             inspectScreen("58-library-populated")

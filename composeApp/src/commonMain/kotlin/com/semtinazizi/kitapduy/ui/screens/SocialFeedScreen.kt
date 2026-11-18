@@ -124,6 +124,7 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
 
         val authViewModel = koinViewModel<AuthViewModel>()
         val userProfile by authViewModel.userProfile.collectAsState()
+        val unreadNotifications by viewModel.unreadNotificationCount.collectAsState()
 
         val isAdmin = userProfile?.badges?.contains("admin") == true
         val isPremium = userProfile?.hasPremium() == true
@@ -371,12 +372,26 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                                 .testTag("feed-notifications")
                         ) {
-                            Icon(
-                                Icons.Filled.Notifications,
-                                contentDescription = "Bildirimler",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            BadgedBox(
+                                badge = {
+                                    if (unreadNotifications > 0) {
+                                        Badge(containerColor = Color(0xFFE53935), contentColor = Color.White) {
+                                            Text(
+                                                text = if (unreadNotifications > 9) "9+" else unreadNotifications.toString(),
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Filled.Notifications,
+                                    contentDescription = "Bildirimler",
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
                 }

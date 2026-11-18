@@ -6,11 +6,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -35,10 +37,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.semtinazizi.kitapduy.data.model.QuizLeaderboardEntry
 import com.semtinazizi.kitapduy.model.QuizQuestion
 import com.semtinazizi.kitapduy.ui.theme.PlayfairDisplayFamily
@@ -64,8 +68,10 @@ internal fun ArenaMenu(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        ArenaHeaderHub(leaderScore = leaderboard.firstOrNull()?.totalScore ?: 0L)
         if (showChallenges) {
             ArenaCard(
+                badge = "⚡ HIZLI TUR",
                 title = ArenaRound.BLITZ.title,
                 description = "10 soru · Her soruya 10 saniye · 1 can",
                 accent = Color(0xFFEF4444),
@@ -73,6 +79,7 @@ internal fun ArenaMenu(
                 onClick = { briefingRound = ArenaRound.BLITZ }
             )
             ArenaCard(
+                badge = "🏆 ELEME MODU",
                 title = ArenaRound.TOURNAMENT.title,
                 description = "10 soru · 1 can",
                 accent = Color(0xFFF59E0B),
@@ -80,6 +87,7 @@ internal fun ArenaMenu(
                 onClick = { briefingRound = ArenaRound.TOURNAMENT }
             )
             ArenaCard(
+                badge = "⚔️ 1 BİLET",
                 title = "Rastgele düello",
                 description = "Rakip ara",
                 accent = Color(0xFF10B981),
@@ -87,9 +95,11 @@ internal fun ArenaMenu(
             )
         } else {
             ArenaCard(
+                badge = "✨ 30 DK REKLAMSIZ DİNLEME",
                 title = ArenaRound.LITERATURE.title,
-                description = "5 soru · Süre sınırı yok",
+                description = "5 soruluk hızlı kültür turu. Bilginizi tazeleyin, reklamsız dinleme ödülünü kazanın.",
                 accent = Color(0xFFD4AF37),
+                ctaText = "Molaya Başla",
                 modifier = Modifier.testTag("quiz-start-classic"),
                 onClick = { briefingRound = ArenaRound.LITERATURE }
             )
@@ -99,22 +109,26 @@ internal fun ArenaMenu(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 ArenaCard(
-                    title = "Düello",
-                    description = "Rastgele eşleşme",
+                    badge = "⚔️ 1 BİLET",
+                    title = "Canlı Düello",
+                    description = "Rakiplerle anlık yarış",
                     accent = Color(0xFF8B5CF6),
                     modifier = Modifier.weight(1f).fillMaxHeight().testTag("quiz-duel-button"),
                     onClick = screenModel::findMultiplayerMatch
                 )
                 ArenaCard(
+                    badge = "⚡ 3 MOD",
                     title = "Meydan Okuma",
-                    description = "Blitz ve turnuva",
+                    description = "Süreye karşı yarış",
                     accent = Color(0xFF06B6D4),
                     modifier = Modifier.weight(1f).fillMaxHeight().testTag("quiz-challenges-button"),
                     onClick = onChallenges
                 )
             }
+            QuoteDiscoveryCard()
         }
         ArenaCard(
+            badge = "🖋️ YAZAR TAHMİNİ",
             title = "Kimin Kaleminden?",
             description = "Alıntının yazarını bul",
             accent = Color(0xFF38BDF8),
@@ -153,10 +167,83 @@ internal fun ArenaMenu(
 }
 
 @Composable
+private fun ArenaHeaderHub(leaderScore: Long) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            shape = RoundedCornerShape(50),
+            color = Color(0xFFFF6D00).copy(alpha = 0.12f),
+            border = BorderStroke(1.dp, Color(0xFFFF6D00).copy(alpha = 0.3f))
+        ) {
+            Text(
+                text = "🔥 Günlük Seri",
+                color = Color(0xFFFF8F00),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+            )
+        }
+        Surface(
+            shape = RoundedCornerShape(50),
+            color = Color(0xFF8B5CF6).copy(alpha = 0.14f),
+            border = BorderStroke(1.dp, Color(0xFF8B5CF6).copy(alpha = 0.35f))
+        ) {
+            Text(
+                text = if (leaderScore > 0) "🎫 2 Bilet · 🏆 $leaderScore P" else "🎫 2 Düello Bileti",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuoteDiscoveryCard() {
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(1.dp, Color(0xFFD4AF37).copy(alpha = 0.25f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFFD4AF37).copy(alpha = 0.06f))
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "EDEBİ KEŞİF",
+                color = Color(0xFFD4AF37),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
+            )
+            Text(
+                text = "\"Bir milletin kültür seviyesi, okuduğu ve yaşattığı kitapların derinliğiyle ölçülür.\"",
+                style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "— KitapDuy Edebî Seçki",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
 private fun ArenaCard(
+    badge: String? = null,
     title: String,
     description: String,
     accent: Color,
+    ctaText: String? = null,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
@@ -175,8 +262,32 @@ private fun ArenaCard(
             modifier = Modifier.fillMaxWidth().background(gradient).padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            if (!badge.isNullOrBlank()) {
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = accent.copy(alpha = 0.16f),
+                    border = BorderStroke(0.5.dp, accent.copy(alpha = 0.35f))
+                ) {
+                    Text(
+                        text = badge,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = accent,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+            }
             Text(title, style = MaterialTheme.typography.titleLarge, fontFamily = PlayfairDisplayFamily)
             Text(description, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
+            if (!ctaText.isNullOrBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "$ctaText →",
+                    color = accent,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
         }
     }
 }
@@ -189,6 +300,30 @@ private fun DailyRiddle(question: QuizQuestion) {
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "🧩 GÜNÜN BİLMECESİ",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color(0xFFD4AF37),
+                    fontWeight = FontWeight.Bold
+                )
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = Color(0xFF10B981).copy(alpha = 0.14f)
+                ) {
+                    Text(
+                        text = "+25 Puan",
+                        color = Color(0xFF10B981),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+            }
             Text("Günün Edebî Bilmecesi", style = MaterialTheme.typography.titleMedium, fontFamily = PlayfairDisplayFamily)
             Text(question.question)
             question.options.forEachIndexed { index, option ->
@@ -226,19 +361,23 @@ private fun ArenaPodium(leaderboard: List<QuizLeaderboardEntry>, onLeaderboard: 
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.Bottom
                 ) {
-                    for ((index, height) in listOf(1 to 88, 0 to 110, 2 to 76)) {
+                    for ((index, height) in listOf(1 to 88, 0 to 118, 2 to 76)) {
                         val entry = leaderboard.getOrNull(index) ?: continue
                         val medalColor = listOf(Color(0xFFD4AF37), Color(0xFF9CA3AF), Color(0xFFCD7F32))[index]
                         Surface(
                             modifier = Modifier.weight(1f).height(height.dp),
-                            shape = RoundedCornerShape(14.dp),
-                            color = medalColor.copy(alpha = 0.19f)
+                            shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = 8.dp, bottomEnd = 8.dp),
+                            color = medalColor.copy(alpha = 0.22f),
+                            border = BorderStroke(1.dp, medalColor.copy(alpha = 0.45f))
                         ) {
                             Column(
                                 modifier = Modifier.padding(8.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
+                                if (index == 0) {
+                                    Text("👑", fontSize = 14.sp)
+                                }
                                 Text("${index + 1}.", fontWeight = FontWeight.Bold)
                                 Text(entry.userName, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
                                 Text("${entry.totalScore} P", style = MaterialTheme.typography.labelSmall)
@@ -248,7 +387,7 @@ private fun ArenaPodium(leaderboard: List<QuizLeaderboardEntry>, onLeaderboard: 
                 }
             }
             OutlinedButton(onClick = onLeaderboard, modifier = Modifier.fillMaxWidth().testTag("quiz-leaderboard-button")) {
-                Text("Liderlik Tablosu")
+                Text("Liderlik Tablosu · Sıralamanı Yükselt ↗")
             }
         }
     }

@@ -110,6 +110,23 @@ class SupabaseBookRepository(
         language = book.language.trim().lowercase().ifBlank { "tr" }
     )
 
+    private fun isUuidId(id: String): Boolean =
+        Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$").matches(id.trim())
+
+    private fun deduplicateCatalogBooks(books: List<Book>): List<Book> {
+        return books
+            .distinctBy { it.id }
+            .groupBy { it.title.trim().lowercase() to it.author.trim().lowercase() }
+            .values
+            .map { group ->
+                group.sortedWith(
+                    compareBy<Book> { isUuidId(it.id) }
+                        .thenByDescending { it.viewCount }
+                        .thenByDescending { it.likeCount }
+                ).first()
+            }
+    }
+
     companion object {
         val sampleFallbackBooks = listOf(
             Book(
@@ -178,10 +195,11 @@ class SupabaseBookRepository(
                 offset += pageSize
             }
 
-            val remote = allRemote
-                .filter { isValidCatalogTitle(it.title) && (it.author.isNotBlank() || it.audioUrl.isNotBlank() || it.coverUrl.isNotBlank()) }
-                .map { normalizeCatalogBook(it) }
-                .distinctBy { it.id }
+            val remote = deduplicateCatalogBooks(
+                allRemote
+                    .filter { isValidCatalogTitle(it.title) && (it.author.isNotBlank() || it.audioUrl.isNotBlank() || it.coverUrl.isNotBlank()) }
+                    .map { normalizeCatalogBook(it) }
+            )
 
             if (remote.isNotEmpty()) {
                 if (generationAtStart == cacheGeneration) {
@@ -255,11 +273,11 @@ class SupabaseBookRepository(
                 .decodeList<BookDto>()
                 .map { it.toBook() }
 
-            books.filter {
-                isValidCatalogTitle(it.title) && (it.author.isNotBlank() || it.audioUrl.isNotBlank() || it.coverUrl.isNotBlank())
-            }
-                .map { normalizeCatalogBook(it) }
-                .distinctBy { it.id }
+            deduplicateCatalogBooks(
+                books.filter {
+                    isValidCatalogTitle(it.title) && (it.author.isNotBlank() || it.audioUrl.isNotBlank() || it.coverUrl.isNotBlank())
+                }.map { normalizeCatalogBook(it) }
+            )
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (e: Throwable) {
@@ -444,5 +462,92 @@ class SupabaseBookRepository(
                     }
                 }
                 .decodeList<com.semtinazizi.kitapduy.model.SupabaseBookshelf>()
+    }
+
+    @Serializable
+    private data class FavoriteBookInsertDto(
+        @SerialName("user_id") val userId: String,
+        @SerialName("book_id") val bookId: String
+    )
+
+    override suspend fun isBookLiked(bookId: String, userId: String): Boolean {
+        if (bookId.isBlank() || userId.isBlank()) return false
+        val inShelf = runCatching {
+            supabaseClient.postgrest["user_bookshelves"]
+                .select {
+                    filter {
+                        eq("user_id", userId)
+                        eq("book_id", bookId)
+                        eq("shelf_type", "FAVORITE")
+                    }
+                }
+                .decodeList<com.semtinazizi.kitapduy.model.SupabaseBookshelf>()
+                .isNotEmpty()
+        }.getOrDefault(false)
+        if (inShelf) return true
+        return runCatching {
+            getFavoriteBookIds(userId).contains(bookId)
+        }.getOrDefault(false)
+    }
+
+    override suspend fun toggleBookLike(bookId: String, userId: String): Boolean {
+        require(bookId.isNotBlank() && userId.isNotBlank()) { "Beğenmek için giriş yapmalısınız." }
+        val currentlyLiked = isBookLiked(bookId, userId)
+        val book = runCatching { getBookById(bookId) }.getOrNull()
+        val nowLiked = !currentlyLiked
+        if (nowLiked) {
+            runCatching {
+                supabaseClient.postgrest["favorites"].insert(FavoriteBookInsertDto(userId = userId, bookId = bookId))
+            }
+            val existingShelf = runCatching {
+                supabaseClient.postgrest["user_bookshelves"]
+                    .select {
+                        filter {
+                            eq("user_id", userId)
+                            eq("book_id", bookId)
+                            eq("shelf_type", "FAVORITE")
+                        }
+                    }
+                    .decodeList<com.semtinazizi.kitapduy.model.SupabaseBookshelf>()
+            }.getOrDefault(emptyList())
+            if (existingShelf.isEmpty()) {
+                supabaseClient.postgrest["user_bookshelves"].insert(
+                    com.semtinazizi.kitapduy.model.SupabaseBookshelf(
+                        userId = userId,
+                        bookId = bookId,
+                        shelfType = "FAVORITE",
+                        bookTitle = book?.title?.takeIf { it.isNotBlank() },
+                        bookCoverUrl = book?.coverUrl?.takeIf { it.isNotBlank() }
+                    )
+                )
+            }
+        } else {
+            runCatching {
+                supabaseClient.postgrest["favorites"].delete {
+                    filter {
+                        eq("user_id", userId)
+                        eq("book_id", bookId)
+                    }
+                }
+            }
+            supabaseClient.postgrest["user_bookshelves"].delete {
+                filter {
+                    eq("user_id", userId)
+                    eq("book_id", bookId)
+                    eq("shelf_type", "FAVORITE")
+                }
+            }
+        }
+        val currentCount = book?.likeCount ?: 0
+        val nextCount = if (nowLiked) currentCount + 1 else maxOf(0, currentCount - 1)
+        runCatching {
+            supabaseClient.postgrest["books"].update({
+                set("like_count", nextCount)
+            }) {
+                filter { eq("id", bookId) }
+            }
+        }
+        invalidateCache()
+        return nowLiked
     }
 }

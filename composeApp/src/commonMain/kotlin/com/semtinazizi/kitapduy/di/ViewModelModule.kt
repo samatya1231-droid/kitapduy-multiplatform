@@ -17,7 +17,7 @@ val viewModelModule = module {
     factory { com.semtinazizi.kitapduy.ui.viewmodel.SearchScreenModel(get(), get()) }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.ChatScreenModel(get(), it.get()) }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.ProfileScreenModel(get(), get(), get()) }
-    factory { com.semtinazizi.kitapduy.ui.viewmodel.BookDetailScreenModel(get(), get(), getOrNull()) }
+    factory { com.semtinazizi.kitapduy.ui.viewmodel.BookDetailScreenModel(get(), get(), getOrNull(), getOrNull(), getOrNull()) }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.GuessAuthorScreenModel() }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.PostDetailScreenModel(get()) }
     factory { com.semtinazizi.kitapduy.ui.screens.LiteraryAdvisorScreenModel() }

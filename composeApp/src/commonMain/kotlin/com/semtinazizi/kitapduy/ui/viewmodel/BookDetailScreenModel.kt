@@ -3,6 +3,8 @@ package com.semtinazizi.kitapduy.ui.viewmodel
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import com.semtinazizi.kitapduy.data.repository.FeedActionsRepository
+import com.semtinazizi.kitapduy.domain.repository.AuthRepository
+import com.semtinazizi.kitapduy.domain.repository.BookRepository
 import com.semtinazizi.kitapduy.domain.repository.FeedRepository
 import com.semtinazizi.kitapduy.domain.repository.PostDetailRepository
 import com.semtinazizi.kitapduy.model.Book
@@ -15,7 +17,9 @@ import kotlinx.coroutines.launch
 class BookDetailScreenModel(
     private val feed: FeedRepository,
     private val actions: FeedActionsRepository,
-    private val postDetailRepository: PostDetailRepository? = null
+    private val postDetailRepository: PostDetailRepository? = null,
+    private val bookRepository: BookRepository? = null,
+    private val authRepository: AuthRepository? = null
 ) : ScreenModel {
     val viewCount = MutableStateFlow(0)
     val likeCount = MutableStateFlow(0)
@@ -25,12 +29,18 @@ class BookDetailScreenModel(
     val loadingRepliesFor = MutableStateFlow<Set<String>>(emptySet())
     val activeListeners = MutableStateFlow<Int?>(null)
     val error = MutableStateFlow<String?>(null)
+    val actionMessage = MutableStateFlow<String?>(null)
     val isSending = MutableStateFlow(false)
 
     fun loadBookData(book: Book, userId: String?) {
         viewCount.value = book.viewCount
         likeCount.value = book.likeCount
+        val resolvedUid = userId?.takeIf { it.isNotBlank() } ?: authRepository?.currentUserUid?.takeIf { it.isNotBlank() }
         screenModelScope.launch {
+            if (resolvedUid != null && bookRepository != null) {
+                runCatching { bookRepository.isBookLiked(book.id, resolvedUid) }
+                    .onSuccess { isLiked.value = it }
+            }
             try { comments.value = actions.bookComments(book.id) }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) { error.value = "Yorumlar yüklenemedi. Lütfen tekrar deneyin." }
@@ -38,9 +48,28 @@ class BookDetailScreenModel(
     }
 
     fun toggleLike(bookId: String, userId: String?) {
-        // Android stores book likes in Firestore. Do not fabricate Supabase records or counters.
-        error.value = if (userId.isNullOrBlank()) "Lütfen giriş yapın."
-            else "Kitap beğenileri şu anda kullanılamıyor."
+        val resolvedUid = userId?.takeIf { it.isNotBlank() } ?: authRepository?.currentUserUid?.takeIf { it.isNotBlank() }
+        if (resolvedUid == null) {
+            error.value = "Beğenmek için giriş yapmalısınız."
+            return
+        }
+        val repo = bookRepository
+        if (repo == null) {
+            error.value = "Kitap beğenileri şu anda kullanılamıyor."
+            return
+        }
+        screenModelScope.launch {
+            try {
+                val nowLiked = repo.toggleBookLike(bookId, resolvedUid)
+                isLiked.value = nowLiked
+                likeCount.value = if (nowLiked) likeCount.value + 1 else maxOf(0, likeCount.value - 1)
+                actionMessage.value = if (nowLiked) "Kitap beğenilenlere eklendi." else "Kitap beğenilenlerden çıkarıldı."
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                error.value = e.message ?: "Kitap beğenisi kaydedilemedi."
+            }
+        }
     }
 
     fun addComment(bookId: String, bookTitle: String, bookCoverUrl: String, text: String,

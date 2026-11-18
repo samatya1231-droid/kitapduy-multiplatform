@@ -12,6 +12,8 @@ interface BookRepository {
     suspend fun getPodcasts(): List<com.semtinazizi.kitapduy.model.Podcast>
     suspend fun searchPodcasts(query: String): List<com.semtinazizi.kitapduy.model.Podcast>
     suspend fun getBookshelf(userId: String, shelfType: String): List<com.semtinazizi.kitapduy.model.SupabaseBookshelf>
+    suspend fun isBookLiked(bookId: String, userId: String): Boolean = false
+    suspend fun toggleBookLike(bookId: String, userId: String): Boolean = false
     suspend fun getBookById(bookId: String): Book? = getBooks().firstOrNull { it.id == bookId }
     suspend fun resolvePodcastEpisode(
         bookId: String,
