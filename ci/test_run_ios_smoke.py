@@ -783,8 +783,7 @@ class FixtureTest(unittest.TestCase):
     def test_askida_and_quiz_leaderboard_fixture_routes(self):
         with smoke.serve_fixture() as (url, _):
             askida = self.request_json(url + "/rest/v1/askida_kitap?status=eq.AVAILABLE")
-            self.assertGreaterEqual(len(askida), 3)
-            self.assertTrue(any("Kürk Mantolu Madonna" in b["book_name"] for b in askida))
+            self.assertEqual(askida, [])
             self.request_json(
                 url + "/rest/v1/askida_kitap",
                 [{"id": "new_askida_1", "book_name": "Simyacı", "donor_id": USER_ID, "city": "Bursa", "status": "AVAILABLE"}],

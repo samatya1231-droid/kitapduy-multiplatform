@@ -3,6 +3,7 @@ package com.semtinazizi.kitapduy.ui.viewmodel
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import com.semtinazizi.kitapduy.data.SupabaseManager
+import com.semtinazizi.kitapduy.data.repository.CrossPlatformBridgeHelper
 import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import com.semtinazizi.kitapduy.model.AskidaKitap
 import com.semtinazizi.kitapduy.model.AskidaMesaj
@@ -20,7 +21,8 @@ import com.semtinazizi.kitapduy.util.UrlSanitizer
 
 class AskidaViewModel(
     private val authRepository: AuthRepository,
-    private val storageRepository: com.semtinazizi.kitapduy.data.repository.StorageRepository
+    private val storageRepository: com.semtinazizi.kitapduy.data.repository.StorageRepository,
+    private val httpClient: io.ktor.client.HttpClient? = null
 ) : ScreenModel {
 
     private val _availableBooks = MutableStateFlow<List<AskidaKitap>>(emptyList())
@@ -39,44 +41,7 @@ class AskidaViewModel(
     private var messagesChannel: RealtimeChannel? = null
     private var activeBookId: String? = null
 
-    private val localFallbackBooks = mutableListOf(
-        AskidaKitap(
-            id = "askida_seed_1",
-            bookName = "Kürk Mantolu Madonna",
-            donorId = "community_donor_1",
-            donorName = "Elif Yılmaz",
-            donorNote = "Bir başka okurun kalbine dokunması dileğiyle, temiz durumda.",
-            category = "Roman",
-            city = "İstanbul",
-            condition = "Çok İyi",
-            status = "AVAILABLE",
-            timestamp = 1_730_000_000_000L
-        ),
-        AskidaKitap(
-            id = "askida_seed_2",
-            bookName = "Küçük Prens",
-            donorId = "community_donor_2",
-            donorName = "Mert Kaya",
-            donorNote = "Çocuklar ve içindeki çocuğu yaşatanlar için keyifle okunsun.",
-            category = "Klasik",
-            city = "Ankara",
-            condition = "Yeni Gibi",
-            status = "AVAILABLE",
-            timestamp = 1_729_900_000_000L
-        ),
-        AskidaKitap(
-            id = "askida_seed_3",
-            bookName = "Suç ve Ceza",
-            donorId = "community_donor_3",
-            donorName = "Zeynep Demir",
-            donorNote = "Altını çizmeden özenle okudum, sıradaki okuruna emanet.",
-            category = "Dünya Edebiyatı",
-            city = "İzmir",
-            condition = "İyi",
-            status = "AVAILABLE",
-            timestamp = 1_729_800_000_000L
-        )
-    )
+    private val localFallbackBooks = mutableListOf<AskidaKitap>()
     private val localFallbackMessages = mutableMapOf<String, MutableList<AskidaMesaj>>()
 
     init {
@@ -121,12 +86,15 @@ class AskidaViewModel(
         screenModelScope.launch {
             _isLoading.value = true
             try {
-                val books = SupabaseManager.postgrest.from("askida_kitap")
-                    .select {
-                        filter { eq("status", "AVAILABLE") }
-                        order("timestamp", order = Order.DESCENDING)
-                    }.decodeList<AskidaKitap>()
-                    .map { it.copy(imageUrl = fixUrl(it.imageUrl)) }
+                val books = if (!CrossPlatformBridgeHelper.isLocalFixture()) {
+                    CrossPlatformBridgeHelper.fetchAskidaAvailable(httpClient)
+                } else {
+                    SupabaseManager.postgrest.from("askida_kitap")
+                        .select {
+                            filter { eq("status", "AVAILABLE") }
+                            order("timestamp", order = Order.DESCENDING)
+                        }.decodeList<AskidaKitap>()
+                }.map { it.copy(imageUrl = fixUrl(it.imageUrl)) }
                 val merged = (localFallbackBooks.filter { local ->
                     local.status == "AVAILABLE" && books.none { it.id == local.id }
                 } + books).ifEmpty {
@@ -146,18 +114,21 @@ class AskidaViewModel(
             val currentUid = authRepository.currentUserUid ?: "local_guest"
             _isLoading.value = true
             try {
-                val books = SupabaseManager.postgrest.from("askida_kitap")
-                    .select {
-                        filter {
-                            // Donor = me OR Claimer = me
-                            or {
-                                eq("donor_id", currentUid)
-                                eq("claimer_id", currentUid)
+                val books = if (!CrossPlatformBridgeHelper.isLocalFixture()) {
+                    CrossPlatformBridgeHelper.fetchAskidaMyChats(httpClient, currentUid)
+                } else {
+                    SupabaseManager.postgrest.from("askida_kitap")
+                        .select {
+                            filter {
+                                // Donor = me OR Claimer = me
+                                or {
+                                    eq("donor_id", currentUid)
+                                    eq("claimer_id", currentUid)
+                                }
                             }
-                        }
-                        order("timestamp", order = Order.DESCENDING)
-                    }.decodeList<AskidaKitap>()
-                    .map { it.copy(imageUrl = fixUrl(it.imageUrl)) }
+                            order("timestamp", order = Order.DESCENDING)
+                        }.decodeList<AskidaKitap>()
+                }.map { it.copy(imageUrl = fixUrl(it.imageUrl)) }
                 val localChats = localFallbackBooks.filter {
                     it.status != "AVAILABLE" || it.donorId == currentUid || it.claimerId == currentUid
                 }
@@ -186,16 +157,20 @@ class AskidaViewModel(
             _availableBooks.value = _availableBooks.value.filter { it.id != book.id }
             _myChats.value = listOf(updatedBook) + _myChats.value.filter { it.id != book.id }
 
-            runCatching {
-                SupabaseManager.postgrest.from("askida_kitap")
-                    .update(
-                        {
-                            set("status", "CLAIMED")
-                            set("claimer_id", currentUid)
+            if (!CrossPlatformBridgeHelper.isLocalFixture()) {
+                CrossPlatformBridgeHelper.claimAskida(httpClient, book.id, currentUid)
+            } else {
+                runCatching {
+                    SupabaseManager.postgrest.from("askida_kitap")
+                        .update(
+                            {
+                                set("status", "CLAIMED")
+                                set("claimer_id", currentUid)
+                            }
+                        ) {
+                            filter { eq("id", book.id) }
                         }
-                    ) {
-                        filter { eq("id", book.id) }
-                    }
+                }
             }
         }
     }
@@ -232,8 +207,12 @@ class AskidaViewModel(
                 localFallbackBooks.add(0, newBook)
                 _availableBooks.value = listOf(newBook) + _availableBooks.value
 
-                runCatching {
-                    SupabaseManager.postgrest.from("askida_kitap").insert(newBook)
+                if (!CrossPlatformBridgeHelper.isLocalFixture()) {
+                    CrossPlatformBridgeHelper.donateAskida(httpClient, newBook)
+                } else {
+                    runCatching {
+                        SupabaseManager.postgrest.from("askida_kitap").insert(newBook)
+                    }
                 }
                 onResult(true)
             } catch (_: Throwable) {
@@ -250,11 +229,15 @@ class AskidaViewModel(
 
         screenModelScope.launch {
             try {
-                val messages = SupabaseManager.postgrest.from("askida_mesaj")
-                    .select {
-                        filter { eq("book_id", bookId) }
-                        order("timestamp", order = Order.ASCENDING)
-                    }.decodeList<AskidaMesaj>()
+                val messages = if (!CrossPlatformBridgeHelper.isLocalFixture()) {
+                    CrossPlatformBridgeHelper.fetchAskidaMessages(httpClient, bookId)
+                } else {
+                    SupabaseManager.postgrest.from("askida_mesaj")
+                        .select {
+                            filter { eq("book_id", bookId) }
+                            order("timestamp", order = Order.ASCENDING)
+                        }.decodeList<AskidaMesaj>()
+                }
                 val localMsgs = localFallbackMessages[bookId].orEmpty()
                 val combined = (messages + localMsgs.filter { l -> messages.none { it.id == l.id } })
                     .sortedBy { it.timestamp }
@@ -308,8 +291,12 @@ class AskidaViewModel(
             localFallbackMessages.getOrPut(bookId) { mutableListOf() }.add(newMessage)
             _currentChatMessages.value = _currentChatMessages.value + newMessage
 
-            runCatching {
-                SupabaseManager.postgrest.from("askida_mesaj").insert(newMessage)
+            if (!CrossPlatformBridgeHelper.isLocalFixture()) {
+                CrossPlatformBridgeHelper.sendAskidaMessage(httpClient, newMessage)
+            } else {
+                runCatching {
+                    SupabaseManager.postgrest.from("askida_mesaj").insert(newMessage)
+                }
             }
         }
     }

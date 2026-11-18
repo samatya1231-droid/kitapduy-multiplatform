@@ -19,19 +19,31 @@ internal fun resolveFeedUrl(url: String?): String {
     return UrlSanitizer.normalizeMediaUrl(resolved)
 }
 
+internal fun parseSupabaseTimestamp(raw: String?): Long {
+    if (raw.isNullOrBlank()) return 0L
+    val clean = raw.trim().replace(" ", "T")
+    val normalized = when {
+        clean.endsWith("+00") -> clean.dropLast(3) + "Z"
+        !clean.endsWith("Z") && !clean.contains("+") && clean.length >= 19 -> "${clean}Z"
+        else -> clean
+    }
+    return runCatching { kotlinx.datetime.Instant.parse(normalized).toEpochMilliseconds() }.getOrDefault(0L)
+}
+
 internal fun mapSupabasePostToFeedItem(post: SupabasePost): FeedItem {
     val isBookPost = !post.bookId.isNullOrBlank()
-    val isAutoStatus = post.comment?.contains("dinlemeye başladı \uD83C\uDFA7") == true
-    val isQuotePost = post.startPos != null && !post.audioUrl.isNullOrBlank()
+    val isAutoStatus = post.comment?.contains("dinlemeye başladı", ignoreCase = true) == true ||
+        post.comment?.contains("\uD83C\uDFA7") == true
+    val isQuotePost = !isAutoStatus && post.startPos != null && !post.audioUrl.isNullOrBlank()
     val hasImage = !post.imageUrl.isNullOrBlank()
 
     val feedType = when {
         !post.pollOptions.isNullOrEmpty() || post.bookName == "Anket" -> FeedType.POLL
+        isAutoStatus -> FeedType.LISTEN
         isQuotePost -> FeedType.QUOTE
         hasImage && !isBookPost -> FeedType.IMAGE
-        isBookPost && isAutoStatus -> FeedType.LISTEN
-        !post.audioUrl.isNullOrBlank() -> FeedType.VOICE
         isBookPost -> FeedType.COMMENT
+        !post.audioUrl.isNullOrBlank() -> FeedType.VOICE
         else -> FeedType.QUOTE
     }
 
@@ -45,7 +57,7 @@ internal fun mapSupabasePostToFeedItem(post: SupabasePost): FeedItem {
         bookCoverUrl = if (isBookPost) resolveFeedUrl(post.imageUrl) else "",
         content = post.comment ?: "",
         likes = post.likes ?: 0,
-        timestamp = post.createdAt?.let { runCatching { kotlinx.datetime.Instant.parse(it).toEpochMilliseconds() }.getOrNull() } ?: 0L,
+        timestamp = parseSupabaseTimestamp(post.createdAt),
         likedBy = post.likedBy.orEmpty().split(",").filter { it.isNotBlank() },
         type = feedType,
         isPremium = post.isPremium ?: false,

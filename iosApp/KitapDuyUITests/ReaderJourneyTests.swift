@@ -428,7 +428,7 @@ final class ReaderJourneyTests: XCTestCase {
             }
             try tap(element("discover-askida-card"))
             try visible(element("askida-tab-0"))
-            try visible(text("Kürk Mantolu Madonna", contains: true))
+            try visible(text("Sonuç bulunamadı."))
         }
         try step("37-askida-donate") {
             try tap(element("askida-tab-1"))
@@ -918,24 +918,6 @@ final class ReaderJourneyTests: XCTestCase {
             }
             try scrollToVisible(element("discover-askida-card"))
             try tap(element("discover-askida-card"))
-            try visible(element("askida-search"))
-            try type("Küçük", into: element("askida-search"))
-            dismissKeyboardIfNeeded()
-            dismissNonReturnKeyboard()
-            if app.keyboards.firstMatch.exists, element("askida-tab-0").exists {
-                try tap(element("askida-tab-0"))
-            }
-            try visible(text("Küçük Prens"))
-            try tap(text("Kitabı Talep Et"), scroll: true)
-            try visible(text("Evet, İstiyorum"))
-            try tap(text("Evet, İstiyorum"))
-            try visible(text("Teslimat Sohbeti"))
-            try visible(element("askida-chat-input"))
-            try type("Tesekkur ederim", into: element("askida-chat-input"))
-            try tap(element("askida-chat-send"))
-            try visible(text("Tesekkur ederim"))
-            try tap(text("Geri"))
-
             try visible(element("askida-tab-1"))
             try tap(element("askida-tab-1"))
             try visible(element("askida-donate-title"))
@@ -965,6 +947,24 @@ final class ReaderJourneyTests: XCTestCase {
                     detail: "AskidaKitapScreen.kt içindeki AskidaKitapBagis düzeni imePadding() ve alanlar ImeAction.Done/singleLine içermediği için alttaki gönder düğmesi klavyenin arkasında kalıyor."
                 )
             }
+
+            try visible(element("askida-search"))
+            try type("Simyaci", into: element("askida-search"))
+            dismissKeyboardIfNeeded()
+            dismissNonReturnKeyboard()
+            if app.keyboards.firstMatch.exists, element("askida-tab-0").exists {
+                try tap(element("askida-tab-0"))
+            }
+            try visible(text("Simyaci", contains: true))
+            try tap(text("Kitabı Talep Et"), scroll: true)
+            try visible(text("Evet, İstiyorum"))
+            try tap(text("Evet, İstiyorum"))
+            try visible(text("Teslimat Sohbeti"))
+            try visible(element("askida-chat-input"))
+            try type("Tesekkur ederim", into: element("askida-chat-input"))
+            try tap(element("askida-chat-send"))
+            try visible(text("Tesekkur ederim"))
+            try tap(text("Geri"))
             audit("64-askida-search-claim-and-donate")
             inspectScreen("64-askida-search-claim-and-donate")
         }

@@ -13,7 +13,7 @@ val viewModelModule = module {
     factory { com.semtinazizi.kitapduy.ui.viewmodel.LibraryScreenModel(get(), get(), get(), get()) }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.FocusScreenModel(get()) }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.QuizScreenModel(get(), get()) }
-    factory { com.semtinazizi.kitapduy.ui.viewmodel.AskidaViewModel(get(), get()) }
+    factory { com.semtinazizi.kitapduy.ui.viewmodel.AskidaViewModel(get(), get(), getOrNull()) }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.SearchScreenModel(get(), get()) }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.ChatScreenModel(get(), it.get()) }
     factory { com.semtinazizi.kitapduy.ui.viewmodel.ProfileScreenModel(get(), get(), get()) }

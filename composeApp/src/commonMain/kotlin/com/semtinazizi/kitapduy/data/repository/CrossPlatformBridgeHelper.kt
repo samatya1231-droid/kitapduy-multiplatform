@@ -46,10 +46,95 @@ internal object CrossPlatformBridgeHelper {
         val streak: Int = 0
     )
 
-    private fun isLocalFixture(): Boolean {
+    fun isLocalFixture(): Boolean {
         val base = AppConfig.supabaseUrl.trim()
         return base.startsWith("http://localhost", ignoreCase = true) ||
             base.startsWith("http://127.0.0.1", ignoreCase = true)
+    }
+
+    suspend fun fetchAskidaAvailable(httpClient: HttpClient?): List<com.semtinazizi.kitapduy.model.AskidaKitap> {
+        if (isLocalFixture() || httpClient == null) return emptyList()
+        return try {
+            val raw = httpClient.get("$BRIDGE_URL?action=askida_list").bodyAsText()
+            json.decodeFromString<List<com.semtinazizi.kitapduy.model.AskidaKitap>>(raw)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    }
+
+    suspend fun fetchAskidaMyChats(httpClient: HttpClient?, uid: String): List<com.semtinazizi.kitapduy.model.AskidaKitap> {
+        if (isLocalFixture() || httpClient == null || uid.isBlank()) return emptyList()
+        return try {
+            val raw = httpClient.get("$BRIDGE_URL?action=askida_my_chats&uid=$uid").bodyAsText()
+            json.decodeFromString<List<com.semtinazizi.kitapduy.model.AskidaKitap>>(raw)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    }
+
+    suspend fun donateAskida(httpClient: HttpClient?, book: com.semtinazizi.kitapduy.model.AskidaKitap): Boolean {
+        if (isLocalFixture() || httpClient == null) return false
+        return try {
+            httpClient.post("$BRIDGE_URL?action=askida_donate") {
+                contentType(ContentType.Application.Json)
+                setBody(json.encodeToString(com.semtinazizi.kitapduy.model.AskidaKitap.serializer(), book))
+            }
+            true
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    suspend fun claimAskida(httpClient: HttpClient?, bookId: String, claimerId: String): Boolean {
+        if (isLocalFixture() || httpClient == null || bookId.isBlank() || claimerId.isBlank()) return false
+        return try {
+            val payload = buildJsonObject {
+                put("id", bookId)
+                put("claimer_id", claimerId)
+            }.toString()
+            httpClient.post("$BRIDGE_URL?action=askida_claim") {
+                contentType(ContentType.Application.Json)
+                setBody(payload)
+            }
+            true
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    suspend fun fetchAskidaMessages(httpClient: HttpClient?, bookId: String): List<com.semtinazizi.kitapduy.model.AskidaMesaj> {
+        if (isLocalFixture() || httpClient == null || bookId.isBlank()) return emptyList()
+        return try {
+            val raw = httpClient.get("$BRIDGE_URL?action=askida_messages&bookId=$bookId").bodyAsText()
+            json.decodeFromString<List<com.semtinazizi.kitapduy.model.AskidaMesaj>>(raw)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    }
+
+    suspend fun sendAskidaMessage(httpClient: HttpClient?, msg: com.semtinazizi.kitapduy.model.AskidaMesaj): Boolean {
+        if (isLocalFixture() || httpClient == null) return false
+        return try {
+            httpClient.post("$BRIDGE_URL?action=askida_send_message") {
+                contentType(ContentType.Application.Json)
+                setBody(json.encodeToString(com.semtinazizi.kitapduy.model.AskidaMesaj.serializer(), msg))
+            }
+            true
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            false
+        }
     }
 
     fun deterministicArenaUuid(rawId: String): String {
