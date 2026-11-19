@@ -70,7 +70,7 @@ val AppleIcon: ImageVector
         viewportHeight = 24f
     ).apply {
         path(fill = SolidColor(Color(0xFFFFFFFF))) {
-            moveTo(16.58f, 12.0f)
+            moveTo(17.78f, 12.2f)
             curveToRelative(0.0f, -2.66f, 2.16f, -3.93f, 2.25f, -3.99f)
             curveToRelative(-1.24f, -1.82f, -3.17f, -2.06f, -3.87f, -2.1f)
             curveToRelative(-1.64f, -0.16f, -3.2f, 0.97f, -4.04f, 0.97f)
@@ -82,9 +82,9 @@ val AppleIcon: ImageVector
             curveToRelative(1.6f, 0.0f, 2.07f, 0.86f, 3.46f, 0.83f)
             curveToRelative(1.42f, -0.03f, 2.34f, -1.28f, 3.22f, -2.57f)
             curveToRelative(1.02f, -1.49f, 1.44f, -2.93f, 1.46f, -3.0f)
-            curveToRelative(-0.03f, -0.01f, -2.79f, -1.07f, -2.79f, -4.28f)
+            curveToRelative(-0.03f, -0.01f, -2.79f, -1.07f, -2.79f, -4.32f)
             close()
-            moveTo(14.8f, 6.78f)
+            moveTo(15.65f, 4.45f)
             curveToRelative(0.74f, -0.89f, 1.24f, -2.14f, 1.1f, -3.38f)
             curveToRelative(-1.08f, 0.04f, -2.38f, 0.72f, -3.14f, 1.6f)
             curveToRelative(-0.68f, 0.79f, -1.28f, 2.07f, -1.11f, 3.28f)

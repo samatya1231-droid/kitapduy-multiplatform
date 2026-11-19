@@ -31,6 +31,8 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.ui.components.AppleIcon
+import com.semtinazizi.kitapduy.ui.components.GoogleIcon
 import kotlinx.coroutines.launch
 
 class OnboardingScreen : Screen {
@@ -326,6 +328,30 @@ class OnboardingScreen : Screen {
             Spacer(Modifier.height(40.dp))
 
             Surface(
+                onClick = onAppleClick,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.onSurface,
+                shadowElevation = 8.dp,
+                enabled = !isLoading
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            AppleIcon,
+                            contentDescription = "Apple",
+                            tint = MaterialTheme.colorScheme.surface,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text("Apple ile Devam Et", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            Surface(
                 onClick = onGoogleClick,
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(16.dp),
@@ -337,23 +363,17 @@ class OnboardingScreen : Screen {
                     if (isLoading) {
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.surface, modifier = Modifier.size(24.dp))
                     } else {
-                        Text("Google ile Devam Et", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                GoogleIcon,
+                                contentDescription = "Google",
+                                tint = Color.Unspecified,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text("Google ile Devam Et", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold)
+                        }
                     }
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            Surface(
-                onClick = onAppleClick,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.onSurface,
-                shadowElevation = 8.dp,
-                enabled = !isLoading
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text("Apple ile Devam Et", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.Bold)
                 }
             }
 

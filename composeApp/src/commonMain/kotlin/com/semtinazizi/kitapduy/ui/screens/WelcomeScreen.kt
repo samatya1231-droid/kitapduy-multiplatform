@@ -146,6 +146,33 @@ class WelcomeScreen : Screen {
                     modifier = Modifier.padding(bottom = 24.dp)
                 )
 
+                // Apple Login - Apple HIG: Sign in with Apple placed first with official white/black contrast
+                Surface(
+                    onClick = {
+                        if (!isLoading) {
+                            isLoading = true
+                            try {
+                                com.semtinazizi.kitapduy.platform.triggerNativeAppleSignIn()
+                            } catch (e: Exception) { e.printStackTrace() }
+                            isLoading = false
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(26.dp),
+                    color = Color.White,
+                    shadowElevation = 8.dp
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(AppleIcon, contentDescription = "Apple", tint = Color.Black, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Text("Apple ile Devam Et", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
                 // Google Login
                 Surface(
                     onClick = {
@@ -170,37 +197,10 @@ class WelcomeScreen : Screen {
                             CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(24.dp))
                         } else {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(GoogleIcon, contentDescription = "Google", tint = Color.Unspecified, modifier = Modifier.size(24.dp))
-                                Spacer(Modifier.width(12.dp))
-                                Text("Google ile Devam Et", color = Color.Black, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                Icon(GoogleIcon, contentDescription = "Google", tint = Color.Unspecified, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Google ile Devam Et", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                             }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(12.dp))
-
-                // Apple Login - iOS'ta native ASAuthorizationController kullanır (WebView değil)
-                Surface(
-                    onClick = {
-                        if (!isLoading) {
-                            isLoading = true
-                            try {
-                                com.semtinazizi.kitapduy.platform.triggerNativeAppleSignIn()
-                            } catch (e: Exception) { e.printStackTrace() }
-                            isLoading = false
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                    shape = RoundedCornerShape(26.dp),
-                    color = Color.Black,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(AppleIcon, contentDescription = "Apple", tint = Color.Unspecified, modifier = Modifier.size(24.dp))
-                            Spacer(Modifier.width(12.dp))
-                            Text("Apple ile Devam Et", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
