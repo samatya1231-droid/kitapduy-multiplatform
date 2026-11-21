@@ -298,7 +298,7 @@ class SupabaseSocialRepository(
                 senderName = senderName,
                 type = type,
                 message = message,
-                targetId = null
+                targetId = if (type.trim().equals("follow", ignoreCase = true)) senderId.takeIf { it.isNotBlank() } else null
             )
         } catch (cancelled: CancellationException) {
             throw cancelled

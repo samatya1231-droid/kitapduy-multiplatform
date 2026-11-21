@@ -16,6 +16,7 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
+import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -293,14 +294,20 @@ internal object CrossPlatformBridgeHelper {
         val status: String = "pending"
     )
 
-    suspend fun searchBridgeUsers(httpClient: HttpClient?, query: String): List<UserProfile> {
+    suspend fun searchBridgeUsers(
+        httpClient: HttpClient?,
+        query: String,
+        useLocalFixture: Boolean = isLocalFixture()
+    ): List<UserProfile> {
         val cleanQuery = query.trim()
-        if (isLocalFixture() || httpClient == null || cleanQuery.length < 2) return emptyList()
+        if (useLocalFixture || httpClient == null || cleanQuery.length < 2) return emptyList()
         return try {
-            val raw = httpClient.get(BRIDGE_URL) {
+            val response = httpClient.get(BRIDGE_URL) {
                 parameter("action", "search_users")
                 parameter("q", cleanQuery)
-            }.bodyAsText()
+            }
+            if (!response.status.isSuccess()) return emptyList()
+            val raw = response.bodyAsText()
             json.decodeFromString<List<BridgeUserDto>>(raw)
                 .filter { it.uid.isNotBlank() }
                 .map { dto ->
@@ -325,25 +332,46 @@ internal object CrossPlatformBridgeHelper {
     }
 
     suspend fun submitBookRequest(
-        supabaseClient: SupabaseClient,
+        httpClient: HttpClient?,
+        supabaseClient: SupabaseClient? = null,
         userId: String?,
         userName: String?,
         bookTitle: String,
-        author: String
+        author: String,
+        useLocalFixture: Boolean = isLocalFixture()
     ): Boolean {
         val cleanTitle = bookTitle.trim()
-        if (cleanTitle.isBlank()) return false
+        if (cleanTitle.length < 2) return false
+        val cleanAuthor = author.trim()
+        val cleanUserId = userId?.takeIf { it.isNotBlank() } ?: "anonymous"
+        val cleanUserName = userName?.takeIf { it.isNotBlank() } ?: "KitapDuy Okuru"
         return try {
-            supabaseClient.postgrest["book_requests"].insert(
-                SupabaseBookRequestInsert(
-                    userId = userId?.takeIf { it.isNotBlank() } ?: "anonymous",
-                    userName = userName?.takeIf { it.isNotBlank() } ?: "KitapDuy Okuru",
-                    bookTitle = cleanTitle,
-                    author = author.trim(),
-                    status = "pending"
+            if (useLocalFixture) {
+                val client = supabaseClient ?: return false
+                client.postgrest["book_requests"].insert(
+                    SupabaseBookRequestInsert(
+                        userId = cleanUserId,
+                        userName = cleanUserName,
+                        bookTitle = cleanTitle,
+                        author = cleanAuthor,
+                        status = "pending"
+                    )
                 )
-            )
-            true
+                true
+            } else {
+                val client = httpClient ?: return false
+                val payload = buildJsonObject {
+                    put("user_id", cleanUserId)
+                    put("user_name", cleanUserName)
+                    put("title", cleanTitle)
+                    put("author", cleanAuthor)
+                }.toString()
+                val response = client.post("$BRIDGE_URL?action=submit_book_request") {
+                    contentType(ContentType.Application.Json)
+                    setBody(payload)
+                }
+                response.status.isSuccess()
+            }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Throwable) {

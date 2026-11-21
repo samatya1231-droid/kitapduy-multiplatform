@@ -10,11 +10,13 @@ import com.semtinazizi.kitapduy.util.KmpBookProgressManager
 import com.semtinazizi.kitapduy.util.UrlSanitizer
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
+import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import java.lang.reflect.Proxy
 import kotlinx.coroutines.test.runTest
@@ -206,7 +208,7 @@ class CrossPlatformSyncAndPremiumPolicyTest {
     }
 
     @Test
-    fun submitBookRequestPostsToBookRequestsTable() = runTest {
+    fun submitBookRequestPostsToBookRequestsTableInLocalFixtureMode() = runTest {
         var postedToBookRequests = false
         val engine = MockEngine { request ->
             if (request.url.encodedPath.endsWith("/rest/v1/book_requests") && request.method == HttpMethod.Post) {
@@ -222,16 +224,166 @@ class CrossPlatformSyncAndPremiumPolicyTest {
         }
         try {
             val ok = CrossPlatformBridgeHelper.submitBookRequest(
+                httpClient = null,
                 supabaseClient = client,
                 userId = "u1",
                 userName = "Rahmi",
                 bookTitle = "Satranç",
-                author = "Stefan Zweig"
+                author = "Stefan Zweig",
+                useLocalFixture = true
             )
             assertTrue(ok)
             assertTrue(postedToBookRequests)
         } finally {
             client.close()
+        }
+    }
+
+    @Test
+    fun submitBookRequestPostsToCrossPlatformBridgeInProductionAndRespectsStatus() = runTest {
+        val capturedBodies = mutableListOf<String>()
+        var nextStatus = HttpStatusCode.Created
+        val httpClient = HttpClient(MockEngine { request ->
+            assertEquals("submit_book_request", request.url.parameters["action"])
+            assertEquals(HttpMethod.Post, request.method)
+            val bodyText = (request.body as? TextContent)?.text.orEmpty()
+            capturedBodies.add(bodyText)
+            respond("""{"ok":true}""", nextStatus, jsonHeaders)
+        })
+        try {
+            assertTrue(
+                CrossPlatformBridgeHelper.submitBookRequest(
+                    httpClient = httpClient,
+                    supabaseClient = null,
+                    userId = "ios_u1",
+                    userName = "Rahmi",
+                    bookTitle = "Satranç",
+                    author = "",
+                    useLocalFixture = false
+                )
+            )
+            assertEquals(1, capturedBodies.size)
+            assertTrue(capturedBodies[0].contains(""""title":"Satranç""""))
+            assertTrue(capturedBodies[0].contains(""""user_id":"ios_u1""""))
+
+            nextStatus = HttpStatusCode.OK
+            assertTrue(
+                CrossPlatformBridgeHelper.submitBookRequest(
+                    httpClient = httpClient,
+                    userId = "ios_u1",
+                    userName = "Rahmi",
+                    bookTitle = "Satranç",
+                    author = "Stefan Zweig",
+                    useLocalFixture = false
+                )
+            )
+
+            nextStatus = HttpStatusCode.TooManyRequests
+            assertFalse(
+                CrossPlatformBridgeHelper.submitBookRequest(
+                    httpClient = httpClient,
+                    userId = "ios_u1",
+                    userName = "Rahmi",
+                    bookTitle = "6. Kitap",
+                    author = "",
+                    useLocalFixture = false
+                )
+            )
+
+            assertFalse(
+                CrossPlatformBridgeHelper.submitBookRequest(
+                    httpClient = httpClient,
+                    userId = "ios_u1",
+                    userName = "Rahmi",
+                    bookTitle = "A",
+                    author = "",
+                    useLocalFixture = false
+                )
+            )
+        } finally {
+            httpClient.close()
+        }
+    }
+
+    @Test
+    fun searchBridgeUsersParsesFirestoreBridgeUsersAndHandlesErrors() = runTest {
+        var nextStatus = HttpStatusCode.OK
+        val httpClient = HttpClient(MockEngine { request ->
+            assertEquals("search_users", request.url.parameters["action"])
+            assertEquals("Selnur", request.url.parameters["q"])
+            if (nextStatus == HttpStatusCode.OK) {
+                respond(
+                    """[{"uid":"android_selnur","name":"Selnur Kara","username":"selnur_k","bio":"VIP Okur","photo_url":"https://ses.kitapduy.com.tr/selnur.jpg","badges":["premium"],"is_premium":true,"streak":5}]""",
+                    HttpStatusCode.OK,
+                    jsonHeaders
+                )
+            } else {
+                respond("""{"error":"unsupported_action"}""", nextStatus, jsonHeaders)
+            }
+        })
+        try {
+            val found = CrossPlatformBridgeHelper.searchBridgeUsers(httpClient, "Selnur", useLocalFixture = false)
+            assertEquals(1, found.size)
+            assertEquals("android_selnur", found.single().uid)
+            assertEquals("Selnur Kara", found.single().name)
+            assertEquals("selnur_k", found.single().username)
+            assertTrue(found.single().isPremium)
+
+            nextStatus = HttpStatusCode.BadRequest
+            assertTrue(CrossPlatformBridgeHelper.searchBridgeUsers(httpClient, "Selnur", useLocalFixture = false).isEmpty())
+            assertTrue(CrossPlatformBridgeHelper.searchBridgeUsers(httpClient, "S", useLocalFixture = false).isEmpty())
+        } finally {
+            httpClient.close()
+        }
+    }
+
+    @Test
+    fun followUserSendsNotificationWithFollowerUidTargetToSupabaseAndIosPushBridge() = runTest {
+        val notificationBodies = mutableListOf<String>()
+        val pushBodies = mutableListOf<String>()
+        val supabaseEngine = MockEngine { request ->
+            val path = request.url.encodedPath
+            when {
+                path.endsWith("/rest/v1/followers") && request.method == HttpMethod.Post -> {
+                    respond("[]", HttpStatusCode.Created, jsonHeaders)
+                }
+                path.endsWith("/rest/v1/notifications") && request.method == HttpMethod.Post -> {
+                    notificationBodies.add((request.body as? TextContent)?.text ?: request.body.toString())
+                    respond("[]", HttpStatusCode.Created, jsonHeaders)
+                }
+                else -> respond("[]", HttpStatusCode.OK, jsonHeaders)
+            }
+        }
+        val pushHttpClient = HttpClient(MockEngine { request ->
+            if (request.url.encodedPath.endsWith("/pushSocialNotificationToIos")) {
+                pushBodies.add((request.body as? TextContent)?.text.orEmpty())
+            }
+            respond("""{"ok":true}""", HttpStatusCode.OK, jsonHeaders)
+        })
+        val client = createSupabaseClient("https://example.invalid", "test-key") {
+            install(Postgrest)
+            httpEngine = supabaseEngine
+        }
+        try {
+            val repo = SupabaseSocialRepository(
+                supabaseClient = client,
+                authRepository = authAs("ios_follower_9", "Zeynep"),
+                settings = fakeSettings(),
+                httpClient = pushHttpClient
+            )
+            repo.follow("ios_follower_9", "android_owner_1")
+            assertEquals(1, notificationBodies.size)
+            assertTrue(notificationBodies[0].contains(""""receiver_id":"android_owner_1""""))
+            assertTrue(notificationBodies[0].contains(""""book_id":"ios_follower_9""""))
+            assertTrue(notificationBodies[0].contains(""""type":"follow""""))
+            if (!CrossPlatformBridgeHelper.isLocalFixture()) {
+                assertEquals(1, pushBodies.size)
+                assertTrue(pushBodies[0].contains(""""type":"FOLLOW""""))
+                assertTrue(pushBodies[0].contains(""""postId":"ios_follower_9""""))
+            }
+        } finally {
+            client.close()
+            pushHttpClient.close()
         }
     }
 

@@ -106,8 +106,9 @@ object PushNotificationBridge {
         }
         if (targetId.isBlank()) return PushNotificationRoute.Notifications
         if (targetId.startsWith("podcast_")) return PushNotificationRoute.Podcast(targetId)
-        if (deepLinkBook.isNotBlank() && event.postId.isBlank()) {
-            return PushNotificationRoute.Book(deepLinkBook)
+        if (normalizedType == "book" || normalizedType == "new_book" || deepLinkBook.isNotBlank()) {
+            val resolvedBookId = deepLinkBook.ifBlank { targetId }
+            return PushNotificationRoute.Book(resolvedBookId)
         }
         return if (targetId.toLongOrNull() != null) {
             PushNotificationRoute.PostDetail(targetId)

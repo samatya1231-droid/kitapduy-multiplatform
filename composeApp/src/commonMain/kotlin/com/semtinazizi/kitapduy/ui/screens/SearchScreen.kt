@@ -47,6 +47,7 @@ import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import com.semtinazizi.kitapduy.ui.viewmodel.SearchCategory
 import com.semtinazizi.kitapduy.ui.viewmodel.SearchScreenModel
 import io.github.jan.supabase.SupabaseClient
+import io.ktor.client.HttpClient
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -58,6 +59,7 @@ class SearchScreen : Screen {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = koinScreenModel<SearchScreenModel>()
         val supabaseClient = koinInject<SupabaseClient>()
+        val httpClient = koinInject<HttpClient>()
         val authRepository = koinInject<AuthRepository>()
         val authViewModel = koinViewModel<AuthViewModel>()
         val userProfile by authViewModel.userProfile.collectAsState()
@@ -76,10 +78,14 @@ class SearchScreen : Screen {
         var requestedAuthor by remember { mutableStateOf("") }
         var isSubmittingRequest by remember { mutableStateOf(false) }
         var requestSentNotice by remember { mutableStateOf(false) }
+        var requestError by remember { mutableStateOf<String?>(null) }
 
         if (showRequestDialog) {
             AlertDialog(
-                onDismissRequest = { showRequestDialog = false },
+                onDismissRequest = {
+                    showRequestDialog = false
+                    requestError = null
+                },
                 title = { Text("Kitap Talep Et", fontWeight = FontWeight.Bold) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -90,30 +96,45 @@ class SearchScreen : Screen {
                         )
                         OutlinedTextField(
                             value = requestedBookTitle,
-                            onValueChange = { requestedBookTitle = it },
+                            onValueChange = {
+                                requestedBookTitle = it
+                                requestError = null
+                            },
                             label = { Text("Kitap Adı") },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth().testTag("book-request-title")
                         )
                         OutlinedTextField(
                             value = requestedAuthor,
-                            onValueChange = { requestedAuthor = it },
+                            onValueChange = {
+                                requestedAuthor = it
+                                requestError = null
+                            },
                             label = { Text("Yazar (İsteğe bağlı)") },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
+                        requestError?.let { err ->
+                            Text(
+                                text = err,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 },
                 confirmButton = {
                     Button(
-                        enabled = requestedBookTitle.isNotBlank() && !isSubmittingRequest,
+                        enabled = requestedBookTitle.trim().length >= 2 && !isSubmittingRequest,
                         onClick = {
                             val titleToSend = requestedBookTitle.trim()
                             val authorToSend = requestedAuthor.trim()
                             isSubmittingRequest = true
+                            requestError = null
                             scope.launch {
-                                try {
+                                val submitted = try {
                                     CrossPlatformBridgeHelper.submitBookRequest(
+                                        httpClient = httpClient,
                                         supabaseClient = supabaseClient,
                                         userId = userProfile?.uid ?: authRepository.currentUserUid,
                                         userName = userProfile?.name,
@@ -122,17 +143,24 @@ class SearchScreen : Screen {
                                     )
                                 } finally {
                                     isSubmittingRequest = false
+                                }
+                                if (submitted) {
                                     requestedBookTitle = ""
                                     requestedAuthor = ""
                                     showRequestDialog = false
                                     requestSentNotice = true
+                                } else {
+                                    requestError = "Talebiniz gönderilemedi. Günlük limit dolmuş veya bağlantı hatası oluşmuş olabilir."
                                 }
                             }
                         }
                     ) { Text(if (isSubmittingRequest) "Gönderiliyor…" else "Gönder") }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showRequestDialog = false }) { Text("Vazgeç") }
+                    TextButton(onClick = {
+                        showRequestDialog = false
+                        requestError = null
+                    }) { Text("Vazgeç") }
                 }
             )
         }

@@ -85,5 +85,21 @@ class PushIdentityCoordinatorTest {
             PushNotificationRoute.Notifications,
             PushNotificationBridge.resolveRoute(PushNotificationEvent(deepLink = "kitapduy://notifications"))
         )
+        assertEquals(
+            PushNotificationRoute.UserProfile("android_user_99"),
+            PushNotificationBridge.resolveRoute(PushNotificationEvent(deepLink = "kitapduy://user/android_user_99"))
+        )
+        assertEquals(
+            PushNotificationRoute.PostDetail("55"),
+            PushNotificationBridge.resolveRoute(
+                PushNotificationEvent(socialType = "POLL_VOTE", postId = "55", deepLink = "kitapduy://post/55")
+            )
+        )
+        assertEquals(
+            PushNotificationRoute.Book("12345"),
+            PushNotificationBridge.resolveRoute(
+                PushNotificationEvent(socialType = "BOOK", postId = "12345", deepLink = "kitapduy://book/12345")
+            )
+        )
     }
 }
