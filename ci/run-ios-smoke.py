@@ -90,6 +90,7 @@ SCREEN_GROUPS = (
         ("34-arena-menu", "KitapDuy Arena · Menü"),
         ("35-arena-playing", "KitapDuy Arena · Soru"),
         ("63-arena-leaderboard-and-modes", "Arena · Liderlik, Turnuva ve Blitz"),
+        ("63b-arena-guess-author", "Arena · Kimin Kaleminden? (Yazar Tahmini)"),
         ("36-askida-list", "Askıda Kitap · Liste"),
         ("37-askida-donate", "Askıda Kitap · Bağış"),
         ("64-askida-search-claim-and-donate", "Askıda · arama, talep, sohbet ve bağış"),
@@ -108,6 +109,7 @@ SCREEN_GROUPS = (
         ("13-feed", "Edebiyat Duvarı"), ("14-feed-compose", "Gönderi düzenleyici"),
         ("15-feed-published", "Yayınlanan gönderi"),
         ("59-feed-poll-published", "Akış · anket paylaşımı ve oylama"),
+        ("59b-feed-live-listeners", "Şu An Dinleyenler ve canlı dinleme kartı"),
         ("60-post-detail-comments", "Gönderi detayı ve yorum CRUD"),
         ("61-notifications", "Bildirimler · tümünü okundu işaretle"),
         ("29-profile", "Okur köşem"), ("62-profile-wrapped", "Okur köşem · Yıllık Özet ve paylaşımlar"),
@@ -139,6 +141,7 @@ TRACKED_FIXTURE_EVENTS = (
     ("create_comment", "Yorum ekleme (`POST /rest/v1/feed_comments`)"),
     ("delete_comment", "Yorum silme (`DELETE /rest/v1/feed_comments`)"),
     ("add_shelf", "Rafa kitap ekleme (`POST /rest/v1/user_bookshelves`)"),
+    ("add_favorite", "Kitabı favorilere ekleme (`POST /rest/v1/favorites`)"),
     ("follow_user", "Okur takip etme (`POST /rest/v1/followers`)"),
     ("unfollow_user", "Okur takibi bırakma (`DELETE /rest/v1/followers`)"),
     ("mark_notifications_read", "Bildirimleri okundu işaretleme (`PATCH /rest/v1/notifications`)"),
@@ -153,7 +156,6 @@ UNREACHABLE_CODEBASE_SCREENS = (
     "KitapBilScreen",
     "MindLibraryScreen",
     "ScienceArticlesScreen",
-    "GuessAuthorScreen",
     "IndependentPensScreen",
     "PodcastListScreen",
     "FocusScreen",
@@ -480,6 +482,10 @@ def build_review_note(results, output):
             f"- **{family} — {name}{runtime_note}**: **{state}** | Süre: `{seconds}s` | XCUITest: `{xc_text}` | "
             f"Ekran görüntüsü: `{shots}` | Video: `{video_state}` | Problar: `{probe_text}` | Erişilebilirlik bulgusu: `{audit_issue_count}`"
         )
+        if probes:
+            cat_counts = Counter(p["category"] for p in probes)
+            cat_summary = ", ".join(f"{cat}: {cnt}" for cat, cnt in sorted(cat_counts.items()))
+            lines.append(f"  - Denetim kategorileri: `{cat_summary}`")
         for warn_key in ("error", "video_warning", "screenshot_warning", "collection_warning"):
             if result.get(warn_key):
                 lines.append(f"  - Hata/Uyarı (`{warn_key}`): {result[warn_key]}")

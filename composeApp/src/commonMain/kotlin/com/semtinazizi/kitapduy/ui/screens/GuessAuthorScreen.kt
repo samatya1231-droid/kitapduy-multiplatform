@@ -18,6 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
@@ -59,7 +60,7 @@ class GuessAuthorScreen : Screen {
                 shape = RoundedCornerShape(24.dp),
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("??", fontSize = 28.sp)
+                        Text("💔", fontSize = 28.sp)
                         Spacer(Modifier.width(12.dp))
                         Text("Oyun Bitti!", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Black)
                     }
@@ -104,7 +105,7 @@ class GuessAuthorScreen : Screen {
                     },
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri", tint = Color.White)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri", tint = MaterialTheme.colorScheme.onSurface)
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -218,7 +219,7 @@ class GuessAuthorScreen : Screen {
                         Spacer(Modifier.height(40.dp))
 
                         // ?? MODERN ANSWER BUTTONS ??
-                        question.options.forEach { option ->
+                        question.options.forEachIndexed { index, option ->
                             val isSelected = selectedAnswer == option
                             val isCorrect = option == question.correctAnswer
 
@@ -237,7 +238,8 @@ class GuessAuthorScreen : Screen {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 8.dp)
-                                    .height(64.dp),
+                                    .height(64.dp)
+                                    .testTag("guess-author-option-$index"),
                                 shape = RoundedCornerShape(20.dp),
                                 color = buttonBaseColor,
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = borderAlpha)),

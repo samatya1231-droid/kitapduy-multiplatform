@@ -916,7 +916,7 @@ class FixtureTest(unittest.TestCase):
             self.assertEqual(self.request_json(url + "/rest/v1/notifications?is_read=eq.false"), [])
 
             for expected_event in (
-                "add_shelf", "create_post", "update_post", "create_comment",
+                "add_shelf", "add_favorite", "create_post", "update_post", "create_comment",
                 "delete_comment", "delete_post", "follow_user", "unfollow_user",
                 "mark_notifications_read", "create_quiz_match",
             ):
@@ -930,6 +930,15 @@ class FixtureTest(unittest.TestCase):
         for _, _, screens in smoke.SCREEN_GROUPS:
             for step_name, _ in screens:
                 self.assertIn(f'step("{step_name}")', swift_text)
+        self.assertNotIn("GuessAuthorScreen", smoke.UNREACHABLE_CODEBASE_SCREENS)
+        for token in (
+            'step("59b-feed-live-listeners")',
+            'step("63b-arena-guess-author")',
+            'category: "AppleHIG"',
+            'quote-share-feed',
+            'Çakışan etkileşimli düğmeler',
+        ):
+            self.assertIn(token, swift_text)
 
 
 if __name__ == "__main__":

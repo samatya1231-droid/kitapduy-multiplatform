@@ -494,12 +494,15 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                                     Spacer(Modifier.height(8.dp))
                                     LazyRow(
                                         horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier.fillMaxWidth().testTag("feed-listening-ribbon")
                                     ) {
                                         items(items = listeningRibbonItems, key = { "${it.userId.trim()}_${it.userName.trim()}_${it.id}" }) { item ->
                                             Column(
                                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                                modifier = Modifier.width(70.dp).clickable { selectedListeningItem = item }
+                                                modifier = Modifier
+                                                    .width(70.dp)
+                                                    .testTag("feed-listener-${item.id}")
+                                                    .clickable { selectedListeningItem = item }
                                             ) {
                                                 Box(contentAlignment = Alignment.Center) {
                                                     // ListeningRipple Equivalent
@@ -772,7 +775,8 @@ private fun RichListeningDialog(
                 Button(
                     enabled = !isOpeningContent,
                     onClick = onOpenContent,
-                    colors = ButtonDefaults.buttonColors(containerColor = gold)
+                    colors = ButtonDefaults.buttonColors(containerColor = gold),
+                    modifier = Modifier.testTag("feed-listening-open-content")
                 ) {
                     Text(if (isOpeningContent) "Açılıyor…" else "İçeriğe Git", color = Color.Black, fontWeight = FontWeight.Bold)
                 }
@@ -781,9 +785,9 @@ private fun RichListeningDialog(
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (item.userId.isNotBlank()) {
-                    TextButton(enabled = !isOpeningContent, onClick = onViewProfile) { Text("Profili Gör") }
+                    TextButton(enabled = !isOpeningContent, onClick = onViewProfile, modifier = Modifier.testTag("feed-listening-view-profile")) { Text("Profili Gör") }
                 }
-                TextButton(enabled = !isOpeningContent, onClick = onDismiss) { Text("Kapat") }
+                TextButton(enabled = !isOpeningContent, onClick = onDismiss, modifier = Modifier.testTag("feed-listening-close")) { Text("Kapat") }
             }
         }
     )

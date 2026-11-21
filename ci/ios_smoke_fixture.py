@@ -804,6 +804,7 @@ def serve_fixture():
                         stored = {**row, "id": next_id("favorites"), "created_at": now}
                         favorites.append(stored)
                         created.append(dict(stored))
+                    requests.append("add_favorite")
                 elif path == "/rest/v1/followers":
                     for row in rows:
                         follower_id = row.get("follower_id")

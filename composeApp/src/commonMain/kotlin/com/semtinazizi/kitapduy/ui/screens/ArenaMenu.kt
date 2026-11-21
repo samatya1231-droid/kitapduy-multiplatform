@@ -134,6 +134,7 @@ internal fun ArenaMenu(
             title = "Kimin Kaleminden?",
             description = "Alıntının yazarını bul",
             accent = Color(0xFF38BDF8),
+            modifier = Modifier.testTag("quiz-guess-author-button"),
             onClick = onAuthor
         )
         if (!showChallenges) {
@@ -336,7 +337,7 @@ private fun DailyRiddle(question: QuizQuestion) {
                 OutlinedButton(
                     onClick = { selection = index },
                     enabled = selection == null,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().testTag("quiz-riddle-option-$index")
                 ) {
                     Text(label)
                 }

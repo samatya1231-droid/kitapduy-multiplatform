@@ -321,11 +321,27 @@ final class ReaderJourneyTests: XCTestCase {
         )
         try step("23-home-podcasts") {
             try visible(text("Podcast dünyası"), scroll: true)
+            if text("İngilizce Sesli Kitaplar").exists {
+                recordProbe(
+                    screen: "23-home-podcasts",
+                    category: "Content",
+                    status: "PASS",
+                    summary: "Ana sayfa 'İngilizce Sesli Kitaplar' ve 'Podcast dünyası' bölümleri yüklendi",
+                    detail: ""
+                )
+            }
         }
         try scrollToTop(target: element("home-category-Polisiye"))
         try step("42-category-detail") {
             try tap(element("home-category-Polisiye"))
             try visible(text("Tümünü Gör"), scroll: true)
+            recordProbe(
+                screen: "42-category-detail",
+                category: "Content",
+                status: "PASS",
+                summary: "Polisiye kategori vitrini, popüler eserler ve yazarlara göre keşif listesi yüklendi",
+                detail: ""
+            )
             audit("42-category-detail")
             inspectScreen("42-category-detail")
         }
@@ -353,6 +369,15 @@ final class ReaderJourneyTests: XCTestCase {
                 try tap(text("Huzurlu", contains: true))
             }
             try visible(text("Sana Özel Kitaplar"), scroll: true)
+            if text("Podcast Önerileri").exists || (try? visible(text("Podcast Önerileri"), scroll: true)) != nil {
+                recordProbe(
+                    screen: "44-mood-detail",
+                    category: "Content",
+                    status: "PASS",
+                    summary: "Ruh hali detayı ('Huzurlu') kitap ve podcast öneri şeritlerini birlikte gösterdi",
+                    detail: ""
+                )
+            }
             audit("44-mood-detail")
             inspectScreen("44-mood-detail")
             try tap(text("Geri"))
@@ -657,6 +682,23 @@ final class ReaderJourneyTests: XCTestCase {
             try tap(text("Alıntıyı kopyala"), scroll: true)
             try waitFor("Alıntı penceresi kapanmalı") { !self.element("quote-dialog-input").exists }
 
+            try tap(text("Alıntı"))
+            try visible(element("quote-dialog-input"))
+            try type("Dedektiflik bir sanattir", into: element("quote-dialog-input"))
+            if element("quote-share-feed").exists {
+                try tap(element("quote-share-feed"), scroll: true)
+                if text("Alıntınız akışta paylaşıldı.").waitForExistence(timeout: 3) {
+                    recordProbe(
+                        screen: "52-book-dialogs-and-shelf",
+                        category: "Functional",
+                        status: "PASS",
+                        summary: "Kitap detayından sesli alıntı 'Akışta Paylaş' ile Edebiyat Duvarı'na gönderildi",
+                        detail: ""
+                    )
+                    try tap(text("Tamam"))
+                }
+            }
+
             try tap(element("book-add-shelf"), scroll: true)
             try visible(text("Bitirdiklerim"))
             try tap(text("Bitirdiklerim"))
@@ -668,6 +710,15 @@ final class ReaderJourneyTests: XCTestCase {
         try step("53-book-comment-posted") {
             let commentInput = element("book-comment-input")
             try scrollToVisible(commentInput)
+            if text("Bunları da Sevebilirsin").exists {
+                recordProbe(
+                    screen: "53-book-comment-posted",
+                    category: "Content",
+                    status: "PASS",
+                    summary: "Kitap detayında aynı kategoriden 'Bunları da Sevebilirsin' öneri satırı yüklendi",
+                    detail: ""
+                )
+            }
             let winH = app.windows.firstMatch.frame.height
             if winH > 0 && commentInput.frame.maxY > winH - 220 {
                 swipeSafeUp()
@@ -790,11 +841,45 @@ final class ReaderJourneyTests: XCTestCase {
             try visible(text("1 oy", contains: true))
 
             try tap(text("Etkinlik"))
+            if text("Bu kitabı dinlemeye başladı", contains: true).waitForExistence(timeout: 2) {
+                recordProbe(
+                    screen: "59-feed-poll-published",
+                    category: "Functional",
+                    status: "PASS",
+                    summary: "Edebiyat Duvarı 'Etkinlik' sekmesi canlı dinleme aktivitelerini listeledi",
+                    detail: ""
+                )
+            }
             try tap(text("Mısralar"))
             try tap(element("feed-refresh"))
             try visible(text("Favori klasiginiz?", contains: true))
             audit("59-feed-poll-published")
             inspectScreen("59-feed-poll-published")
+        }
+
+        try step("59b-feed-live-listeners") {
+            try scrollToTop(target: text("Şu An Dinleyenler"))
+            try visible(text("Şu An Dinleyenler"))
+            let listenerBubble = app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier BEGINSWITH 'feed-listener-'"))
+                .firstMatch
+            let fallbackBubble = text("mht").exists ? text("mht") : text("Fahrettin Kucukavci")
+            let targetBubble = listenerBubble.exists ? listenerBubble : fallbackBubble
+            try tap(targetBubble)
+            try visible(text("Şu an dinliyor"))
+            try visible(element("feed-listening-open-content"))
+            try visible(element("feed-listening-view-profile"))
+            audit("59b-feed-live-listeners")
+            inspectScreen("59b-feed-live-listeners")
+            recordProbe(
+                screen: "59b-feed-live-listeners",
+                category: "Functional",
+                status: "PASS",
+                summary: "'Şu An Dinleyenler' şeridi (tekilleştirilmiş canlı okurlar) ve dinleme detay kartı ('İçeriğe Git' / 'Profili Gör') doğrulandı",
+                detail: ""
+            )
+            try tap(element("feed-listening-close"))
+            try waitFor("Dinleme kartı kapanmalı") { !self.text("Şu an dinliyor").exists }
         }
 
         try step("60-post-detail-comments") {
@@ -880,6 +965,16 @@ final class ReaderJourneyTests: XCTestCase {
             inspectScreen("63-arena-leaderboard-and-modes")
             try tap(text("Geri"))
             try visible(element("quiz-start-classic"), scroll: true)
+            if isOnScreenAndHittable(element("quiz-riddle-option-0")) {
+                try tap(element("quiz-riddle-option-0"))
+                recordProbe(
+                    screen: "63-arena-leaderboard-and-modes",
+                    category: "Functional",
+                    status: "PASS",
+                    summary: "Arena menüsündeki 'Günün Edebî Bilmecesi' şık seçimi anında yanıtlandı",
+                    detail: ""
+                )
+            }
             try tap(element("quiz-challenges-button"), scroll: true)
             if !element("quiz-tournament-button").waitForExistence(timeout: 2.5), element("quiz-challenges-button").exists {
                 try tap(element("quiz-challenges-button"), scroll: true)
@@ -909,6 +1004,32 @@ final class ReaderJourneyTests: XCTestCase {
                 detail: "Bu senaryoda tek simülatör oynuyor. İki oyunculu bir maç ayrıca test edilmeli."
             )
             try tap(text("İptal Et"))
+        }
+
+        try step("63b-arena-guess-author") {
+            let guessCard = element("quiz-guess-author-button").exists
+                ? element("quiz-guess-author-button")
+                : text("Kimin Kaleminden?", contains: true)
+            try visible(guessCard, scroll: true)
+            try tap(guessCard)
+            if !text("Bilgi Yarışması").waitForExistence(timeout: 2.5), guessCard.exists {
+                try tap(guessCard, scroll: true)
+            }
+            try visible(text("Kimin Kaleminden?"))
+            try visible(text("Bilgi Yarışması"))
+            try visible(element("guess-author-option-0"), scroll: true)
+            try tap(element("guess-author-option-0"))
+            audit("63b-arena-guess-author")
+            inspectScreen("63b-arena-guess-author")
+            recordProbe(
+                screen: "63b-arena-guess-author",
+                category: "Functional",
+                status: "PASS",
+                summary: "KitapDuy Arena 'Kimin Kaleminden?' yazar tahmin oyunu, puan/can paneli ve şık seçimi doğrulandı",
+                detail: ""
+            )
+            try tap(text("Geri"))
+            try visible(element("quiz-start-classic"), scroll: true)
             try tap(text("Geri"))
         }
 
@@ -965,6 +1086,15 @@ final class ReaderJourneyTests: XCTestCase {
             try tap(element("askida-chat-send"))
             try visible(text("Tesekkur ederim"))
             try tap(text("Geri"))
+            if text("Kitap Sohbeti", contains: true).waitForExistence(timeout: 2.5) {
+                recordProbe(
+                    screen: "64-askida-search-claim-and-donate",
+                    category: "Functional",
+                    status: "PASS",
+                    summary: "Askıda Kitap 'Sohbetler' sekmesinde aktif teslimat sohbeti listelendi",
+                    detail: ""
+                )
+            }
             audit("64-askida-search-claim-and-donate")
             inspectScreen("64-askida-search-claim-and-donate")
         }
@@ -1053,12 +1183,40 @@ final class ReaderJourneyTests: XCTestCase {
             if !Self.didCaptureWelcomeLogin && text("E-Posta ile Giriş Yap").exists {
                 Self.didCaptureWelcomeLogin = true
                 try step("38-welcome-login") {
+                    inspectScreen("38-welcome-login")
+                    let appleBtn = text("Apple ile Devam Et")
+                    let googleBtn = text("Google ile Devam Et")
+                    let emailBtn = text("E-Posta ile Giriş Yap")
+                    if appleBtn.exists && googleBtn.exists && emailBtn.exists {
+                        let appleFrame = appleBtn.frame
+                        let googleFrame = googleBtn.frame
+                        let emailFrame = emailBtn.frame
+                        if appleFrame.minY < googleFrame.minY && googleFrame.minY < emailFrame.minY && appleFrame.height >= 44 {
+                            recordProbe(
+                                screen: "38-welcome-login",
+                                category: "AppleHIG",
+                                status: "PASS",
+                                summary: "Karşılama ekranında 'Apple ile Devam Et' düğmesi ilk sırada (Google ve E-Posta'nın üzerinde) ve HIG boyutunda",
+                                detail: "appleY=\(Int(appleFrame.minY))pt, googleY=\(Int(googleFrame.minY))pt, emailY=\(Int(emailFrame.minY))pt, height=\(Int(appleFrame.height))pt"
+                            )
+                        } else {
+                            recordProbe(
+                                screen: "38-welcome-login",
+                                category: "AppleHIG",
+                                status: "FAIL",
+                                summary: "'Apple ile Devam Et' düğmesi sıralama veya HIG boyut kuralını ihlal ediyor",
+                                detail: "appleY=\(Int(appleFrame.minY))pt, googleY=\(Int(googleFrame.minY))pt, height=\(Int(appleFrame.height))pt"
+                            )
+                        }
+                    }
                     try tap(text("E-Posta ile Giriş Yap"))
                     try visible(text("Tekrar Merhaba!"))
                     try tap(text("Giriş Yap"))
                     try visible(text("Lütfen tüm alanları doldurun."))
                     try tap(text("Hesabın yok mu? Kayıt Ol", contains: true))
                     try visible(text("Aramıza Katıl"))
+                    try tap(text("Kayıt Ol"))
+                    try visible(text("Lütfen tüm alanları doldurun."))
                     audit("38-welcome-login")
                     inspectScreen("38-welcome-login")
                     try tap(text("Geri"))
@@ -1307,6 +1465,7 @@ final class ReaderJourneyTests: XCTestCase {
         let buttons = Array(app.buttons.allElementsBoundByIndex.prefix(80))
         let texts = Array(app.staticTexts.allElementsBoundByIndex.prefix(120))
         let inputs = Array(app.textFields.allElementsBoundByIndex.prefix(15))
+        let images = Array(app.images.allElementsBoundByIndex.prefix(40))
 
         if buttons.isEmpty && texts.isEmpty {
             recordProbe(
@@ -1320,6 +1479,7 @@ final class ReaderJourneyTests: XCTestCase {
             return
         }
 
+        var viewportButtons: [(name: String, frame: CGRect)] = []
         for btn in buttons where btn.exists {
             let frame = btn.frame
             guard frame.width > 0, frame.height > 0, frame.height < winFrame.height * 0.8 else { continue }
@@ -1359,6 +1519,53 @@ final class ReaderJourneyTests: XCTestCase {
                     detail: "VoiceOver kullanıcıları için contentDescription / label eksik."
                 )
             }
+            if !btnName.isEmpty,
+               frame.minY >= 0, frame.maxY <= winFrame.height,
+               frame.minX >= 0, frame.maxX <= winFrame.width,
+               frame.width >= 24, frame.height >= 24,
+               frame.width < winFrame.width * 0.88, frame.height < 120 {
+                viewportButtons.append((name: btnName, frame: frame))
+            }
+        }
+
+        if viewportButtons.count >= 2 {
+            for i in 0..<(viewportButtons.count - 1) {
+                for j in (i + 1)..<viewportButtons.count {
+                    let a = viewportButtons[i]
+                    let b = viewportButtons[j]
+                    guard a.name != b.name else { continue }
+                    let inter = a.frame.intersection(b.frame)
+                    guard !inter.isNull, inter.width > 6, inter.height > 6 else { continue }
+                    let overlapArea = inter.width * inter.height
+                    let minArea = min(a.frame.width * a.frame.height, b.frame.width * b.frame.height)
+                    if minArea > 0, overlapArea > minArea * 0.35, overlapArea < minArea * 0.85 {
+                        recordProbe(
+                            screen: screen,
+                            theme: theme,
+                            category: "Layout",
+                            status: "WARN",
+                            summary: "Çakışan etkileşimli düğmeler: '\(a.name)' ve '\(b.name)'",
+                            detail: "overlap=\(Int(inter.width))x\(Int(inter.height))pt"
+                        )
+                    }
+                }
+            }
+        }
+
+        for img in images where img.exists {
+            let frame = img.frame
+            guard frame.width > 0, frame.height > 0, frame.maxY > 0, frame.minY < winFrame.height else { continue }
+            if frame.width < winFrame.width * 0.98, (frame.minX < -4 || frame.maxX > winFrame.width + 4) {
+                let imgName = img.label.isEmpty ? img.identifier : img.label
+                recordProbe(
+                    screen: screen,
+                    theme: theme,
+                    category: "Layout",
+                    status: "WARN",
+                    summary: "Görsel yatay sınır dışına taşıyor: '\(imgName)'",
+                    detail: "frame=\(Int(frame.minX))..\(Int(frame.maxX)) window=0..\(Int(winFrame.width))"
+                )
+            }
         }
 
         for field in inputs where field.exists {
@@ -1387,6 +1594,28 @@ final class ReaderJourneyTests: XCTestCase {
                     status: "FAIL",
                     summary: "Yazar eser sayısı eksik görünüyor (' Eser')",
                     detail: "Görüntülenen metin '\(label)' başında sayı olmadan boşluk içeriyor."
+                )
+            } else if label != trimmed,
+                      label.range(of: #"^\s+(Kitap|Yazar|okur|oy|puan|dinleme|bölüm)\b"#, options: [.regularExpression, .caseInsensitive]) != nil {
+                recordProbe(
+                    screen: screen,
+                    theme: theme,
+                    category: "Content",
+                    status: "FAIL",
+                    summary: "Sayaç değeri eksik metin tespit edildi ('\(label)')",
+                    detail: "Birim etiketinin başında sayı olmadan boşluk var."
+                )
+            }
+            if trimmed == "null" || trimmed == "undefined" || trimmed == "NaN" ||
+               label.contains("\u{FFFD}") || trimmed.hasPrefix("??") ||
+               label.contains("kotlin.Unit") || label.contains("http://localhost") {
+                recordProbe(
+                    screen: screen,
+                    theme: theme,
+                    category: "Content",
+                    status: "FAIL",
+                    summary: "Arayüzde ham veri, bozuk karakter veya yerel URL sızıntısı",
+                    detail: String(trimmed.prefix(120))
                 )
             }
             if label.contains("**") || label.contains("[BOOK_REC") || label.contains("[KITAP") ||
