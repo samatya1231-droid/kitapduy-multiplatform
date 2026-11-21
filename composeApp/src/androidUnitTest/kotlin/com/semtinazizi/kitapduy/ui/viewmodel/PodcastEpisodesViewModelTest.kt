@@ -108,6 +108,45 @@ class PodcastEpisodesViewModelTest {
     }
 
     @Test
+    fun parsesEnclosureWithApostropheBlankCdataDescriptionFallbackAndUpgradesHttpRssUrl() = runTest(testDispatcher) {
+        var requestedUrl = ""
+        val xml = """
+            <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+              <channel>
+                <item>
+                  <title>Apostrof Bölümü</title>
+                  <description><![CDATA[   &nbsp;  ]]></description>
+                  <itunes:summary><p>Gerçek özet metni</p></itunes:summary>
+                  <enclosure url="https://cdn.example.com/it's-show.mp3?a=1&amp;b=2" type="audio/mpeg" />
+                  <itunes:duration>12:34.5</itunes:duration>
+                </item>
+              </channel>
+            </rss>
+        """.trimIndent()
+        val client = HttpClient(MockEngine.create {
+            dispatcher = testDispatcher
+            addHandler { request ->
+                requestedUrl = request.url.toString()
+                respond(xml, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/rss+xml"))
+            }
+        })
+        try {
+            val vm = PodcastEpisodesViewModel(client, ioDispatcher = testDispatcher)
+            vm.loadEpisodes("http://feeds.example.com/show.xml", podcastId = "show1")
+            advanceUntilIdle()
+
+            assertEquals("https://feeds.example.com/show.xml", requestedUrl)
+            assertEquals(1, vm.episodes.value.size)
+            val ep = vm.episodes.value.single()
+            assertEquals("https://cdn.example.com/it's-show.mp3?a=1&b=2", ep.audioUrl)
+            assertEquals("Gerçek özet metni", ep.description)
+            assertEquals("12:34.5", ep.duration)
+        } finally {
+            client.close()
+        }
+    }
+
+    @Test
     fun loadEpisodesSurfacesHttpErrorAndRecoversOnForceRefresh() = runTest(testDispatcher) {
         var failRequest = true
         val client = HttpClient(MockEngine.create {

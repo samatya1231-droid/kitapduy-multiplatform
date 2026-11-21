@@ -25,11 +25,12 @@ internal fun parseSupabaseTimestamp(raw: String?): Long {
     val timePart = clean.substringAfter('T', "")
     val normalized = when {
         clean.endsWith("+00") -> clean.dropLast(3) + "Z"
+        clean.endsWith("z") -> clean.dropLast(1) + "Z"
         Regex("[+-]\\d{4}$").containsMatchIn(timePart) ->
             clean.dropLast(2) + ":" + clean.takeLast(2)
         Regex("[+-]\\d{2}$").containsMatchIn(timePart) ->
             "$clean:00"
-        !clean.endsWith("Z", ignoreCase = true) &&
+        !clean.endsWith("Z") &&
             !Regex("[+-]\\d{2}:\\d{2}$").containsMatchIn(timePart) &&
             clean.length >= 19 -> "${clean}Z"
         else -> clean
@@ -39,8 +40,7 @@ internal fun parseSupabaseTimestamp(raw: String?): Long {
 
 internal fun mapSupabasePostToFeedItem(post: SupabasePost): FeedItem {
     val isBookPost = !post.bookId.isNullOrBlank()
-    val isAutoStatus = post.comment?.contains("dinlemeye başladı", ignoreCase = true) == true ||
-        post.comment?.contains("\uD83C\uDFA7") == true
+    val isAutoStatus = post.comment?.contains("dinlemeye başladı", ignoreCase = true) == true
     val isQuotePost = !isAutoStatus && post.startPos != null && !post.audioUrl.isNullOrBlank()
     val hasImage = !post.imageUrl.isNullOrBlank()
 

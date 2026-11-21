@@ -54,19 +54,20 @@ object PlaybackTimeFormatter {
         if (clean.isEmpty()) return 0L
 
         if (clean.contains(':')) {
-            val parts = clean.split(':').map { it.trim().toLongOrNull() }
-            if (parts.any { it == null || it < 0L }) return 0L
-            return when (parts.size) {
+            val rawParts = clean.split(':')
+            if (rawParts.size != 2 && rawParts.size != 3) return 0L
+            val leadingParts = rawParts.dropLast(1).map { it.trim().toLongOrNull() }
+            val secondsPart = rawParts.last().trim().toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 }?.toLong()
+            if (leadingParts.any { it == null || it < 0L } || secondsPart == null) return 0L
+            return when (rawParts.size) {
                 2 -> {
-                    val mins = parts[0]!!
-                    val secs = parts[1]!!
-                    (mins * 60L + secs) * 1000L
+                    val mins = leadingParts[0]!!
+                    (mins * 60L + secondsPart) * 1000L
                 }
                 3 -> {
-                    val hours = parts[0]!!
-                    val mins = parts[1]!!
-                    val secs = parts[2]!!
-                    (hours * 3600L + mins * 60L + secs) * 1000L
+                    val hours = leadingParts[0]!!
+                    val mins = leadingParts[1]!!
+                    (hours * 3600L + mins * 60L + secondsPart) * 1000L
                 }
                 else -> 0L
             }

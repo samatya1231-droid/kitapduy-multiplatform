@@ -29,7 +29,9 @@ class PlaybackTimeFormatterAndRssCleanerTest {
         assertEquals(90_000L, PlaybackTimeFormatter.parseRssDurationToMs("90"))
         assertEquals(90_000L, PlaybackTimeFormatter.parseRssDurationToMs("90.7"))
         assertEquals(2_730_000L, PlaybackTimeFormatter.parseRssDurationToMs("45:30"))
+        assertEquals(754_000L, PlaybackTimeFormatter.parseRssDurationToMs("12:34.5"))
         assertEquals(5_415_000L, PlaybackTimeFormatter.parseRssDurationToMs("01:30:15"))
+        assertEquals(3_723_000L, PlaybackTimeFormatter.parseRssDurationToMs("01:02:03.8"))
         assertEquals(0L, PlaybackTimeFormatter.parseRssDurationToMs("1:2:3:4"))
 
         assertEquals("--:--", PlaybackTimeFormatter.formatRssDuration(""))

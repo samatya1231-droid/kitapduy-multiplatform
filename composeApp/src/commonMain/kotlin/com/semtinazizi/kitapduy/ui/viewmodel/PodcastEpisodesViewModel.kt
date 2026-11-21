@@ -41,7 +41,8 @@ class PodcastEpisodesViewModel(
     private var activeRequestKey: String? = null
 
     fun loadEpisodes(rssUrl: String, podcastId: String = "", forceRefresh: Boolean = false) {
-        val cleanUrl = rssUrl.trim()
+        val trimmedUrl = rssUrl.trim()
+        val cleanUrl = if (trimmedUrl.isBlank()) "" else UrlSanitizer.normalizeMediaUrl(trimmedUrl)
         val cleanPodcastId = podcastId.trim()
         val requestKey = "$cleanPodcastId|$cleanUrl"
 
@@ -116,20 +117,24 @@ class PodcastEpisodesViewModel(
         internal const val RSS_ACCEPT_HEADER =
             "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.5"
 
-        private val ITEM_REGEX = "(?s)<(?:item|entry)(?:\\s[^>]*)?>(.*?)</(?:item|entry)>".toRegex(RegexOption.IGNORE_CASE)
-        private val TITLE_REGEX = "(?s)<title(?:\\s[^>]*)?>(.*?)</title>".toRegex(RegexOption.IGNORE_CASE)
-        private val DESC_REGEX = "(?s)<description(?:\\s[^>]*)?>(.*?)</description>".toRegex(RegexOption.IGNORE_CASE)
-        private val SUMMARY_REGEX = "(?s)<(?:itunes:summary|summary|content:encoded|itunes:subtitle)(?:\\s[^>]*)?>(.*?)</(?:itunes:summary|summary|content:encoded|itunes:subtitle)>".toRegex(RegexOption.IGNORE_CASE)
-        private val ENCLOSURE_URL_REGEX = "<enclosure[^>]+\\burl\\s*=\\s*['\"]([^'\"]+)['\"][^>]*>".toRegex(RegexOption.IGNORE_CASE)
-        private val LINK_TAG_REGEX = "<link\\b[^>]+>".toRegex(RegexOption.IGNORE_CASE)
-        private val ATTR_HREF_REGEX = "\\bhref\\s*=\\s*['\"]([^'\"]+)['\"]".toRegex(RegexOption.IGNORE_CASE)
-        private val ATTR_TYPE_REGEX = "\\btype\\s*=\\s*['\"]([^'\"]+)['\"]".toRegex(RegexOption.IGNORE_CASE)
-        private val DURATION_REGEX = "(?s)<(?:itunes:)?duration(?:\\s[^>]*)?>(.*?)</(?:itunes:)?duration>".toRegex(RegexOption.IGNORE_CASE)
-        private val PUB_DATE_REGEX = "(?s)<(?:pubDate|published)(?:\\s[^>]*)?>(.*?)</(?:pubDate|published)>".toRegex(RegexOption.IGNORE_CASE)
-        private val ITEM_IMAGE_REGEX = "<(?:itunes:image|media:thumbnail|image)[^>]+\\b(?:href|url)\\s*=\\s*['\"]([^'\"]+)['\"][^>]*>".toRegex(RegexOption.IGNORE_CASE)
-        private val CHANNEL_ITUNES_IMAGE_REGEX = "<(?:itunes:)?image[^>]+\\bhref\\s*=\\s*['\"]([^'\"]+)['\"][^>]*>".toRegex(RegexOption.IGNORE_CASE)
-        private val CHANNEL_IMAGE_BLOCK_REGEX = "(?s)<image(?:\\s[^>]*)?>(.*?)</image>".toRegex(RegexOption.IGNORE_CASE)
-        private val CHANNEL_URL_REGEX = "(?s)<url(?:\\s[^>]*)?>(.*?)</url>".toRegex(RegexOption.IGNORE_CASE)
+        private val ITEM_REGEX = Regex("<(?:item|entry)(?:\\s[^>]*)?>([\\s\\S]*?)</(?:item|entry)>", RegexOption.IGNORE_CASE)
+        private val TITLE_REGEX = Regex("<title(?:\\s[^>]*)?>([\\s\\S]*?)</title>", RegexOption.IGNORE_CASE)
+        private val DESC_REGEX = Regex("<description(?:\\s[^>]*)?>([\\s\\S]*?)</description>", RegexOption.IGNORE_CASE)
+        private val SUMMARY_REGEX = Regex("<(?:itunes:summary|summary|content:encoded|itunes:subtitle)(?:\\s[^>]*)?>([\\s\\S]*?)</(?:itunes:summary|summary|content:encoded|itunes:subtitle)>", RegexOption.IGNORE_CASE)
+        private val ENCLOSURE_URL_REGEX = Regex("<enclosure[^>]+\\burl\\s*=\\s*(?:\"([^\"]+)\"|'([^']+)')[^>]*>", RegexOption.IGNORE_CASE)
+        private val LINK_TAG_REGEX = Regex("<link\\b[^>]+>", RegexOption.IGNORE_CASE)
+        private val ATTR_HREF_REGEX = Regex("\\bhref\\s*=\\s*(?:\"([^\"]+)\"|'([^']+)')", RegexOption.IGNORE_CASE)
+        private val ATTR_TYPE_REGEX = Regex("\\btype\\s*=\\s*(?:\"([^\"]+)\"|'([^']+)')", RegexOption.IGNORE_CASE)
+        private val DURATION_REGEX = Regex("<(?:itunes:)?duration(?:\\s[^>]*)?>([\\s\\S]*?)</(?:itunes:)?duration>", RegexOption.IGNORE_CASE)
+        private val PUB_DATE_REGEX = Regex("<(?:pubDate|published)(?:\\s[^>]*)?>([\\s\\S]*?)</(?:pubDate|published)>", RegexOption.IGNORE_CASE)
+        private val ITEM_IMAGE_REGEX = Regex("<(?:itunes:image|media:thumbnail|image)[^>]+\\b(?:href|url)\\s*=\\s*(?:\"([^\"]+)\"|'([^']+)')[^>]*>", RegexOption.IGNORE_CASE)
+        private val CHANNEL_ITUNES_IMAGE_REGEX = Regex("<(?:itunes:)?image[^>]+\\bhref\\s*=\\s*(?:\"([^\"]+)\"|'([^']+)')[^>]*>", RegexOption.IGNORE_CASE)
+        private val CHANNEL_IMAGE_BLOCK_REGEX = Regex("<image(?:\\s[^>]*)?>([\\s\\S]*?)</image>", RegexOption.IGNORE_CASE)
+        private val CHANNEL_URL_REGEX = Regex("<url(?:\\s[^>]*)?>([\\s\\S]*?)</url>", RegexOption.IGNORE_CASE)
+
+        private fun MatchResult.quotedValue(): String =
+            groupValues.getOrNull(1)?.takeIf { it.isNotEmpty() }
+                ?: groupValues.getOrNull(2).orEmpty()
 
         internal fun looksLikeRssOrAtom(body: String): Boolean {
             if (body.isBlank()) return false
@@ -146,14 +151,14 @@ class PodcastEpisodesViewModel(
         }
 
         private fun extractRawAudioUrl(itemContent: String): String? {
-            val enclosureUrl = ENCLOSURE_URL_REGEX.find(itemContent)?.groupValues?.get(1)?.trim()
+            val enclosureUrl = ENCLOSURE_URL_REGEX.find(itemContent)?.quotedValue()?.trim()
             if (!enclosureUrl.isNullOrBlank()) return enclosureUrl
 
             for (linkMatch in LINK_TAG_REGEX.findAll(itemContent)) {
                 val tag = linkMatch.value
-                val href = ATTR_HREF_REGEX.find(tag)?.groupValues?.get(1)?.trim() ?: continue
+                val href = ATTR_HREF_REGEX.find(tag)?.quotedValue()?.trim() ?: continue
                 if (href.isBlank()) continue
-                val type = ATTR_TYPE_REGEX.find(tag)?.groupValues?.get(1)?.trim().orEmpty()
+                val type = ATTR_TYPE_REGEX.find(tag)?.quotedValue()?.trim().orEmpty()
                 if (type.contains("audio", ignoreCase = true) ||
                     href.contains(".mp3", ignoreCase = true) ||
                     href.contains(".m4a", ignoreCase = true) ||
@@ -173,7 +178,7 @@ class PodcastEpisodesViewModel(
             val channelHeader = xmlContent.substring(0, cutoff)
 
             val channelItunesImage = CHANNEL_ITUNES_IMAGE_REGEX
-                .find(channelHeader)?.groupValues?.get(1)?.trim()
+                .find(channelHeader)?.quotedValue()?.trim()
             val channelImageBlock = CHANNEL_IMAGE_BLOCK_REGEX
                 .find(channelHeader)?.groupValues?.get(1)
             val channelUrlImage = channelImageBlock?.let {
@@ -201,9 +206,13 @@ class PodcastEpisodesViewModel(
                 val rawTitle = TITLE_REGEX.find(itemContent)?.groupValues?.get(1).orEmpty()
                 val title = RssTextCleaner.cleanTitle(rawTitle).ifBlank { "Bölüm ${count + 1}" }
 
-                val rawDesc = DESC_REGEX.find(itemContent)?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
-                    ?: SUMMARY_REGEX.find(itemContent)?.groupValues?.get(1).orEmpty()
-                val desc = RssTextCleaner.cleanHtmlDescription(rawDesc)
+                val primaryDesc = DESC_REGEX.find(itemContent)?.groupValues?.get(1)
+                    ?.let { RssTextCleaner.cleanHtmlDescription(it) }
+                    ?.takeIf { it.isNotBlank() }
+                val desc = primaryDesc
+                    ?: SUMMARY_REGEX.find(itemContent)?.groupValues?.get(1)
+                        ?.let { RssTextCleaner.cleanHtmlDescription(it) }
+                        .orEmpty()
 
                 val rawDuration = DURATION_REGEX.find(itemContent)?.groupValues?.get(1).orEmpty()
                 val duration = RssTextCleaner.decodeXmlEntities(RssTextCleaner.unwrapCdata(rawDuration).first).trim()
@@ -211,7 +220,7 @@ class PodcastEpisodesViewModel(
                 val rawPubDate = PUB_DATE_REGEX.find(itemContent)?.groupValues?.get(1).orEmpty()
                 val pubDate = RssTextCleaner.decodeXmlEntities(RssTextCleaner.unwrapCdata(rawPubDate).first).trim()
 
-                val imageUrl = ITEM_IMAGE_REGEX.find(itemContent)?.groupValues?.get(1)?.trim()
+                val imageUrl = ITEM_IMAGE_REGEX.find(itemContent)?.quotedValue()?.trim()
                     ?.takeIf { it.isNotBlank() }
                     ?.let { normalizeXmlUrl(it) }
                     ?.takeIf { it.isNotBlank() }

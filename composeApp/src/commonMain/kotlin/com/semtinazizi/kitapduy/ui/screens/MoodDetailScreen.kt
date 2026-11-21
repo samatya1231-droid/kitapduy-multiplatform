@@ -337,12 +337,13 @@ fun Modifier.shimmerEffect(): Modifier = composed {
         label = "shimmer"
     )
 
+    val shimmerBase = MaterialTheme.colorScheme.onSurface
     background(
         brush = Brush.linearGradient(
             colors = listOf(
-                Color.White.copy(alpha = 0.05f),
-                Color.White.copy(alpha = 0.12f),
-                Color.White.copy(alpha = 0.05f),
+                shimmerBase.copy(alpha = 0.06f),
+                shimmerBase.copy(alpha = 0.14f),
+                shimmerBase.copy(alpha = 0.06f),
             ),
             start = Offset(startOffsets, 0f),
             end = Offset(startOffsets + size.width.toFloat(), size.height.toFloat())

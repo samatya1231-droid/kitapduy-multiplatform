@@ -50,6 +50,7 @@ class SearchScreenModel(
 
     private var isDiscoveryLoading = false
     private var isSearchLoading = false
+    private var searchGeneration = 0L
     private var searchJob: Job? = null
 
     init {
@@ -93,6 +94,7 @@ class SearchScreenModel(
 
     private fun searchDebounced(query: String) {
         searchJob?.cancel()
+        val requestId = ++searchGeneration
         if (query.length < 2) {
             isSearchLoading = false
             _bookResults.value = emptyList()
@@ -104,15 +106,21 @@ class SearchScreenModel(
 
         searchJob = screenModelScope.launch {
             delay(500) // Debounce
+            if (requestId != searchGeneration) return@launch
             isSearchLoading = true
             updateCombinedLoading()
             try {
                 if (_selectedCategory.value == SearchCategory.BOOKS) {
-                    _bookResults.value = bookRepository.searchBooks(query)
-                    _podcastResults.value = bookRepository.searchPodcasts(query)
+                    val books = bookRepository.searchBooks(query)
+                    val podcasts = bookRepository.searchPodcasts(query)
+                    if (requestId != searchGeneration) return@launch
+                    _bookResults.value = books
+                    _podcastResults.value = podcasts
                     _userResults.value = emptyList()
                 } else {
-                    _userResults.value = socialRepository.searchUsers(query)
+                    val users = socialRepository.searchUsers(query)
+                    if (requestId != searchGeneration) return@launch
+                    _userResults.value = users
                     _bookResults.value = emptyList()
                     _podcastResults.value = emptyList()
                 }
@@ -120,8 +128,10 @@ class SearchScreenModel(
                 throw cancelled
             } catch (_: Throwable) {
             } finally {
-                isSearchLoading = false
-                updateCombinedLoading()
+                if (requestId == searchGeneration) {
+                    isSearchLoading = false
+                    updateCombinedLoading()
+                }
             }
         }
     }

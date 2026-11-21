@@ -44,11 +44,12 @@ class FeedScreenModel(
         internal fun mergeRefreshedPage(
             freshPage: List<FeedItem>,
             existing: List<FeedItem>,
-            pageSize: Int = PAGE_SIZE
+            pageSize: Int = PAGE_SIZE,
+            hasMorePages: Boolean = false
         ): List<FeedItem> {
             if (freshPage.isEmpty()) return existing
             val distinctFresh = freshPage.distinctBy { it.id }
-            if (distinctFresh.size < pageSize) {
+            if (distinctFresh.size < pageSize && !hasMorePages) {
                 return distinctFresh
             }
             val freshIds = distinctFresh.map { it.id }.toSet()
@@ -162,10 +163,20 @@ class FeedScreenModel(
                 val freshListening = listeningDeferred.await().filter { it.type == FeedType.LISTEN }
 
                 if (freshGeneral.isNotEmpty()) {
-                    _generalFeedItems.value = mergeRefreshedPage(freshGeneral, _generalFeedItems.value, PAGE_SIZE)
+                    _generalFeedItems.value = mergeRefreshedPage(
+                        freshPage = freshGeneral,
+                        existing = _generalFeedItems.value,
+                        pageSize = PAGE_SIZE,
+                        hasMorePages = _canLoadMoreGeneral.value || _generalFeedItems.value.size > PAGE_SIZE
+                    )
                 }
                 if (freshListening.isNotEmpty()) {
-                    _listeningFeedItems.value = mergeRefreshedPage(freshListening, _listeningFeedItems.value, PAGE_SIZE)
+                    _listeningFeedItems.value = mergeRefreshedPage(
+                        freshPage = freshListening,
+                        existing = _listeningFeedItems.value,
+                        pageSize = PAGE_SIZE,
+                        hasMorePages = _canLoadMoreListening.value || _listeningFeedItems.value.size > PAGE_SIZE
+                    )
                     _listeningRibbonItems.value = computeListeningRibbon(freshListening)
                 }
             }
@@ -237,7 +248,12 @@ class FeedScreenModel(
                 val latest = feedRepository.getListeningFeedItems(limit = PAGE_SIZE.toLong(), offset = 0)
                     .filter { it.type == FeedType.LISTEN }
                 if (latest.isNotEmpty()) {
-                    _listeningFeedItems.value = mergeRefreshedPage(latest, _listeningFeedItems.value, PAGE_SIZE)
+                    _listeningFeedItems.value = mergeRefreshedPage(
+                        freshPage = latest,
+                        existing = _listeningFeedItems.value,
+                        pageSize = PAGE_SIZE,
+                        hasMorePages = _canLoadMoreListening.value || _listeningFeedItems.value.size > PAGE_SIZE
+                    )
                     _listeningRibbonItems.value = computeListeningRibbon(latest)
                 }
             } catch (e: CancellationException) {

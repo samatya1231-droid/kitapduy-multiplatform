@@ -42,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -215,12 +216,14 @@ data class PodcastEpisodesScreen(
                             }
                         }
 
-                        items(episodes.size) { index ->
+                        items(episodes.size, key = { index -> "${episodes[index].id}_$index" }) { index ->
                             val episode = episodes[index]
                             val isThisPlaying = currentEpisode?.id == episode.id
-                            val cleanDesc = RssTextCleaner.cleanHtmlDescription(episode.description)
-                                .replace('\n', ' ')
-                                .trim()
+                            val cleanDesc = remember(episode.id, episode.description) {
+                                RssTextCleaner.cleanHtmlDescription(episode.description)
+                                    .replace('\n', ' ')
+                                    .trim()
+                            }
 
                             Card(
                                 modifier = Modifier
@@ -278,18 +281,20 @@ data class PodcastEpisodesScreen(
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                         }
-                                        val formattedDuration = PlaybackTimeFormatter.formatRssDuration(
-                                            episode.duration,
-                                            emptyPlaceholder = ""
-                                        )
-                                        val formattedDate = PlaybackTimeFormatter.formatPubDateTr(
-                                            episode.pubDate,
-                                            fallback = ""
-                                        )
-                                        val meta = listOfNotNull(
-                                            formattedDuration.takeIf { it.isNotBlank() },
-                                            formattedDate.takeIf { it.isNotBlank() }
-                                        ).joinToString(" • ")
+                                        val meta = remember(episode.id, episode.duration, episode.pubDate) {
+                                            val formattedDuration = PlaybackTimeFormatter.formatRssDuration(
+                                                episode.duration,
+                                                emptyPlaceholder = ""
+                                            )
+                                            val formattedDate = PlaybackTimeFormatter.formatPubDateTr(
+                                                episode.pubDate,
+                                                fallback = ""
+                                            )
+                                            listOfNotNull(
+                                                formattedDuration.takeIf { it.isNotBlank() },
+                                                formattedDate.takeIf { it.isNotBlank() }
+                                            ).joinToString(" • ")
+                                        }
                                         if (meta.isNotBlank()) {
                                             Spacer(Modifier.height(6.dp))
                                             Text(
@@ -314,7 +319,7 @@ data class PodcastEpisodesScreen(
                                                 } else {
                                                     Icons.Filled.PlayArrow
                                                 },
-                                                contentDescription = "Oynat",
+                                                contentDescription = if (isThisPlaying && isPlaying) "Duraklat" else "Oynat",
                                                 tint = if (isThisPlaying) Color.Black else MaterialTheme.colorScheme.primary,
                                                 modifier = Modifier.size(22.dp)
                                             )

@@ -1295,7 +1295,7 @@ final class ReaderJourneyTests: XCTestCase {
         if !query.isEmpty {
             let clearVisible = element("discover-clear").waitForExistence(timeout: 2.5)
             let rawValue = (element("discover-query").value as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let looksTruncated = !rawValue.isEmpty && rawValue.count < max(2, query.count / 2)
+            let looksTruncated = !rawValue.isEmpty && rawValue != query && rawValue != "Hangi eseri arıyorsunuz?"
             if !clearVisible || looksTruncated {
                 if element("discover-clear").exists { try tap(element("discover-clear")) }
                 try type(query, into: element("discover-query"))
@@ -1353,6 +1353,7 @@ final class ReaderJourneyTests: XCTestCase {
         let winFrame = app.windows.firstMatch.frame
         let frame = target.frame
         guard !winFrame.isEmpty, !frame.isEmpty, frame.width >= 4, frame.height >= 4 else { return false }
+        guard frame.minX >= -2, frame.maxX <= winFrame.width + 2 else { return false }
         if frame.height <= winFrame.height * 0.6,
            (frame.minY < 20 || frame.maxY > winFrame.height - 4) {
             return false

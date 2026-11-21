@@ -401,6 +401,30 @@ class GlobalAudioControllerTest {
         controller.seekTo(0.5f, expectedBookId = "a")
         assertEquals(4, progressWriteCount)
         assertEquals(50_000L, progress.getProgress("a"))
+        assertEquals(50_000L, controller.currentPositionMs.value)
+    }
+
+    @Test fun indefiniteDurationStreamStillAdvancesCurrentPositionMsAndPersistsHistory() = runTest {
+        val player = FakePlayer().apply { durationMs = 0L }
+        val progress = progress()
+        val controller = GlobalAudioController(player, FakeDownloader(), progress, backgroundScope)
+        val ep = com.semtinazizi.kitapduy.model.PodcastEpisode(
+            id = "podcast_live_EP_1",
+            title = "Canlı Akış Bölümü",
+            audioUrl = "https://cdn.example.com/stream.mp3",
+            duration = "45:00"
+        )
+        controller.playPodcastEpisode(ep, podcastTitle = "Canlı Podcast")
+        player.position = 15_000L
+        advanceTimeBy(501)
+
+        assertEquals(0f, controller.duration.value)
+        assertEquals(15_000L, controller.currentPositionMs.value)
+        assertEquals(15_000L, progress.getProgress(ep.id))
+        assertTrue(progress.getHistoryIds().contains(ep.id))
+
+        controller.stopPlayback()
+        assertEquals(0L, controller.currentPositionMs.value)
     }
 }
 
@@ -422,6 +446,7 @@ private class FakePlayer : AudioPlayer {
     var items = emptyList<AudioMediaItem>()
     var index = 0
     var position = 0L
+    var durationMs = 100_000L
     var playing = false
     var buffering = false
     var simulatedError: String? = null
@@ -437,7 +462,7 @@ private class FakePlayer : AudioPlayer {
     override fun stop() { playing = false; buffering = false; simulatedError = null; items = emptyList(); index = 0 }
     override fun seekTo(positionMs: Long) { position = positionMs }
     override fun getCurrentPosition() = position
-    override fun getDuration() = 100_000L
+    override fun getDuration() = durationMs
     override fun isPlaying() = playing
     override fun isBuffering() = buffering
     override fun getPlaybackError() = simulatedError

@@ -28,6 +28,7 @@ class IosAudioPlayer : AudioPlayer {
     private var atmosphereLoopObserver: platform.darwin.NSObjectProtocol? = null
     private var cachedAssetDurationMs: Long = 0L
     private var lastPlaybackError: String? = null
+    private var reachedEnd = false
 
     private fun finiteSecondsToMs(seconds: Double): Long {
         if (!seconds.isFinite() || seconds <= 0.0) return 0L
@@ -88,16 +89,19 @@ class IosAudioPlayer : AudioPlayer {
 
     private fun playCurrentItem(startPositionMs: Long) {
         readyJob?.cancel()
+        readyJob = null
         avPlayer?.pause()
         endObserver?.let { platform.Foundation.NSNotificationCenter.defaultCenter.removeObserver(it) }
         endObserver = null
         cachedAssetDurationMs = 0L
         lastPlaybackError = null
+        reachedEnd = false
         val item = queue.getOrNull(queueIndex) ?: return
         val safeUrl = UrlSanitizer.sanitizeUrl(item.url)
         val url = NSURL.URLWithString(safeUrl) ?: NSURL.URLWithString(item.url)
         if (url == null) {
             NSLog("KitapDuy playback invalid URL: ${item.url}")
+            avPlayer?.replaceCurrentItemWithPlayerItem(null)
             if (item.id == "kitapduy_preroll_ad" && queueIndex + 1 < queue.size) {
                 queueIndex++
                 playCurrentItem(queue[queueIndex].startPositionMs)
@@ -123,6 +127,7 @@ class IosAudioPlayer : AudioPlayer {
                 queueIndex++
                 playCurrentItem(queue[queueIndex].startPositionMs)
             } else {
+                reachedEnd = true
                 shouldPlay = false
                 avPlayer?.pause()
                 updateNowPlayingInfo()
@@ -145,6 +150,11 @@ class IosAudioPlayer : AudioPlayer {
                 startupRetry?.cancel()
                 val errorCode = playerItem.error?.code
                 NSLog("KitapDuy playback item unavailable (code ${errorCode ?: "timeout"})")
+                if (avPlayer?.currentItem == playerItem) {
+                    endObserver?.let { platform.Foundation.NSNotificationCenter.defaultCenter.removeObserver(it) }
+                    endObserver = null
+                    avPlayer?.replaceCurrentItemWithPlayerItem(null)
+                }
                 if (item.id == "kitapduy_preroll_ad" && queueIndex + 1 < queue.size) {
                     queueIndex++
                     playCurrentItem(queue[queueIndex].startPositionMs)
@@ -212,7 +222,14 @@ class IosAudioPlayer : AudioPlayer {
         if (playbackSpeed != 1f) player.rate = playbackSpeed
     }
 
-    override fun currentMediaId(): String? = if (avPlayer?.currentItem?.status == AVPlayerItemStatusReadyToPlay) queue.getOrNull(queueIndex)?.id else null
+    override fun currentMediaId(): String? {
+        val currentId = queue.getOrNull(queueIndex)?.id ?: return null
+        val item = avPlayer?.currentItem ?: return null
+        if (currentId == "kitapduy_preroll_ad" || currentId == "kitapduy_postroll_ad") {
+            return if (item.status != AVPlayerItemStatusFailed) currentId else null
+        }
+        return if (item.status == AVPlayerItemStatusReadyToPlay) currentId else null
+    }
 
     override fun pause() {
         shouldPlay = false
@@ -223,22 +240,31 @@ class IosAudioPlayer : AudioPlayer {
     override fun resume() {
         val currentItem = avPlayer?.currentItem
         val queuedItem = queue.getOrNull(queueIndex)
-        if (currentItem == null || currentItem.status == AVPlayerItemStatusFailed) {
+        val needsReload = currentItem == null ||
+            currentItem.status == AVPlayerItemStatusFailed ||
+            (currentItem.status == AVPlayerItemStatusUnknown && readyJob?.isActive != true)
+        if (needsReload) {
             if (queuedItem != null) {
                 lastPlaybackError = null
                 shouldPlay = true
+                reachedEnd = false
                 playCurrentItem(queuedItem.startPositionMs)
             }
             return
         }
         lastPlaybackError = null
         shouldPlay = true
+        if (reachedEnd) {
+            reachedEnd = false
+            seekTo(0L)
+        }
         if (currentItem.status == AVPlayerItemStatusReadyToPlay) startPlayback()
         updateNowPlayingInfo()
     }
 
     override fun stop() {
         shouldPlay = false
+        reachedEnd = false
         readyJob?.cancel()
         readyJob = null
         cachedAssetDurationMs = 0L
@@ -253,6 +279,7 @@ class IosAudioPlayer : AudioPlayer {
     }
 
     override fun seekTo(positionMs: Long) {
+        reachedEnd = false
         val safePos = positionMs.coerceAtLeast(0L)
         val time = platform.CoreMedia.CMTimeMake(value = safePos, timescale = 1000)
         avPlayer?.seekToTime(time)

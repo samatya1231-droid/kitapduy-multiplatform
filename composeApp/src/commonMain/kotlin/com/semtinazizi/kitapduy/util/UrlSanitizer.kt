@@ -28,7 +28,7 @@ object UrlSanitizer {
         if (isLoopback || isLocalUri) return sanitizeUrl(trimmed)
 
         var targetUrl = if (trimmed.startsWith("http://", ignoreCase = true)) {
-            "https://" + trimmed.removePrefix("http://")
+            "https://" + trimmed.substring(7)
         } else if (trimmed.startsWith("https://", ignoreCase = true)) {
             trimmed
         } else {

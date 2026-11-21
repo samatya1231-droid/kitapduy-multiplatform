@@ -178,19 +178,19 @@ data class BookDetailScreen(val book: Book) : Screen {
             BookParallaxHeader(book = book, scrollState = scrollState)
 
             Column(modifier = Modifier.fillMaxSize().verticalScroll(scrollState)) {
-                Spacer(Modifier.statusBarsPadding().height(80.dp))
+                Spacer(Modifier.statusBarsPadding().height(60.dp))
                 SmartImage(
                     imageUrl = book.coverUrl,
                     contentDescription = book.title,
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
-                        .width(220.dp)
-                        .height(320.dp)
+                        .width(196.dp)
+                        .height(268.dp)
                         .clip(RoundedCornerShape(16.dp)),
                     contentScale = ContentScale.Crop,
                     fallbackText = book.title
                 )
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(12.dp))
 
                 Surface(
                     shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
@@ -198,7 +198,7 @@ data class BookDetailScreen(val book: Book) : Screen {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(bottom = 120.dp)) {
-                        Spacer(Modifier.height(24.dp))
+                        Spacer(Modifier.height(12.dp))
 
                         // Başlık
                         Text(
@@ -209,15 +209,15 @@ data class BookDetailScreen(val book: Book) : Screen {
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)
                         )
-                        Spacer(Modifier.height(16.dp))
+                        Spacer(Modifier.height(8.dp))
 
                         Text(book.author, Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                             style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary,
                             textAlign = TextAlign.Center)
-                        Text("${viewCount} dinleme · ${book.category}", Modifier.fillMaxWidth().padding(12.dp),
+                        Text("${viewCount} dinleme · ${book.category}", Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
 
-                        Spacer(Modifier.height(24.dp))
+                        Spacer(Modifier.height(12.dp))
 
                         AudioPlayerControls(
                             audioController = audioController,
@@ -559,23 +559,24 @@ private fun AudioPlayerControls(
     val isAdPlaying by audioController.isAdPlaying.collectAsState()
     val playbackError by audioController.playbackError.collectAsState()
     val currentPosition by audioController.currentPosition.collectAsState()
+    val currentPositionMs by audioController.currentPositionMs.collectAsState()
     val duration by audioController.duration.collectAsState()
 
     val selected = currentBook?.id == book.id
-    val savedPositionMs = remember(book.id, selected, currentPosition) {
+    val savedPositionMs = remember(book.id, selected) {
         audioController.savedPositionMsFor(book.id)
     }
     val loadedDurationMs = if (selected && duration > 0f) duration.toLong() else 0L
     val effectiveTotalMs = if (loadedDurationMs > 0L) loadedDurationMs else book.duration.coerceAtLeast(0L)
-    val elapsedMs = if (selected && loadedDurationMs > 0L) {
-        (currentPosition.coerceIn(0f, 1f).toDouble() * loadedDurationMs.toDouble()).toLong()
+    val elapsedMs = if (selected && (loadedDurationMs > 0L || currentPositionMs > 0L)) {
+        currentPositionMs.coerceAtLeast(0L)
     } else {
         savedPositionMs
     }
     val sliderPosition = when {
         selected && loadedDurationMs > 0L -> currentPosition.coerceIn(0f, 1f)
-        effectiveTotalMs > 0L && savedPositionMs > 0L ->
-            (savedPositionMs.toDouble() / effectiveTotalMs.toDouble()).toFloat().coerceIn(0f, 1f)
+        effectiveTotalMs > 0L && elapsedMs > 0L ->
+            (elapsedMs.toDouble() / effectiveTotalMs.toDouble()).toFloat().coerceIn(0f, 1f)
         else -> 0f
     }
     val showBuffering = selected && isBuffering
@@ -727,7 +728,12 @@ private fun AudioPlayerControls(
                     },
                     containerColor = BrandGold,
                     shape = CircleShape,
-                    modifier = Modifier.size(64.dp).testTag("book-play-pause")
+                    modifier = Modifier
+                        .size(64.dp)
+                        .testTag("book-play-pause")
+                        .semantics {
+                            contentDescription = if (showBuffering) "Yükleniyor" else "Oynat/Duraklat"
+                        }
                 ) {
                     if (showBuffering) {
                         CircularProgressIndicator(
@@ -738,7 +744,7 @@ private fun AudioPlayerControls(
                     } else {
                         Icon(
                             imageVector = if (isPlaying && selected) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = "Oynat/Duraklat",
+                            contentDescription = null,
                             tint = Color.Black,
                             modifier = Modifier.size(32.dp)
                         )

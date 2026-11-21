@@ -76,6 +76,9 @@ class GlobalAudioController(
     private val _currentPosition = MutableStateFlow(0f)
     val currentPosition: StateFlow<Float> = _currentPosition.asStateFlow()
 
+    private val _currentPositionMs = MutableStateFlow(0L)
+    val currentPositionMs: StateFlow<Long> = _currentPositionMs.asStateFlow()
+
     private val _duration = MutableStateFlow(0f)
     val duration: StateFlow<Float> = _duration.asStateFlow()
 
@@ -101,9 +104,12 @@ class GlobalAudioController(
                 if (activeId != null && audioPlayer.currentMediaId() == activeId) {
                     val pos = audioPlayer.getCurrentPosition().coerceAtLeast(0L)
                     val dur = audioPlayer.getDuration().coerceAtLeast(0L)
+                    _currentPositionMs.value = pos
                     if (dur > 0L) {
                         _duration.value = dur.toFloat()
                         _currentPosition.value = (pos.toDouble() / dur.toDouble()).toFloat().coerceIn(0f, 1f)
+                    }
+                    if (dur > 0L || pos > 0L) {
                         saveProgress(force = false)
                     }
                 }
@@ -148,6 +154,7 @@ class GlobalAudioController(
         _isAdPlaying.value = false
         _playbackError.value = null
         _currentPosition.value = 0f
+        _currentPositionMs.value = 0L
         _duration.value = 0f
     }
 
@@ -165,6 +172,7 @@ class GlobalAudioController(
         _currentEpisode.value = null
         _currentPodcastTitle.value = null
         _currentPosition.value = 0f
+        _currentPositionMs.value = 0L
         _duration.value = 0f
         progressManager.saveLastPlayedBook(book.id)
         val localPath = fileDownloader.getDownloadedFilePath(book.id + ".mp3")
@@ -237,6 +245,7 @@ class GlobalAudioController(
         _currentPodcastTitle.value = resolvedTitle
         _currentBook.value = null
         _currentPosition.value = 0f
+        _currentPositionMs.value = 0L
         _duration.value = 0f
         progressManager.saveContentMetadata(
             id = episode.id,
@@ -338,6 +347,7 @@ class GlobalAudioController(
         _currentEpisode.value = null
         _currentPodcastTitle.value = null
         _currentPosition.value = 0f
+        _currentPositionMs.value = 0L
         _duration.value = 0f
         audioPlayer.playQueue(
             listOf(
@@ -383,6 +393,7 @@ class GlobalAudioController(
         val targetMs = (duration * clamped.toDouble()).toLong()
         audioPlayer.seekTo(targetMs)
         _currentPosition.value = clamped
+        _currentPositionMs.value = targetMs
         val contentId = _currentBook.value?.id ?: _currentEpisode.value?.id
         if (contentId != null && targetMs > 0L) {
             progressManager.saveProgress(contentId, targetMs)
@@ -402,6 +413,7 @@ class GlobalAudioController(
         val target = position + offsetMs.coerceIn(-position, duration - position)
         audioPlayer.seekTo(target)
         _currentPosition.value = target.toFloat() / duration
+        _currentPositionMs.value = target
         val contentId = _currentBook.value?.id ?: _currentEpisode.value?.id
         if (contentId != null && target > 0L) {
             progressManager.saveProgress(contentId, target)

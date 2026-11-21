@@ -22,6 +22,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -80,7 +82,7 @@ fun MiniPlayerSection(
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = 12.dp),
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
@@ -129,6 +131,13 @@ fun MiniPlayerSection(
                         .size(44.dp)
                         .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f), CircleShape)
                         .testTag("mini-player-play-pause")
+                        .semantics {
+                            contentDescription = when {
+                                isBuffering -> "Yükleniyor"
+                                isPlaying -> "Duraklat"
+                                else -> "Oynat"
+                            }
+                        }
                 ) {
                     if (isBuffering) {
                         CircularProgressIndicator(
@@ -139,7 +148,7 @@ fun MiniPlayerSection(
                     } else {
                         Icon(
                             imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            contentDescription = if (isPlaying) "Duraklat" else "Oynat",
+                            contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(28.dp)
                         )

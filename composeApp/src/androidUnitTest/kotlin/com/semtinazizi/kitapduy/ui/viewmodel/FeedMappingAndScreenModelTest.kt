@@ -78,6 +78,10 @@ class FeedMappingAndScreenModelTest {
             "https://images.unsplash.com/photo-123",
             UrlSanitizer.normalizeMediaUrl("http://images.unsplash.com/photo-123")
         )
+        assertEquals(
+            "https://images.unsplash.com/photo-456",
+            UrlSanitizer.normalizeMediaUrl("HTTP://images.unsplash.com/photo-456")
+        )
     }
 
     @Test
@@ -122,6 +126,17 @@ class FeedMappingAndScreenModelTest {
         )
         assertEquals(FeedType.QUOTE, blankImagePost.type)
         assertNull(blankImagePost.postImageUrl)
+
+        // Regular posts mentioning headphone emoji must stay on general feed, NOT vanish as FeedType.LISTEN
+        val emojiGeneralPost = mapSupabasePostToFeedItem(
+            SupabasePost(id = 13L, userId = "u1", userName = "Ali", bookId = "", comment = "Harika bir sesli kitap bitirdim \uD83C\uDFA7")
+        )
+        assertEquals(FeedType.QUOTE, emojiGeneralPost.type)
+
+        val listeningStatusPost = mapSupabasePostToFeedItem(
+            SupabasePost(id = 14L, userId = "u1", userName = "Ali", bookId = "b1", bookName = "Kitap", comment = "Bu kitabı dinlemeye başladı \uD83C\uDFA7")
+        )
+        assertEquals(FeedType.LISTEN, listeningStatusPost.type)
     }
 
     @Test
@@ -286,6 +301,17 @@ class FeedMappingAndScreenModelTest {
         val merged = FeedScreenModel.mergeRefreshedPage(freshFullPage, existingPaged, pageSize = 3)
         assertEquals(listOf("6", "5", "3", "2", "1"), merged.map { it.id })
 
+        // Filtered partial page when more pages exist (e.g. 1 blocked post removed from page 1):
+        // deleted/blocked top-window post 4 is dropped while older paginated tail [2, 1] is preserved.
+        val freshFilteredWithMore = listOf(post(5, 10), post(3, 30)) // 2 < pageSize(3) due to block filter
+        val mergedWithMore = FeedScreenModel.mergeRefreshedPage(
+            freshPage = freshFilteredWithMore,
+            existing = existingPaged,
+            pageSize = 3,
+            hasMorePages = true
+        )
+        assertEquals(listOf("5", "3", "2", "1"), mergedWithMore.map { it.id })
+
         // Empty fresh page preserves existing list (transient network failure safeguard)
         assertEquals(existingSmall, FeedScreenModel.mergeRefreshedPage(emptyList(), existingSmall, pageSize = 50))
     }
@@ -379,5 +405,6 @@ class FeedMappingAndScreenModelTest {
         assertEquals(baseUtc, com.semtinazizi.kitapduy.data.repository.parseSupabaseTimestamp("2026-11-21T10:00:00.000+0000"))
         assertEquals(baseUtc, com.semtinazizi.kitapduy.data.repository.parseSupabaseTimestamp("2026-11-21T13:00:00+03:00"))
         assertEquals(baseUtc, com.semtinazizi.kitapduy.data.repository.parseSupabaseTimestamp("2026-11-21T05:00:00-05:00"))
+        assertEquals(baseUtc, com.semtinazizi.kitapduy.data.repository.parseSupabaseTimestamp("2026-11-21T10:00:00z"))
     }
 }

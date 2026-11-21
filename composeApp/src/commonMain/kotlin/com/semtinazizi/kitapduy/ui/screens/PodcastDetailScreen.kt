@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -48,8 +49,6 @@ import org.koin.compose.koinInject
 import com.semtinazizi.kitapduy.ui.theme.SleekChampagne
 import com.semtinazizi.kitapduy.ui.theme.SleekDarkBackground
 import com.semtinazizi.kitapduy.ui.theme.SleekGray
-import com.semtinazizi.kitapduy.ui.theme.BrandGold
-import com.semtinazizi.kitapduy.ui.theme.PremiumAccent
 
 data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: String) : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -124,7 +123,7 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(480.dp)
+                    .height(420.dp)
                     .graphicsLayer { translationY = parallaxOffset }
             ) {
                 SmartImage(
@@ -152,15 +151,15 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
             }
 
             Column(modifier = Modifier.fillMaxSize().verticalScroll(scrollState)) {
-                Spacer(Modifier.height(380.dp))
+                Spacer(Modifier.height(310.dp))
 
                 Surface(
                     shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
                     color = MaterialTheme.colorScheme.background,
-                    modifier = Modifier.fillMaxWidth().padding(top = 36.dp)
+                    modifier = Modifier.fillMaxWidth().padding(top = 20.dp)
                 ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(bottom = 120.dp)) {
-                        Spacer(Modifier.height(24.dp))
+                        Spacer(Modifier.height(16.dp))
                         
                         // Başlık
                         Text(
@@ -219,11 +218,11 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                             }
                         }
 
-                        Spacer(Modifier.height(24.dp))
+                        Spacer(Modifier.height(16.dp))
 
                         PodcastPlaybackControls(audioController, episode, podcastTitle)
 
-                        Spacer(Modifier.height(32.dp))
+                        Spacer(Modifier.height(20.dp))
 
                         // Yeni Action Bar (Oynatıcı Özel İkonları)
                         Row(
@@ -384,11 +383,12 @@ private fun PodcastPlaybackControls(
     val isBuffering by audioController.isBuffering.collectAsState()
     val playbackError by audioController.playbackError.collectAsState()
     val currentPosition by audioController.currentPosition.collectAsState()
+    val currentPositionMs by audioController.currentPositionMs.collectAsState()
     val durationMs by audioController.duration.collectAsState()
     val currentEpisode by audioController.currentEpisode.collectAsState()
 
     val selectedEpisode = currentEpisode?.id == episode.id
-    val savedPositionMs = remember(episode.id, selectedEpisode, currentPosition) {
+    val savedPositionMs = remember(episode.id, selectedEpisode) {
         audioController.savedPositionMsFor(episode.id)
     }
     val rssDurationMs = remember(episode.duration) {
@@ -396,15 +396,15 @@ private fun PodcastPlaybackControls(
     }
     val loadedDurationMs = if (selectedEpisode && durationMs > 0f) durationMs.toLong() else 0L
     val effectiveTotalMs = if (loadedDurationMs > 0L) loadedDurationMs else rssDurationMs
-    val currentTimeMs = if (selectedEpisode && loadedDurationMs > 0L) {
-        (currentPosition.coerceIn(0f, 1f).toDouble() * loadedDurationMs.toDouble()).toLong()
+    val currentTimeMs = if (selectedEpisode && (loadedDurationMs > 0L || currentPositionMs > 0L)) {
+        currentPositionMs.coerceAtLeast(0L)
     } else {
         savedPositionMs
     }
     val displayPosition = when {
         selectedEpisode && loadedDurationMs > 0L -> currentPosition.coerceIn(0f, 1f)
-        effectiveTotalMs > 0L && savedPositionMs > 0L ->
-            (savedPositionMs.toDouble() / effectiveTotalMs.toDouble()).toFloat().coerceIn(0f, 1f)
+        effectiveTotalMs > 0L && currentTimeMs > 0L ->
+            (currentTimeMs.toDouble() / effectiveTotalMs.toDouble()).toFloat().coerceIn(0f, 1f)
         else -> 0f
     }
     val showBuffering = selectedEpisode && isBuffering
@@ -427,7 +427,9 @@ private fun PodcastPlaybackControls(
             value = displayPosition,
             enabled = canSeek,
             onValueChange = { audioController.seekTo(it, expectedEpisodeId = episode.id) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = "Oynatma konumu" },
             colors = SliderDefaults.colors(
                 thumbColor = SleekChampagne,
                 activeTrackColor = SleekChampagne,
@@ -510,7 +512,12 @@ private fun PodcastPlaybackControls(
                 },
                 containerColor = SleekChampagne,
                 shape = CircleShape,
-                modifier = Modifier.size(64.dp).testTag("podcast-play-pause")
+                modifier = Modifier
+                    .size(64.dp)
+                    .testTag("podcast-play-pause")
+                    .semantics {
+                        contentDescription = if (showBuffering) "Yükleniyor" else "Oynat/Duraklat"
+                    }
             ) {
                 if (showBuffering) {
                     CircularProgressIndicator(
@@ -521,7 +528,7 @@ private fun PodcastPlaybackControls(
                 } else {
                     Icon(
                         imageVector = if (isPlaying && selectedEpisode) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = "Oynat/Duraklat",
+                        contentDescription = null,
                         tint = Color.Black,
                         modifier = Modifier.size(32.dp)
                     )
