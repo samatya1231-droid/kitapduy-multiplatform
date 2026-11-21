@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -326,6 +328,7 @@ class LoginScreen : Screen {
             placeholder = { Text(hint, color = Color.Gray) },
             modifier = Modifier
                 .fillMaxWidth()
+                .semantics { contentDescription = hint }
                 .background(
                     MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f),
                     RoundedCornerShape(16.dp)

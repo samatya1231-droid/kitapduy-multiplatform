@@ -368,6 +368,12 @@ class SupabaseAuthRepository(
                 } catch (e: Throwable) {
                     e.printStackTrace()
                 }
+                CrossPlatformBridgeHelper.syncUserProfileToFirestore(
+                    httpClient = httpClient,
+                    uid = uid,
+                    name = cleanName,
+                    bio = defaultBio
+                )
             }
             true
         } catch (cancelled: CancellationException) {
@@ -567,6 +573,13 @@ class SupabaseAuthRepository(
                 } catch (e: Throwable) {
                     e.printStackTrace()
                 }
+                CrossPlatformBridgeHelper.syncUserProfileToFirestore(
+                    httpClient = httpClient,
+                    uid = uid,
+                    name = safeName,
+                    username = guestUsername,
+                    bio = "Merhaba!"
+                )
                 true
             } else {
                 signInAnonymouslyLocalFallback(name)

@@ -22,6 +22,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -197,7 +198,8 @@ fun MiniPlayerSection(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(3.dp)
-                        .align(Alignment.BottomCenter),
+                        .align(Alignment.BottomCenter)
+                        .clearAndSetSemantics {},
                     color = MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                 )

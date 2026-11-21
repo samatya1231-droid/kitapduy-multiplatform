@@ -183,10 +183,21 @@ class ProfileScreenModel(
             followListLoading.value = true
             try {
                 val records = if (isFollowers) socialRepository.getFollowers(userId) else socialRepository.getFollowing(userId)
-                _followListUsers.value = records.map { record ->
-                    val uid = if (isFollowers) record.followerId else record.followingId
-                    val profile = socialRepository.getUserProfile(uid) ?: kotlin.error("Profil yüklenemedi")
-                    mapOf("uid" to uid, "name" to profile.name, "photo" to profile.photoUrl.orEmpty())
+                _followListUsers.value = records.mapNotNull { record ->
+                    val uid = (if (isFollowers) record.followerId else record.followingId).trim()
+                    if (uid.isEmpty()) return@mapNotNull null
+                    val profile = try {
+                        socialRepository.getUserProfile(uid)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        null
+                    } ?: UserProfile(uid = uid, name = "KitapDuy Okuru")
+                    mapOf(
+                        "uid" to uid,
+                        "name" to profile.name.ifBlank { "KitapDuy Okuru" },
+                        "photo" to profile.photoUrl.orEmpty()
+                    )
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: Exception) { followListError.value = "Liste yüklenemedi. Tekrar dene." }

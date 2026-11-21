@@ -87,11 +87,11 @@ internal object CrossPlatformBridgeHelper {
     suspend fun donateAskida(httpClient: HttpClient?, book: com.semtinazizi.kitapduy.model.AskidaKitap): Boolean {
         if (isLocalFixture() || httpClient == null) return false
         return try {
-            httpClient.post("$BRIDGE_URL?action=askida_donate") {
+            val response = httpClient.post("$BRIDGE_URL?action=askida_donate") {
                 contentType(ContentType.Application.Json)
                 setBody(json.encodeToString(com.semtinazizi.kitapduy.model.AskidaKitap.serializer(), book))
             }
-            true
+            response.status.isSuccess()
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Throwable) {
@@ -106,11 +106,11 @@ internal object CrossPlatformBridgeHelper {
                 put("id", bookId)
                 put("claimer_id", claimerId)
             }.toString()
-            httpClient.post("$BRIDGE_URL?action=askida_claim") {
+            val response = httpClient.post("$BRIDGE_URL?action=askida_claim") {
                 contentType(ContentType.Application.Json)
                 setBody(payload)
             }
-            true
+            response.status.isSuccess()
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Throwable) {
@@ -139,11 +139,11 @@ internal object CrossPlatformBridgeHelper {
     suspend fun sendAskidaMessage(httpClient: HttpClient?, msg: com.semtinazizi.kitapduy.model.AskidaMesaj): Boolean {
         if (isLocalFixture() || httpClient == null) return false
         return try {
-            httpClient.post("$BRIDGE_URL?action=askida_send_message") {
+            val response = httpClient.post("$BRIDGE_URL?action=askida_send_message") {
                 contentType(ContentType.Application.Json)
                 setBody(json.encodeToString(com.semtinazizi.kitapduy.model.AskidaMesaj.serializer(), msg))
             }
-            true
+            response.status.isSuccess()
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Throwable) {

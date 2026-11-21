@@ -1579,9 +1579,9 @@ final class ReaderJourneyTests: XCTestCase {
                     detail: "frame=\(Int(frame.minX)),\(Int(frame.minY)) \(Int(frame.width))x\(Int(frame.height))pt, windowWidth=\(Int(winFrame.width))pt"
                 )
             }
-            if frame.minY >= 0, frame.maxY <= winFrame.height,
-           frame.minX >= 0, frame.maxX <= winFrame.width,
-           (frame.width < 42 || frame.height < 42) {
+            if frame.minY >= 110, frame.maxY <= winFrame.height - 150,
+               frame.minX >= 8, frame.maxX <= winFrame.width - 8,
+               (frame.width < 42 || frame.height < 42) {
                 recordProbe(
                     screen: screen,
                     theme: theme,

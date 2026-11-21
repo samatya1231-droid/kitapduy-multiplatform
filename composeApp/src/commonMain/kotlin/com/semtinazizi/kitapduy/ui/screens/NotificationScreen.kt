@@ -146,7 +146,7 @@ class NotificationScreen : Screen {
                                     }
                                 }
                                 when (note.type.trim().lowercase()) {
-                                    "like", "comment", "reply", "poll_vote" -> {
+                                    "like", "comment", "reply", "poll_vote", "video_like", "video_comment", "poem_like" -> {
                                         if (target.toLongOrNull() != null) {
                                             navigator.push(PostDetailScreen(target))
                                         } else {
@@ -154,6 +154,7 @@ class NotificationScreen : Screen {
                                         }
                                     }
                                     "follow" -> navigator.push(UserProfileScreen(target))
+                                    "chat_like", "invite" -> Unit
                                     else -> openBookOrPodcast()
                                 }
                             })

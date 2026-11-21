@@ -20,6 +20,7 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.*
 import androidx.compose.ui.text.style.*
@@ -104,7 +105,8 @@ class CategoryDetailScreen(val categoryName: String) : Screen {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(end = 16.dp)
-                                .height(50.dp),
+                                .height(50.dp)
+                                .semantics { contentDescription = "Yazar veya kitap ara" },
                             placeholder = { Text("Yazar veya kitap ara...", color = Color.Gray, fontSize = 13.sp) },
                             leadingIcon = { Icon(Icons.Filled.Search, null, tint = Color.Gray.copy(alpha = 0.6f), modifier = Modifier.size(18.dp)) },
                             shape = RoundedCornerShape(24.dp),

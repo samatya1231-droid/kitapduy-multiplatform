@@ -84,6 +84,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -1031,7 +1032,8 @@ private fun AdvisorInputBar(
                 onValueChange = onTextChange,
                 modifier = Modifier
                     .weight(1f)
-                    .testTag("advisor-input"),
+                    .testTag("advisor-input")
+                    .semantics { contentDescription = "Edebi danışmana soru yaz" },
                 placeholder = {
                     Text(
                         text = "Edebiyat, felsefe, kitap önerisi… Aklında ne var?",

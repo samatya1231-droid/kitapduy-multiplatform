@@ -322,6 +322,10 @@ class HomeScreen : Screen {
                                 navigator.push(PodcastEpisodesScreen(it.id, it.name, it.rssUrl, it.imageUrl))
                             }
                         }
+                        if (articles.isNotEmpty()) item(key = "articles") {
+                            SpotifySectionHeader("Bilim & Düşünce")
+                            ArticlesRow(articles) { navigator.push(ArticleDetailScreen(it.link, it.title)) }
+                        }
                         if (!isPremium) item(key = "premium_upgrade") {
                             PremiumUpgradeCard(modifier = Modifier.padding(horizontal = 16.dp, vertical = 32.dp),
                                 isPremium = false, onClick = { navigator.root.push(SubscriptionPaywallScreen()) })
@@ -332,10 +336,6 @@ class HomeScreen : Screen {
                                     onSeeAllClick = { navigator.push(CategoryDetailScreen(category)) },
                                     onBookClick = { navigator.push(BookDetailScreen(it)) })
                             }
-                        }
-                        if (articles.isNotEmpty()) item(key = "articles") {
-                            SpotifySectionHeader("Bilim & Düşünce")
-                            ArticlesRow(articles) { navigator.push(ArticleDetailScreen(it.link, it.title)) }
                         }
                     }
                     }

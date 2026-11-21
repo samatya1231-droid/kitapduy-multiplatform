@@ -596,4 +596,53 @@ class CrossPlatformSyncAndPremiumPolicyTest {
         assertEquals("💬 Yeni Yorum", CrossPlatformBridgeHelper.notificationTitleForType("comment"))
         assertEquals("💬 Yorumuna Yanıt", CrossPlatformBridgeHelper.notificationTitleForType("reply"))
     }
+
+    @Test
+    fun profileScreenModelFetchFollowListFallsBackWhenOneFollowerProfileFailsToResolve() = runTest {
+        val fakeSocial = object : com.semtinazizi.kitapduy.domain.repository.SocialRepository {
+            override suspend fun getUserProfile(userId: String): UserProfile? = when (userId) {
+                "u_ok" -> UserProfile(uid = "u_ok", name = "Selnur Kara", photoUrl = "https://ses.kitapduy.com.tr/p.jpg")
+                "u_missing" -> null
+                "u_throws" -> throw IllegalStateException("network glitch")
+                else -> null
+            }
+            override suspend fun searchUsers(query: String) = emptyList<UserProfile>()
+            override suspend fun fetchUserPosts(userId: String) = emptyList<com.semtinazizi.kitapduy.model.FeedItem>()
+            override suspend fun fetchUserShelves(userId: String) = emptyList<com.semtinazizi.kitapduy.model.SupabaseBookshelf>()
+            override suspend fun getFollowers(userId: String) = listOf(
+                com.semtinazizi.kitapduy.model.SupabaseFollowRecord(followerId = "u_ok", followingId = userId),
+                com.semtinazizi.kitapduy.model.SupabaseFollowRecord(followerId = "u_missing", followingId = userId),
+                com.semtinazizi.kitapduy.model.SupabaseFollowRecord(followerId = "u_throws", followingId = userId)
+            )
+            override suspend fun getFollowing(userId: String) = emptyList<com.semtinazizi.kitapduy.model.SupabaseFollowRecord>()
+            override suspend fun isFollowing(followerId: String, followingId: String) = false
+            override suspend fun follow(followerId: String, followingId: String) {}
+            override suspend fun unfollow(followerId: String, followingId: String) {}
+            override suspend fun sendNotification(receiverId: String, message: String, type: String) {}
+            override suspend fun reportPost(postId: String, reporterId: String, reason: String) = true
+            override suspend fun blockUser(blockerId: String, blockedUid: String) = true
+        }
+        val fakeBookRepo = DummyBookRepository()
+        val model = com.semtinazizi.kitapduy.ui.viewmodel.ProfileScreenModel(
+            authRepository = authAs("owner_1"),
+            socialRepository = fakeSocial,
+            bookRepository = fakeBookRepo,
+            testScope = this
+        )
+        model.fetchFollowList("owner_1", isFollowers = true)
+        testScheduler.advanceUntilIdle()
+        val list = model.followListUsers.value
+        assertEquals(null, model.followListError.value)
+        assertEquals(3, list.size)
+        assertEquals("Selnur Kara", list[0]["name"])
+        assertEquals("KitapDuy Okuru", list[1]["name"])
+        assertEquals("KitapDuy Okuru", list[2]["name"])
+    }
+
+    @Test
+    fun homeViewModelProvidesFallbackArticlesForOfflineAndCi() {
+        val articles = com.semtinazizi.kitapduy.ui.viewmodel.HomeViewModel.FALLBACK_ARTICLES
+        assertTrue(articles.isNotEmpty())
+        assertTrue(articles.all { it.title.isNotBlank() && it.source.isNotBlank() && it.link.startsWith("https://") })
+    }
 }
