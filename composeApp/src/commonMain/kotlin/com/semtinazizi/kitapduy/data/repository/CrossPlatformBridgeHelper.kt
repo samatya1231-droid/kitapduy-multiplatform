@@ -67,9 +67,15 @@ internal object CrossPlatformBridgeHelper {
     }
 
     suspend fun fetchAskidaMyChats(httpClient: HttpClient?, uid: String): List<com.semtinazizi.kitapduy.model.AskidaKitap> {
-        if (isLocalFixture() || httpClient == null || uid.isBlank()) return emptyList()
+        val cleanUid = uid.trim()
+        if (isLocalFixture() || httpClient == null || cleanUid.isBlank()) return emptyList()
         return try {
-            val raw = httpClient.get("$BRIDGE_URL?action=askida_my_chats&uid=$uid").bodyAsText()
+            val response = httpClient.get(BRIDGE_URL) {
+                parameter("action", "askida_my_chats")
+                parameter("uid", cleanUid)
+            }
+            if (!response.status.isSuccess()) return emptyList()
+            val raw = response.bodyAsText()
             json.decodeFromString<List<com.semtinazizi.kitapduy.model.AskidaKitap>>(raw)
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -113,9 +119,15 @@ internal object CrossPlatformBridgeHelper {
     }
 
     suspend fun fetchAskidaMessages(httpClient: HttpClient?, bookId: String): List<com.semtinazizi.kitapduy.model.AskidaMesaj> {
-        if (isLocalFixture() || httpClient == null || bookId.isBlank()) return emptyList()
+        val cleanBookId = bookId.trim()
+        if (isLocalFixture() || httpClient == null || cleanBookId.isBlank()) return emptyList()
         return try {
-            val raw = httpClient.get("$BRIDGE_URL?action=askida_messages&bookId=$bookId").bodyAsText()
+            val response = httpClient.get(BRIDGE_URL) {
+                parameter("action", "askida_messages")
+                parameter("bookId", cleanBookId)
+            }
+            if (!response.status.isSuccess()) return emptyList()
+            val raw = response.bodyAsText()
             json.decodeFromString<List<com.semtinazizi.kitapduy.model.AskidaMesaj>>(raw)
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -260,10 +272,20 @@ internal object CrossPlatformBridgeHelper {
         }
     }
 
-    suspend fun fetchBridgeUserProfile(httpClient: HttpClient?, userId: String): UserProfile? {
-        if (isLocalFixture() || httpClient == null || userId.isBlank()) return null
+    suspend fun fetchBridgeUserProfile(
+        httpClient: HttpClient?,
+        userId: String,
+        useLocalFixture: Boolean = isLocalFixture()
+    ): UserProfile? {
+        val cleanUid = userId.trim()
+        if (useLocalFixture || httpClient == null || cleanUid.isBlank()) return null
         return try {
-            val raw = httpClient.get("$BRIDGE_URL?action=user&uid=$userId").bodyAsText()
+            val response = httpClient.get(BRIDGE_URL) {
+                parameter("action", "user")
+                parameter("uid", cleanUid)
+            }
+            if (!response.status.isSuccess()) return null
+            val raw = response.bodyAsText()
             val dto = json.decodeFromString<BridgeUserDto>(raw)
             if (dto.uid.isBlank()) return null
             UserProfile(
@@ -292,6 +314,19 @@ internal object CrossPlatformBridgeHelper {
         @kotlinx.serialization.SerialName("book_title") val bookTitle: String,
         val author: String = "",
         val status: String = "pending"
+    )
+
+    @Serializable
+    private data class BridgeBookRequestResponse(
+        val ok: Boolean = false,
+        val status: String? = null,
+        val error: String? = null
+    )
+
+    internal data class BookRequestSubmitResult(
+        val success: Boolean,
+        val alreadyRequested: Boolean = false,
+        val errorMessage: String? = null
     )
 
     suspend fun searchBridgeUsers(
@@ -331,7 +366,7 @@ internal object CrossPlatformBridgeHelper {
         }
     }
 
-    suspend fun submitBookRequest(
+    suspend fun submitBookRequestDetailed(
         httpClient: HttpClient?,
         supabaseClient: SupabaseClient? = null,
         userId: String?,
@@ -339,15 +374,27 @@ internal object CrossPlatformBridgeHelper {
         bookTitle: String,
         author: String,
         useLocalFixture: Boolean = isLocalFixture()
-    ): Boolean {
+    ): BookRequestSubmitResult {
         val cleanTitle = bookTitle.trim()
-        if (cleanTitle.length < 2) return false
+        if (cleanTitle.length !in 2..160) {
+            return BookRequestSubmitResult(
+                success = false,
+                errorMessage = "Kitap adı 2 ile 160 karakter arasında olmalıdır."
+            )
+        }
         val cleanAuthor = author.trim()
-        val cleanUserId = userId?.takeIf { it.isNotBlank() } ?: "anonymous"
-        val cleanUserName = userName?.takeIf { it.isNotBlank() } ?: "KitapDuy Okuru"
+        if (cleanAuthor.length > 100) {
+            return BookRequestSubmitResult(
+                success = false,
+                errorMessage = "Yazar adı en fazla 100 karakter olabilir."
+            )
+        }
+        val cleanUserId = userId?.trim()?.takeIf { it.isNotBlank() } ?: "anonymous"
+        val cleanUserName = userName?.trim()?.takeIf { it.isNotBlank() } ?: "KitapDuy Okuru"
         return try {
             if (useLocalFixture) {
-                val client = supabaseClient ?: return false
+                val client = supabaseClient
+                    ?: return BookRequestSubmitResult(success = false, errorMessage = "Bağlantı kurulamadı.")
                 client.postgrest["book_requests"].insert(
                     SupabaseBookRequestInsert(
                         userId = cleanUserId,
@@ -357,9 +404,10 @@ internal object CrossPlatformBridgeHelper {
                         status = "pending"
                     )
                 )
-                true
+                BookRequestSubmitResult(success = true)
             } else {
-                val client = httpClient ?: return false
+                val client = httpClient
+                    ?: return BookRequestSubmitResult(success = false, errorMessage = "Bağlantı kurulamadı.")
                 val payload = buildJsonObject {
                     put("user_id", cleanUserId)
                     put("user_name", cleanUserName)
@@ -370,14 +418,53 @@ internal object CrossPlatformBridgeHelper {
                     contentType(ContentType.Application.Json)
                     setBody(payload)
                 }
-                response.status.isSuccess()
+                val parsed = runCatching {
+                    json.decodeFromString<BridgeBookRequestResponse>(response.bodyAsText())
+                }.getOrNull()
+                if (response.status.isSuccess()) {
+                    BookRequestSubmitResult(
+                        success = true,
+                        alreadyRequested = parsed?.status == "already_requested"
+                    )
+                } else {
+                    val fallbackError = if (response.status.value == 429) {
+                        "Bugün en fazla 5 kitap talep edebilirsiniz."
+                    } else {
+                        "Talebiniz gönderilemedi. Lütfen tekrar deneyin."
+                    }
+                    BookRequestSubmitResult(
+                        success = false,
+                        errorMessage = parsed?.error?.takeIf { it.isNotBlank() && !it.contains('_') } ?: fallbackError
+                    )
+                }
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Throwable) {
-            false
+            BookRequestSubmitResult(
+                success = false,
+                errorMessage = "Talebiniz gönderilemedi. Bağlantınızı kontrol edip tekrar deneyin."
+            )
         }
     }
+
+    suspend fun submitBookRequest(
+        httpClient: HttpClient?,
+        supabaseClient: SupabaseClient? = null,
+        userId: String?,
+        userName: String?,
+        bookTitle: String,
+        author: String,
+        useLocalFixture: Boolean = isLocalFixture()
+    ): Boolean = submitBookRequestDetailed(
+        httpClient = httpClient,
+        supabaseClient = supabaseClient,
+        userId = userId,
+        userName = userName,
+        bookTitle = bookTitle,
+        author = author,
+        useLocalFixture = useLocalFixture
+    ).success
 
     suspend fun syncUserProfileToFirestore(
         httpClient: HttpClient?,

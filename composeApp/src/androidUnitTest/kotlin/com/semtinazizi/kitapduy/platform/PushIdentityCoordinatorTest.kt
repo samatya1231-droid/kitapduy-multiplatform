@@ -101,5 +101,36 @@ class PushIdentityCoordinatorTest {
                 PushNotificationEvent(socialType = "BOOK", postId = "12345", deepLink = "kitapduy://book/12345")
             )
         )
+        assertEquals(
+            PushNotificationRoute.Book("book:1 2"),
+            PushNotificationBridge.resolveRoute(
+                PushNotificationEvent(socialType = "BOOK", postId = "book:1 2", deepLink = "kitapduy://book/book%3A1%202")
+            )
+        )
+        assertEquals(
+            PushNotificationRoute.Podcast("podcast_111hz_ep1"),
+            PushNotificationBridge.resolveRoute(
+                PushNotificationEvent(deepLink = "kitapduy://podcast/podcast_111hz_ep1")
+            )
+        )
+        assertEquals(
+            PushNotificationRoute.UserProfile("android_user_99"),
+            PushNotificationBridge.resolveRoute(
+                PushNotificationEvent(deepLink = "KITAPDUY://user/android_user_99?src=push")
+            )
+        )
+        assertEquals(
+            PushNotificationRoute.Notifications,
+            PushNotificationBridge.resolveRoute(
+                PushNotificationEvent(socialType = "CHAT_LIKE", postId = "☕ Genel", deepLink = "kitapduy://notifications")
+            )
+        )
+        assertEquals(
+            PushNotificationRoute.Notifications,
+            PushNotificationBridge.resolveRoute(
+                PushNotificationEvent(socialType = "INVITE", postId = "club_123")
+            )
+        )
+        assertEquals("ş a", PushNotificationBridge.decodeUriComponent("ş%20a"))
     }
 }

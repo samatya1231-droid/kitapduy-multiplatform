@@ -77,7 +77,7 @@ class SearchScreen : Screen {
         var requestedBookTitle by remember { mutableStateOf("") }
         var requestedAuthor by remember { mutableStateOf("") }
         var isSubmittingRequest by remember { mutableStateOf(false) }
-        var requestSentNotice by remember { mutableStateOf(false) }
+        var requestSentNotice by remember { mutableStateOf<String?>(null) }
         var requestError by remember { mutableStateOf<String?>(null) }
 
         if (showRequestDialog) {
@@ -97,8 +97,10 @@ class SearchScreen : Screen {
                         OutlinedTextField(
                             value = requestedBookTitle,
                             onValueChange = {
-                                requestedBookTitle = it
-                                requestError = null
+                                if (it.length <= 160) {
+                                    requestedBookTitle = it
+                                    requestError = null
+                                }
                             },
                             label = { Text("Kitap Adı") },
                             singleLine = true,
@@ -107,8 +109,10 @@ class SearchScreen : Screen {
                         OutlinedTextField(
                             value = requestedAuthor,
                             onValueChange = {
-                                requestedAuthor = it
-                                requestError = null
+                                if (it.length <= 100) {
+                                    requestedAuthor = it
+                                    requestError = null
+                                }
                             },
                             label = { Text("Yazar (İsteğe bağlı)") },
                             singleLine = true,
@@ -125,15 +129,15 @@ class SearchScreen : Screen {
                 },
                 confirmButton = {
                     Button(
-                        enabled = requestedBookTitle.trim().length >= 2 && !isSubmittingRequest,
+                        enabled = requestedBookTitle.trim().length in 2..160 && !isSubmittingRequest,
                         onClick = {
                             val titleToSend = requestedBookTitle.trim()
                             val authorToSend = requestedAuthor.trim()
                             isSubmittingRequest = true
                             requestError = null
                             scope.launch {
-                                val submitted = try {
-                                    CrossPlatformBridgeHelper.submitBookRequest(
+                                val result = try {
+                                    CrossPlatformBridgeHelper.submitBookRequestDetailed(
                                         httpClient = httpClient,
                                         supabaseClient = supabaseClient,
                                         userId = userProfile?.uid ?: authRepository.currentUserUid,
@@ -144,13 +148,18 @@ class SearchScreen : Screen {
                                 } finally {
                                     isSubmittingRequest = false
                                 }
-                                if (submitted) {
+                                if (result.success) {
                                     requestedBookTitle = ""
                                     requestedAuthor = ""
                                     showRequestDialog = false
-                                    requestSentNotice = true
+                                    requestSentNotice = if (result.alreadyRequested) {
+                                        "Bu kitap için talebiniz daha önce alınmış. Teşekkür ederiz!"
+                                    } else {
+                                        "Öneriniz editör ekibimize iletildi. Teşekkür ederiz!"
+                                    }
                                 } else {
-                                    requestError = "Talebiniz gönderilemedi. Günlük limit dolmuş veya bağlantı hatası oluşmuş olabilir."
+                                    requestError = result.errorMessage
+                                        ?: "Talebiniz gönderilemedi. Bağlantınızı kontrol edip tekrar deneyin."
                                 }
                             }
                         }
@@ -165,13 +174,13 @@ class SearchScreen : Screen {
             )
         }
 
-        if (requestSentNotice) {
+        requestSentNotice?.let { noticeBody ->
             AlertDialog(
-                onDismissRequest = { requestSentNotice = false },
+                onDismissRequest = { requestSentNotice = null },
                 title = { Text("Talebiniz Alındı") },
-                text = { Text("Öneriniz editör ekibimize iletildi. Teşekkür ederiz!") },
+                text = { Text(noticeBody) },
                 confirmButton = {
-                    TextButton(onClick = { requestSentNotice = false }) { Text("Tamam") }
+                    TextButton(onClick = { requestSentNotice = null }) { Text("Tamam") }
                 }
             )
         }

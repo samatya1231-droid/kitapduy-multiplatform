@@ -306,6 +306,175 @@ class CrossPlatformSyncAndPremiumPolicyTest {
     }
 
     @Test
+    fun submitBookRequestDetailedParsesAlreadyRequestedAndRateLimitError() = runTest {
+        var nextStatus = HttpStatusCode.OK
+        var nextBody = """{"ok":true,"status":"already_requested","id":"abc"}"""
+        val httpClient = HttpClient(MockEngine { _ ->
+            respond(nextBody, nextStatus, jsonHeaders)
+        })
+        try {
+            val dup = CrossPlatformBridgeHelper.submitBookRequestDetailed(
+                httpClient = httpClient,
+                userId = "ios_u1",
+                userName = "Rahmi",
+                bookTitle = "Satranç",
+                author = "",
+                useLocalFixture = false
+            )
+            assertTrue(dup.success)
+            assertTrue(dup.alreadyRequested)
+
+            nextStatus = HttpStatusCode.TooManyRequests
+            nextBody = """{"ok":false,"status":"rate_limited","error":"Bugün en fazla 5 kitap talep edebilirsiniz."}"""
+            val limited = CrossPlatformBridgeHelper.submitBookRequestDetailed(
+                httpClient = httpClient,
+                userId = "ios_u1",
+                userName = "Rahmi",
+                bookTitle = "Altıncı Kitap",
+                author = "",
+                useLocalFixture = false
+            )
+            assertFalse(limited.success)
+            assertEquals("Bugün en fazla 5 kitap talep edebilirsiniz.", limited.errorMessage)
+
+            val oversizeTitle = CrossPlatformBridgeHelper.submitBookRequestDetailed(
+                httpClient = httpClient,
+                userId = "ios_u1",
+                userName = "Rahmi",
+                bookTitle = "a".repeat(161),
+                author = "",
+                useLocalFixture = false
+            )
+            assertFalse(oversizeTitle.success)
+            assertTrue(oversizeTitle.errorMessage?.contains("160") == true)
+
+            val oversizeAuthor = CrossPlatformBridgeHelper.submitBookRequestDetailed(
+                httpClient = httpClient,
+                userId = "ios_u1",
+                userName = "Rahmi",
+                bookTitle = "Satranç",
+                author = "a".repeat(101),
+                useLocalFixture = false
+            )
+            assertFalse(oversizeAuthor.success)
+            assertTrue(oversizeAuthor.errorMessage?.contains("100") == true)
+        } finally {
+            httpClient.close()
+        }
+    }
+
+    @Test
+    fun socialRepositoryGetUserProfileFetchesAndroidFirestoreUserViaBridgeEvenWhenAuthFallbackExists() = runTest {
+        var bridgeCalledForUid: String? = null
+        val supabaseEngine = MockEngine { request ->
+            val path = request.url.encodedPath
+            when {
+                path.endsWith("/rest/v1/users") -> respond("[]", HttpStatusCode.OK, jsonHeaders)
+                path.endsWith("/rest/v1/posts") -> respond("[]", HttpStatusCode.OK, jsonHeaders)
+                else -> respond("[]", HttpStatusCode.OK, jsonHeaders)
+            }
+        }
+        val bridgeHttpClient = HttpClient(MockEngine { request ->
+            if (request.url.parameters["action"] == "user") {
+                bridgeCalledForUid = request.url.parameters["uid"]
+                respond(
+                    """{"uid":"OIl22wh2Z9Vgq8HHPgvxXURdfAp2","name":"Selnur Kara","username":"selnur_k","bio":"Klasik okuru","photo_url":"https://ses.kitapduy.com.tr/selnur.jpg","cover_photo_url":"https://ses.kitapduy.com.tr/cover.jpg","badges":["premium","bookworm"],"premium_until":4102444800000,"is_premium":true,"streak":14}""",
+                    HttpStatusCode.OK,
+                    jsonHeaders
+                )
+            } else {
+                respond("[]", HttpStatusCode.OK, jsonHeaders)
+            }
+        })
+        val client = createSupabaseClient("https://example.invalid", "test-key") {
+            install(Postgrest)
+            httpEngine = supabaseEngine
+        }
+        try {
+            // Even when authRepository returns a synthetic non-null "Okur" fallback,
+            // SupabaseSocialRepository.getUserProfile MUST resolve the real Firestore profile via bridge.
+            val socialRepo = SupabaseSocialRepository(
+                supabaseClient = client,
+                authRepository = authAs("ios_me", "Okur"),
+                settings = fakeSettings(),
+                httpClient = bridgeHttpClient
+            )
+            val resolved = socialRepo.getUserProfile("OIl22wh2Z9Vgq8HHPgvxXURdfAp2")
+            assertEquals("OIl22wh2Z9Vgq8HHPgvxXURdfAp2", bridgeCalledForUid)
+            assertEquals("Selnur Kara", resolved?.name)
+            assertEquals("selnur_k", resolved?.username)
+            assertEquals("Klasik okuru", resolved?.bio)
+            assertTrue(resolved?.isPremium == true)
+            assertEquals(14, resolved?.streak)
+            assertTrue(resolved?.badges?.contains("bookworm") == true)
+        } finally {
+            client.close()
+            bridgeHttpClient.close()
+        }
+    }
+
+    @Test
+    fun searchUsersStripsLeadingAtAndMergesFullBridgeProfileWithTurkishSorting() = runTest {
+        var capturedUsersQuery = ""
+        val engine = MockEngine { request ->
+            val path = request.url.encodedPath
+            when {
+                path.endsWith("/rest/v1/users") -> {
+                    capturedUsersQuery = request.url.encodedQuery
+                    respond(
+                        """[{"uid":"dual_1","name":"Barış Arslan","username":"baris_a","bio":"","is_premium":false}]""",
+                        HttpStatusCode.OK,
+                        jsonHeaders
+                    )
+                }
+                else -> respond("[]", HttpStatusCode.OK, jsonHeaders)
+            }
+        }
+        val bridgeHttpClient = HttpClient(MockEngine { request ->
+            if (request.url.parameters["action"] == "search_users") {
+                respond(
+                    """[
+                        {"uid":"dual_1","name":"Barış Arslan","username":"baris_a","bio":"VIP Okur","photo_url":"https://ses.kitapduy.com.tr/b.jpg","cover_photo_url":"https://ses.kitapduy.com.tr/bc.jpg","badges":["premium","admin"],"premium_until":4102444800000,"is_premium":true,"streak":9},
+                        {"uid":"android_2","name":"İrem Yılmaz","username":"irem_y","bio":"","is_premium":false}
+                    ]""",
+                    HttpStatusCode.OK,
+                    jsonHeaders
+                )
+            } else {
+                respond("[]", HttpStatusCode.OK, jsonHeaders)
+            }
+        })
+        val client = createSupabaseClient("https://example.invalid", "test-key") {
+            install(Postgrest)
+            httpEngine = engine
+        }
+        try {
+            val repo = SupabaseSocialRepository(client, authAs("me"), settings = fakeSettings(), httpClient = bridgeHttpClient)
+            val results = repo.searchUsers("@baris")
+            assertFalse(capturedUsersQuery.contains("%40"), "Leading @ must be stripped before Supabase ilike query: $capturedUsersQuery")
+            assertTrue(capturedUsersQuery.contains("baris"))
+            val baris = results.first { it.uid == "dual_1" }
+            assertEquals("dual_1", results.first().uid)
+            assertTrue(baris.isPremium)
+            assertEquals("VIP Okur", baris.bio)
+            assertEquals(9, baris.streak)
+            assertTrue(baris.badges.contains("admin"))
+            assertEquals("https://ses.kitapduy.com.tr/bc.jpg", baris.coverPhotoUrl)
+
+            val sortedTurkish = SupabaseSocialRepository.mergeUserSearchResults(
+                query = "irem",
+                remoteUsers = listOf(UserProfile(uid = "u_other", name = "Ahmet İrem", isPremium = true)),
+                bridgeUsers = listOf(UserProfile(uid = "u_irem", name = "İrem Yılmaz", isPremium = false)),
+                postAuthors = emptyList()
+            )
+            assertEquals("u_irem", sortedTurkish.first().uid)
+        } finally {
+            client.close()
+            bridgeHttpClient.close()
+        }
+    }
+
+    @Test
     fun searchBridgeUsersParsesFirestoreBridgeUsersAndHandlesErrors() = runTest {
         var nextStatus = HttpStatusCode.OK
         val httpClient = HttpClient(MockEngine { request ->

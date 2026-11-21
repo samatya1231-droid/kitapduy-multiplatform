@@ -85,24 +85,69 @@ object PushNotificationBridge {
         return current
     }
 
+    private fun extractDeepLinkSegment(deepLink: String, prefix: String): String {
+        val idx = deepLink.indexOf(prefix, ignoreCase = true)
+        if (idx < 0) return ""
+        val raw = deepLink.substring(idx + prefix.length)
+            .substringBefore('?')
+            .substringBefore('#')
+            .substringBefore('/')
+            .trim()
+        return decodeUriComponent(raw)
+    }
+
+    internal fun decodeUriComponent(value: String): String {
+        if (!value.contains('%')) return value
+        val bytes = ByteArray(value.encodeToByteArray().size)
+        var outIdx = 0
+        var i = 0
+        while (i < value.length) {
+            if (value[i] == '%' && i + 2 < value.length) {
+                val hi = value[i + 1].digitToIntOrNull(16)
+                val lo = value[i + 2].digitToIntOrNull(16)
+                if (hi != null && lo != null) {
+                    bytes[outIdx++] = ((hi shl 4) or lo).toByte()
+                    i += 3
+                    continue
+                }
+            }
+            val encoded = value[i].toString().encodeToByteArray()
+            encoded.copyInto(bytes, outIdx)
+            outIdx += encoded.size
+            i++
+        }
+        return runCatching { bytes.decodeToString(0, outIdx) }.getOrDefault(value)
+    }
+
     fun resolveRoute(event: PushNotificationEvent): PushNotificationRoute {
         val normalizedType = event.socialType.trim().lowercase()
         val deepLink = event.deepLink.trim()
-        val deepLinkUser = deepLink.substringAfter("kitapduy://user/", "")
-            .substringBefore('?').substringBefore('/').trim()
-        val deepLinkPost = deepLink.substringAfter("kitapduy://post/", "")
-            .substringBefore('?').substringBefore('/').trim()
-        val deepLinkBook = deepLink.substringAfter("kitapduy://book/", "")
-            .substringBefore('?').substringBefore('/').trim()
+        if (normalizedType == "chat_like" || normalizedType == "invite" || normalizedType == "evening_reminder") {
+            return PushNotificationRoute.Notifications
+        }
+        if (deepLink.equals("kitapduy://notifications", ignoreCase = true) ||
+            deepLink.startsWith("kitapduy://notifications?", ignoreCase = true)
+        ) {
+            return PushNotificationRoute.Notifications
+        }
+
+        val deepLinkUser = extractDeepLinkSegment(deepLink, "kitapduy://user/")
+        val deepLinkPost = extractDeepLinkSegment(deepLink, "kitapduy://post/")
+        val deepLinkBook = extractDeepLinkSegment(deepLink, "kitapduy://book/")
+        val deepLinkPodcast = extractDeepLinkSegment(deepLink, "kitapduy://podcast/")
         val targetId = event.postId.trim()
             .ifBlank { event.bookId.trim() }
             .ifBlank { deepLinkPost }
+            .ifBlank { deepLinkPodcast }
             .ifBlank { deepLinkBook }
             .ifBlank { deepLinkUser }
 
         if (normalizedType == "follow" || deepLinkUser.isNotBlank()) {
-            val uid = targetId.ifBlank { deepLinkUser }
+            val uid = deepLinkUser.ifBlank { targetId }
             return if (uid.isNotBlank()) PushNotificationRoute.UserProfile(uid) else PushNotificationRoute.Notifications
+        }
+        if (deepLinkPodcast.isNotBlank()) {
+            return PushNotificationRoute.Podcast(deepLinkPodcast)
         }
         if (targetId.isBlank()) return PushNotificationRoute.Notifications
         if (targetId.startsWith("podcast_")) return PushNotificationRoute.Podcast(targetId)

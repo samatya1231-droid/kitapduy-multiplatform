@@ -110,13 +110,15 @@ class ProfileScreenModel(
                 } catch (e: Exception) {
                     null
                 }
-                val authProfile = try {
-                    authRepository.getUserProfile(uid)
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (e: Exception) {
-                    null
-                }
+                val authProfile = if (isOwn || remoteProfile == null) {
+                    try {
+                        authRepository.getUserProfile(uid)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (e: Exception) {
+                        null
+                    }
+                } else null
                 val profile = when {
                     isOwn && authProfile != null && remoteProfile != null -> remoteProfile.copy(
                         name = authProfile.name.ifBlank { remoteProfile.name },

@@ -280,10 +280,24 @@ class SupabaseAuthRepository(
             )
         }
 
+        val bridgeProfile = CrossPlatformBridgeHelper.fetchBridgeUserProfile(httpClient, cleanUid)
+        if (bridgeProfile != null) {
+            val resolvedPhoto = if (hasLocalPhoto) localPhoto else bridgeProfile.photoUrl
+            val resolvedCover = if (hasLocalCover) localCover else bridgeProfile.coverPhotoUrl
+            return bridgeProfile.copy(
+                name = localName ?: bridgeProfile.name,
+                bio = localBio ?: bridgeProfile.bio,
+                username = localUsername ?: bridgeProfile.username,
+                photoUrl = fixUrl(resolvedPhoto),
+                coverPhotoUrl = fixUrl(resolvedCover)
+            )
+        }
+
         val latestPost = try {
             supabaseClient.postgrest["posts"]
                 .select {
                     filter { eq("user_id", cleanUid) }
+                    order("created_at", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
                     limit(1)
                 }
                 .decodeList<SupabasePost>()

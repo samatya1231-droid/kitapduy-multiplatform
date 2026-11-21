@@ -37,34 +37,76 @@ class SupabaseSocialRepository(
     }
 
     override suspend fun getUserProfile(userId: String): UserProfile? {
-        authRepository.getUserProfile(userId)?.let { return it }
-        CrossPlatformBridgeHelper.fetchBridgeUserProfile(httpClient, userId)?.let { return it }
-        return try {
-            val post = supabaseClient.postgrest["posts"]
-                .select {
-                    filter { eq("user_id", userId) }
-                    order("created_at", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
-                    limit(1)
+        val cleanUid = userId.trim()
+        if (cleanUid.isEmpty()) return null
+        val isCurrentUser = cleanUid == authRepository.currentUserUid
+        return coroutineScope {
+            val remoteDeferred = async {
+                try {
+                    supabaseClient.postgrest["users"]
+                        .select {
+                            filter { eq("uid", cleanUid) }
+                            limit(1)
+                        }
+                        .decodeSingleOrNull<UserProfile>()
+                        ?.let {
+                            it.copy(
+                                photoUrl = fixUrl(it.photoUrl),
+                                coverPhotoUrl = fixUrl(it.coverPhotoUrl)
+                            )
+                        }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Throwable) {
+                    null
                 }
-                .decodeList<SupabasePost>()
-                .firstOrNull() ?: return null
-            UserProfile(
-                uid = userId,
-                name = post.userName?.takeIf { it.isNotBlank() } ?: "KitapDuy Okuru",
-                username = "okur_${userId.take(5)}",
-                bio = "Merhaba, ben bir KitapDuy okuruyum!",
-                photoUrl = fixUrl(post.userPhoto),
-                isPremium = post.isPremium ?: false
-            )
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (_: Throwable) {
-            null
+            }
+            val bridgeDeferred = async {
+                CrossPlatformBridgeHelper.fetchBridgeUserProfile(httpClient, cleanUid)
+            }
+
+            val remoteProfile = remoteDeferred.await()
+            val bridgeProfile = bridgeDeferred.await()
+            val mergedRemote = mergeUserProfiles(remoteProfile, bridgeProfile)
+
+            if (isCurrentUser) {
+                val authProfile = runCatching { authRepository.getUserProfile(cleanUid) }.getOrNull()
+                if (authProfile != null) {
+                    return@coroutineScope mergeUserProfiles(authProfile, mergedRemote)
+                }
+            }
+
+            if (mergedRemote != null) {
+                return@coroutineScope mergedRemote
+            }
+
+            try {
+                val post = supabaseClient.postgrest["posts"]
+                    .select {
+                        filter { eq("user_id", cleanUid) }
+                        order("created_at", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+                        limit(1)
+                    }
+                    .decodeList<SupabasePost>()
+                    .firstOrNull() ?: return@coroutineScope null
+                UserProfile(
+                    uid = cleanUid,
+                    name = post.userName?.takeIf { it.isNotBlank() } ?: "KitapDuy Okuru",
+                    username = "okur_${cleanUid.take(5)}",
+                    bio = "Merhaba, ben bir KitapDuy okuruyum!",
+                    photoUrl = fixUrl(post.userPhoto),
+                    isPremium = post.isPremium ?: false
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                null
+            }
         }
     }
 
     override suspend fun searchUsers(query: String): List<UserProfile> {
-        val cleanQuery = query.trim()
+        val cleanQuery = query.trim().trimStart('@').trim()
         if (cleanQuery.isEmpty()) return emptyList()
         val blocked = authRepository.currentUserUid?.let { authRepository.getBlockedUsers(it).toSet() }.orEmpty()
 
@@ -142,6 +184,82 @@ class SupabaseSocialRepository(
     }
 
     internal companion object {
+        private val SYNTHETIC_BIOS = setOf(
+            "Merhaba, ben bir KitapDuy okuruyum!",
+            "Merhaba!"
+        )
+
+        private val GENERIC_NAMES = setOf(
+            "Okur",
+            "KitapDuy Okuru"
+        )
+
+        internal fun normalizeSearchText(raw: String): String {
+            val sb = StringBuilder(raw.length)
+            var lastWasSpace = true
+            for (ch in raw.trim().trimStart('@')) {
+                val mapped = when (ch) {
+                    'İ', 'I', 'ı', 'î', 'Î' -> 'i'
+                    'Ç', 'ç' -> 'c'
+                    'Ğ', 'ğ' -> 'g'
+                    'Ö', 'ö' -> 'o'
+                    'Ş', 'ş' -> 's'
+                    'Ü', 'ü' -> 'u'
+                    'Â', 'â' -> 'a'
+                    'Û', 'û' -> 'u'
+                    '\u0307' -> continue
+                    else -> ch.lowercaseChar()
+                }
+                if (mapped.isWhitespace()) {
+                    if (!lastWasSpace) {
+                        sb.append(' ')
+                        lastWasSpace = true
+                    }
+                } else {
+                    sb.append(mapped)
+                    lastWasSpace = false
+                }
+            }
+            return sb.toString().trim()
+        }
+
+        internal fun mergeUserProfiles(primary: UserProfile?, secondary: UserProfile?): UserProfile? {
+            if (primary == null) return secondary
+            if (secondary == null) return primary
+            val primaryName = primary.name.trim()
+            val secondaryName = secondary.name.trim()
+            val resolvedName = when {
+                primaryName.isNotBlank() && primaryName !in GENERIC_NAMES -> primaryName
+                secondaryName.isNotBlank() && secondaryName !in GENERIC_NAMES -> secondaryName
+                primaryName.isNotBlank() -> primaryName
+                secondaryName.isNotBlank() -> secondaryName
+                else -> "KitapDuy Okuru"
+            }
+            val primaryBio = primary.bio.trim()
+            val secondaryBio = secondary.bio.trim()
+            val resolvedBio = when {
+                primaryBio.isNotBlank() && primaryBio !in SYNTHETIC_BIOS -> primaryBio
+                secondaryBio.isNotBlank() && secondaryBio !in SYNTHETIC_BIOS -> secondaryBio
+                primaryBio.isNotBlank() -> primaryBio
+                else -> secondaryBio
+            }
+            val mergedBadges = (primary.badges + secondary.badges)
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .distinct()
+            return primary.copy(
+                name = resolvedName,
+                username = primary.username?.takeIf { it.isNotBlank() } ?: secondary.username?.takeIf { it.isNotBlank() },
+                bio = resolvedBio,
+                photoUrl = primary.photoUrl?.takeIf { it.isNotBlank() } ?: secondary.photoUrl?.takeIf { it.isNotBlank() },
+                coverPhotoUrl = primary.coverPhotoUrl?.takeIf { it.isNotBlank() } ?: secondary.coverPhotoUrl?.takeIf { it.isNotBlank() },
+                badges = mergedBadges,
+                premiumUntil = maxOf(primary.premiumUntil, secondary.premiumUntil),
+                isPremium = primary.isPremium || secondary.isPremium,
+                streak = maxOf(primary.streak, secondary.streak)
+            )
+        }
+
         fun mergeUserSearchResults(
             query: String,
             remoteUsers: List<UserProfile>,
@@ -154,30 +272,28 @@ class SupabaseSocialRepository(
                 if (profile.uid.isNotBlank()) mergedByUid[profile.uid] = profile
             }
             for (profile in bridgeUsers) {
+                if (profile.uid.isBlank()) continue
                 val existing = mergedByUid[profile.uid]
-                if (existing == null) {
-                    mergedByUid[profile.uid] = profile
-                } else {
-                    mergedByUid[profile.uid] = existing.copy(
-                        photoUrl = existing.photoUrl?.takeIf { it.isNotBlank() } ?: profile.photoUrl,
-                        isPremium = existing.isPremium || profile.isPremium
-                    )
-                }
+                mergedByUid[profile.uid] = mergeUserProfiles(existing, profile) ?: profile
             }
             for (author in postAuthors) {
+                if (author.uid.isBlank()) continue
                 val existing = mergedByUid[author.uid]
                 if (existing == null) {
                     mergedByUid[author.uid] = author
-                } else if (existing.photoUrl.isNullOrBlank() && !author.photoUrl.isNullOrBlank()) {
-                    mergedByUid[author.uid] = existing.copy(photoUrl = author.photoUrl)
+                } else {
+                    mergedByUid[author.uid] = mergeUserProfiles(existing, author) ?: existing
                 }
             }
-            val lower = query.trim().lowercase()
+            val folded = normalizeSearchText(query)
             return mergedByUid.values.sortedWith(
                 compareByDescending<UserProfile> {
-                    it.name.lowercase().startsWith(lower) || it.username.orEmpty().lowercase().startsWith(lower)
+                    folded.isNotEmpty() && (
+                        normalizeSearchText(it.name).startsWith(folded) ||
+                            normalizeSearchText(it.username.orEmpty()).startsWith(folded)
+                        )
                 }.thenByDescending { it.hasPremium() }
-                    .thenBy { it.name.lowercase() }
+                    .thenBy { normalizeSearchText(it.name) }
             )
         }
     }
