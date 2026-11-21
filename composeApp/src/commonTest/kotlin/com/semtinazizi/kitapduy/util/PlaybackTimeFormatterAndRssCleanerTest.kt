@@ -21,6 +21,19 @@ class PlaybackTimeFormatterAndRssCleanerTest {
     }
 
     @Test
+    fun formatListenedDurationTextFormatsZeroSecondsMinutesAndHoursAccurately() {
+        assertEquals("Dinlemeye başla", PlaybackTimeFormatter.formatListenedDurationText(0L))
+        assertEquals("Dinlemeye başla", PlaybackTimeFormatter.formatListenedDurationText(-100L))
+        assertEquals("1 saniye dinlendi · Devam et", PlaybackTimeFormatter.formatListenedDurationText(500L))
+        assertEquals("21 saniye dinlendi · Devam et", PlaybackTimeFormatter.formatListenedDurationText(21_000L))
+        assertEquals("59 saniye dinlendi · Devam et", PlaybackTimeFormatter.formatListenedDurationText(59_999L))
+        assertEquals("1 dakika dinlendi · Devam et", PlaybackTimeFormatter.formatListenedDurationText(60_000L))
+        assertEquals("1 dk 15 sn dinlendi · Devam et", PlaybackTimeFormatter.formatListenedDurationText(75_000L))
+        assertEquals("1 saat dinlendi · Devam et", PlaybackTimeFormatter.formatListenedDurationText(3_600_000L))
+        assertEquals("1 sa 30 dk dinlendi · Devam et", PlaybackTimeFormatter.formatListenedDurationText(5_400_000L))
+    }
+
+    @Test
     fun parseAndFormatRssDurationSupportsSecondsMmSsHhMmSsAndInvalidValues() {
         assertEquals(0L, PlaybackTimeFormatter.parseRssDurationToMs(null))
         assertEquals(0L, PlaybackTimeFormatter.parseRssDurationToMs(""))

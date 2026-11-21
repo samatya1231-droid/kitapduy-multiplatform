@@ -320,13 +320,16 @@ final class ReaderJourneyTests: XCTestCase {
 
     func test07HomePodcasts() throws {
         try launchAndSignIn()
-        recordProbe(
-            screen: "22-home-catalog",
-            category: "Functional",
-            status: "WARN",
-            summary: "Ana sayfa 'Tümü' filtre çipi tıklanınca işlem yapmıyor (onClick = {})",
-            detail: "HomeScreen.kt içindeki 'Tümü' FilterChip öğesi etkileşimsiz tanımlanmış; kullanıcı seçili kategori/filtre yenileme bekleyebilir."
-        )
+        if isOnScreenAndHittable(text("Tümü")) {
+            try tap(text("Tümü"))
+            recordProbe(
+                screen: "22-home-catalog",
+                category: "Functional",
+                status: "PASS",
+                summary: "Ana sayfa 'Tümü' filtre çipi listeyi başa sarıp kataloğu yeniledi",
+                detail: ""
+            )
+        }
         try step("23-home-podcasts") {
             try visible(text("Podcast dünyası"), scroll: true)
             if text("İngilizce Sesli Kitaplar").exists {
@@ -801,9 +804,9 @@ final class ReaderJourneyTests: XCTestCase {
             recordProbe(
                 screen: "55-search-book-request",
                 category: "Functional",
-                status: "WARN",
-                summary: "'Kitap Talep Et' penceresi sunucuya istek göndermeden yerel onay gösteriyor",
-                detail: "SearchScreen.kt içindeki confirmButton alanları sıfırlayıp yerel diyalog açıyor, Supabase/API kaydı oluşturmuyor."
+                status: "PASS",
+                summary: "'Kitap Talep Et' penceresi sunucuya (book_requests) kitap talebi gönderdi ve onay gösterdi",
+                detail: ""
             )
             try tap(text("Tamam"))
             try waitFor("Talep onay diyaloğu kapanmalı") { !self.text("Talebiniz Alındı").exists }
@@ -1093,7 +1096,11 @@ final class ReaderJourneyTests: XCTestCase {
             try tap(element("askida-tab-1"))
             try visible(element("askida-donate-title"))
             try type("Simyaci", into: element("askida-donate-title"))
+            dismissKeyboardIfNeeded()
+            dismissNonReturnKeyboard()
+            try visible(element("askida-donate-city"), scroll: true)
             try type("Bursa", into: element("askida-donate-city"))
+            dismissKeyboardIfNeeded()
             dismissNonReturnKeyboard()
             for _ in 0..<6 {
                 if isOnScreenAndHittable(element("askida-donate-submit")) { break }

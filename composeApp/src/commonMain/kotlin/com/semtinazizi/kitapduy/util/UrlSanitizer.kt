@@ -24,7 +24,8 @@ object UrlSanitizer {
             trimmed.startsWith("http://127.0.0.1", ignoreCase = true)
         val isLocalUri = trimmed.startsWith("file://", ignoreCase = true) ||
             trimmed.startsWith("content://", ignoreCase = true) ||
-            trimmed.startsWith("asset://", ignoreCase = true)
+            trimmed.startsWith("asset://", ignoreCase = true) ||
+            trimmed.startsWith("android.resource://", ignoreCase = true)
         if (isLoopback || isLocalUri) return sanitizeUrl(trimmed)
 
         var targetUrl = if (trimmed.startsWith("http://", ignoreCase = true)) {

@@ -58,16 +58,38 @@ class FeedActionsRepository(
         }
     }
 
-    suspend fun vote(postId: String, option: Int) = mutationLock.withLock {
-        val userId = uid()
-        val post = client.postgrest["posts"].select { filter { eq("id", postId.toLong()) } }.decodeSingle<SupabasePost>()
-        require(option in post.pollOptions.orEmpty().indices) { "Geçersiz seçenek." }
-        if (userId in post.pollVoters.orEmpty()) return@withLock
-        val votes = post.pollVotes.orEmpty().toMutableMap()
-        votes[option.toString()] = (votes[option.toString()] ?: 0) + 1
-        client.postgrest["posts"].update({
-            set("poll_votes", votes); set("poll_voters", post.pollVoters.orEmpty() + userId)
-        }) { filter { eq("id", postId.toLong()) } }
+    suspend fun vote(postId: String, option: Int) {
+        var notifyReceiver: String? = null
+        var notifySenderName = "Bir okur"
+        var notifySenderId = ""
+        mutationLock.withLock {
+            val userId = uid()
+            notifySenderId = userId
+            val post = client.postgrest["posts"].select { filter { eq("id", postId.toLong()) } }.decodeSingle<SupabasePost>()
+            require(option in post.pollOptions.orEmpty().indices) { "Geçersiz seçenek." }
+            if (userId in post.pollVoters.orEmpty()) return@withLock
+            val votes = post.pollVotes.orEmpty().toMutableMap()
+            votes[option.toString()] = (votes[option.toString()] ?: 0) + 1
+            client.postgrest["posts"].update({
+                set("poll_votes", votes); set("poll_voters", post.pollVoters.orEmpty() + userId)
+            }) { filter { eq("id", postId.toLong()) } }
+            if (!post.userId.isNullOrBlank() && post.userId != userId) {
+                notifyReceiver = post.userId
+                notifySenderName = auth.getUserProfile(userId)?.name?.takeIf { it.isNotBlank() } ?: "Bir okur"
+            }
+        }
+        notifyReceiver?.let { receiverId ->
+            CrossPlatformBridgeHelper.sendSocialNotification(
+                supabaseClient = client,
+                httpClient = httpClient,
+                receiverId = receiverId,
+                senderId = notifySenderId,
+                senderName = notifySenderName,
+                type = "poll_vote",
+                message = "$notifySenderName anketine oy verdi! 📊",
+                targetId = postId
+            )
+        }
     }
 
     suspend fun deletePost(postId: String) {
@@ -85,7 +107,11 @@ class FeedActionsRepository(
         filter { eq("book_id", bookId) }
         order("created_at", Order.DESCENDING)
     }.decodeList<SupabasePost>()
-        .filter { it.startPos == null && !it.comment.isNullOrBlank() && it.comment?.contains("dinlemeye başladı") != true }
+        .filter {
+            it.audioUrl.isNullOrBlank() &&
+                !it.comment.isNullOrBlank() &&
+                it.comment?.contains("dinlemeye başladı", ignoreCase = true) != true
+        }
         .map {
             val normalizedLikes = it.likedBy.orEmpty()
                 .split(',')
@@ -99,7 +125,7 @@ class FeedActionsRepository(
                 userPhotoUrl = resolveFeedUrl(it.userPhoto).ifBlank { null },
                 text = it.comment.orEmpty(),
                 isPremium = it.isPremium == true,
-                timestamp = it.createdAt?.let { date -> runCatching { kotlinx.datetime.Instant.parse(date).toEpochMilliseconds() }.getOrNull() } ?: 0L,
+                timestamp = parseSupabaseTimestamp(it.createdAt),
                 likedBy = normalizedLikes,
                 replyCount = it.commentCount ?: 0
             )

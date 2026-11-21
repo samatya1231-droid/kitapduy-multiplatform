@@ -1,17 +1,10 @@
 package com.semtinazizi.kitapduy.ui.components
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,34 +15,72 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.semtinazizi.kitapduy.model.FeedItem
 import com.semtinazizi.kitapduy.model.FeedType
+import com.semtinazizi.kitapduy.ui.theme.SleekChampagne
+
+@Composable
+fun VipPremiumBadge(
+    modifier: Modifier = Modifier,
+    showText: Boolean = true
+) {
+    val gold = Color(0xFFFFD700)
+    val copper = Color(0xFFB87333)
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(8.dp),
+        color = Color(0xFF1A1A1A),
+        border = BorderStroke(
+            width = 1.2.dp,
+            brush = Brush.linearGradient(colors = listOf(gold, copper, gold))
+        ),
+        shadowElevation = 4.dp
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color.White.copy(alpha = 0.06f), Color.Transparent)
+                    )
+                )
+                .padding(horizontal = if (showText) 8.dp else 5.dp, vertical = 3.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.WorkspacePremium,
+                contentDescription = "VIP",
+                tint = gold,
+                modifier = Modifier.size(14.dp)
+            )
+            if (showText) {
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = "VIP",
+                    color = gold,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 0.8.sp
+                )
+            }
+        }
+    }
+}
 
 @Composable
 fun PremiumBadge() {
-    Box(
-        modifier = Modifier
-            .size(16.dp)
-            .background(Color(0xFFFFD700), CircleShape)
-            .padding(2.dp)
-    ) {
-        Text("👑", fontSize = 8.sp, modifier = Modifier.align(Alignment.Center))
-    }
+    VipPremiumBadge(showText = true)
 }
 
 @Composable
@@ -74,7 +105,7 @@ fun WaveformProgressBar(
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth(progress)
+                .fillMaxWidth(progress.coerceIn(0f, 1f))
                 .fillMaxHeight()
                 .background(color, RoundedCornerShape(4.dp))
         )
@@ -160,16 +191,21 @@ fun FeedCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(vertical = 2.dp)
             .clickable {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 onClick()
             },
-        shape = RoundedCornerShape(if (isFullWidth) 24.dp else 16.dp),
+        shape = RoundedCornerShape(if (isFullWidth) 20.dp else 16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = if (isPremiumUserPost) BorderStroke(1.dp, Color(0xFFFFD700)) else null,
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        border = if (isPremiumUserPost) {
+            BorderStroke(1.dp, SleekChampagne.copy(alpha = 0.55f))
+        } else {
+            BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+        },
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(10.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             // Header
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -178,26 +214,38 @@ fun FeedCard(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { onUserClick() }.padding(2.dp)
+                    modifier = Modifier
+                        .heightIn(min = 44.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onUserClick() }
+                        .padding(horizontal = 2.dp, vertical = 2.dp)
+                        .semantics(mergeDescendants = true) {}
                 ) {
                     SmartImage(
                         imageUrl = item.userPhotoUrl,
-                        modifier = Modifier.size(34.dp).clip(CircleShape).border(if (isPremiumUserPost) 1.dp else 0.5.dp, if (isPremiumUserPost) Color(0xFFFFD700) else MaterialTheme.colorScheme.onSurface.copy(0.1f), CircleShape),
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .border(
+                                width = if (isPremiumUserPost) 1.5.dp else 0.5.dp,
+                                color = if (isPremiumUserPost) SleekChampagne else MaterialTheme.colorScheme.onSurface.copy(0.1f),
+                                shape = CircleShape
+                            ),
                         fallbackText = safeName,
                         isAvatar = true
                     )
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(10.dp))
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = safeName,
                                 fontWeight = if (isPremiumUserPost) FontWeight.ExtraBold else FontWeight.Bold,
-                                color = if (isPremiumUserPost) Color(0xFFFFD700) else MaterialTheme.colorScheme.onSurface,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             if (isPremiumUserPost) {
                                 Spacer(Modifier.width(6.dp))
-                                PremiumBadge()
+                                VipPremiumBadge(showText = true)
                             }
                         }
                         Text(
@@ -208,26 +256,29 @@ fun FeedCard(
                     }
                 }
                 Box {
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Filled.MoreVert, null, tint = Color.Gray)
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier.sizeIn(minWidth = 44.dp, minHeight = 44.dp)
+                    ) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Gönderi seçenekleri", tint = Color.Gray)
                     }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                         if (canDeletePost) {
                             DropdownMenuItem(
                                 text = { Text("Sil", color = Color.Red) },
-                                leadingIcon = { Icon(Icons.Filled.Delete, null, tint = Color.Red) },
+                                leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = "Sil", tint = Color.Red) },
                                 onClick = { onDeletePost(item.id); showMenu = false }
                             )
                         } else {
                             DropdownMenuItem(
                                 text = { Text("Şikayet Et") },
-                                leadingIcon = { Icon(Icons.Filled.Flag, null) },
+                                leadingIcon = { Icon(Icons.Filled.Flag, contentDescription = "Şikayet Et") },
                                 onClick = { showMenu = false; showReportDialog = true }
                             )
-                            if (onBlockUser != null && !item.userId.isNullOrBlank()) {
+                            if (onBlockUser != null && item.userId.isNotBlank()) {
                                 DropdownMenuItem(
                                     text = { Text("Engelle", color = MaterialTheme.colorScheme.error) },
-                                    leadingIcon = { Icon(Icons.Filled.Block, null, tint = MaterialTheme.colorScheme.error) },
+                                    leadingIcon = { Icon(Icons.Filled.Block, contentDescription = "Engelle", tint = MaterialTheme.colorScheme.error) },
                                     onClick = { onBlockUser.invoke(item.userId); showMenu = false }
                                 )
                             }
@@ -275,35 +326,41 @@ fun FeedCard(
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
                     val totalVotes = item.pollVotes.values.sum().coerceAtLeast(1)
+                    val hasVoted = currentUserId != null && item.pollVoters.contains(currentUserId)
+                    val showResults = hasVoted || (isMyPost && item.pollVoters.isNotEmpty())
                     item.pollOptions.forEachIndexed { optionIndex, option ->
                         val votes = item.pollVotes[optionIndex.toString()] ?: item.pollVotes[option] ?: 0
-                        val percentage = votes.toFloat() / totalVotes
-                        val hasVoted = item.pollVoters.contains(currentUserId)
-                        
+                        val percentage = (votes.toFloat() / totalVotes).coerceIn(0f, 1f)
+
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp)
-                                .height(40.dp)
+                                .heightIn(min = 44.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                                 .then(if (!hasVoted) Modifier.clickable { onVotePoll(item.id, optionIndex) } else Modifier)
                         ) {
-                            if (hasVoted) {
+                            if (showResults) {
                                 Box(
                                     modifier = Modifier
-                                        .fillMaxHeight()
+                                        .matchParentSize()
                                         .fillMaxWidth(percentage)
                                         .background(Color(0xFFFFD700).copy(alpha = 0.3f))
                                 )
                             }
                             Row(
-                                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 44.dp)
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(option, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                                if (hasVoted) Text("${(percentage * 100).toInt()}%", fontWeight = FontWeight.Bold, color = Color(0xFFD4AF37))
+                                if (showResults) {
+                                    Text("${(percentage * 100).toInt()}%", fontWeight = FontWeight.Bold, color = Color(0xFFD4AF37))
+                                }
                             }
                         }
                     }
@@ -317,7 +374,9 @@ fun FeedCard(
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         Box(
                             modifier = Modifier
-                                .size(44.dp).clip(CircleShape).background(Color(0xFFFFD700))
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFFFD700))
                                 .clickable {
                                     if (isAudioPlaying) onPauseAudio()
                                     else onPlayAudio(item.audioUrl, item.startPos)
@@ -329,7 +388,7 @@ fun FeedCard(
                             } else {
                                 Icon(
                                     imageVector = if (isAudioPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                                    contentDescription = "Oynat",
+                                    contentDescription = if (isAudioPlaying) "Duraklat" else "Oynat",
                                     tint = Color.Black,
                                     modifier = Modifier.size(24.dp)
                                 )
@@ -337,14 +396,14 @@ fun FeedCard(
                         }
                         Spacer(Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Sesli Alıntı \uD83C\uDFA7", style = MaterialTheme.typography.labelSmall, color = Color(0xFFFFD700), fontWeight = FontWeight.Bold)
+                            Text("Sesli Alıntı \uD83C\uDFA7", style = MaterialTheme.typography.labelSmall, color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold)
                             Text(item.bookTitle, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
                         }
                     }
                     Spacer(Modifier.height(12.dp))
                     WaveformProgressBar(progress = audioProgress, isPlaying = isAudioPlaying, modifier = Modifier.fillMaxWidth().height(32.dp), color = Color(0xFFFFD700))
                 }
-            } else if (item.postImageUrl != null && item.postImageUrl.isNotEmpty()) {
+            } else if (!item.postImageUrl.isNullOrEmpty()) {
                 SmartImage(
                     imageUrl = item.postImageUrl,
                     modifier = Modifier.fillMaxWidth().height(250.dp).clip(RoundedCornerShape(12.dp)).clickable { onImageClick(item.postImageUrl) },
@@ -358,7 +417,7 @@ fun FeedCard(
                     )
                     Spacer(Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(if (item.type == FeedType.LISTEN) "DİNLENİYOR" else "KİTAP ÖNERİSİ", style = MaterialTheme.typography.labelSmall, color = Color(0xFFFFD700))
+                        Text(if (item.type == FeedType.LISTEN) "DİNLENİYOR" else "KİTAP ÖNERİSİ", style = MaterialTheme.typography.labelSmall, color = Color(0xFFD4AF37))
                         Text(item.bookTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
                     }
                 }
@@ -368,14 +427,23 @@ fun FeedCard(
             HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
             // Actions
-            Row(modifier = Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Row(
-                    modifier = Modifier.clip(RoundedCornerShape(50)).background(if (isLikedLocally) Color.Red.copy(0.15f) else MaterialTheme.colorScheme.onSurface.copy(0.05f))
+                    modifier = Modifier
+                        .heightIn(min = 44.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(if (isLikedLocally) Color.Red.copy(0.15f) else MaterialTheme.colorScheme.onSurface.copy(0.05f))
                         .clickable {
                             if (currentUserId != null) {
                                 onToggleLike(item.id, currentUserId, 0)
                             }
-                        }.padding(horizontal = 16.dp, vertical = 8.dp),
+                        }
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                        .semantics(mergeDescendants = true) {},
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
@@ -390,8 +458,14 @@ fun FeedCard(
 
                 if (showCommentSection) {
                     Row(
-                        modifier = Modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.onSurface.copy(0.05f))
-                            .clickable { onClick() }.padding(horizontal = 16.dp, vertical = 8.dp).testTag("feed-card-comments-${item.id}"),
+                        modifier = Modifier
+                            .heightIn(min = 44.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.onSurface.copy(0.05f))
+                            .clickable { onClick() }
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                            .testTag("feed-card-comments-${item.id}")
+                            .semantics(mergeDescendants = true) {},
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {

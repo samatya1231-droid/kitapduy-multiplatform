@@ -426,6 +426,124 @@ class GlobalAudioControllerTest {
         controller.stopPlayback()
         assertEquals(0L, controller.currentPositionMs.value)
     }
+
+    @Test fun bundledPromoUrlsUsedForPreAndPostRollAndSkippedWhenUpgradedToPremium() = runTest {
+        val player = FakePlayer()
+        val progress = progress()
+        progress.saveProgress("a", 12_000L)
+        val controller = GlobalAudioController(
+            audioPlayer = player,
+            fileDownloader = FakeDownloader(),
+            progressManager = progress,
+            scope = backgroundScope,
+            isCiSmokeTest = { false },
+            resolveBundledAudio = { name, ext -> "file:///bundle/$name.$ext" }
+        )
+        controller.playTrack(book, isPremium = false)
+        assertEquals(
+            listOf("file:///bundle/kitapduy_tanitim.wav", "https://example.com/a.mp3", "file:///bundle/kitapduy_tanitim_bitis.wav"),
+            player.items.map { it.url }
+        )
+        assertTrue(controller.isAdPlaying.value)
+
+        // Upgrading to Premium during pre-roll immediately jumps to main book
+        controller.skipActiveAdIfPremium(isPremium = true)
+        assertEquals("a", player.currentMediaId())
+        assertFalse(controller.isAdPlaying.value)
+    }
+
+    @Test fun atmosphereSelectionSyncsWithPauseResumeAndSleepTimerExpiry() = runTest {
+        val player = FakePlayer()
+        val controller = GlobalAudioController(
+            audioPlayer = player,
+            fileDownloader = FakeDownloader(),
+            progressManager = progress(),
+            scope = backgroundScope,
+            resolveBundledAudio = { name, ext -> "file:///bundle/$name.$ext" }
+        )
+        controller.playTrack(book, isPremium = true)
+        controller.selectAtmosphere("rain")
+        assertEquals("rain", controller.currentAtmosphereId.value)
+        assertEquals("file:///bundle/rain_sound.mp3", player.atmosphereUrl)
+        assertTrue(player.atmospherePlaying)
+
+        controller.setAtmosphereVolume(0.8f)
+        assertEquals(0.8f, player.recordedAtmosphereVolume)
+
+        controller.togglePlayPause()
+        assertFalse(player.atmospherePlaying)
+
+        controller.togglePlayPause()
+        assertTrue(player.atmospherePlaying)
+
+        controller.startSleepTimer(1)
+        advanceTimeBy(60_001)
+        assertFalse(player.playing)
+        assertNull(controller.currentAtmosphereId.value)
+        assertNull(player.atmosphereUrl)
+    }
+
+    @Test fun sleepTimerAtBookEndStopsPlaybackAndAtmosphereWhenTrackEnds() = runTest {
+        val player = FakePlayer()
+        val controller = GlobalAudioController(
+            audioPlayer = player,
+            fileDownloader = FakeDownloader(),
+            progressManager = progress(),
+            scope = backgroundScope,
+            resolveBundledAudio = { name, ext -> "file:///bundle/$name.$ext" }
+        )
+        controller.playTrack(book, isPremium = true)
+        controller.selectAtmosphere("fire")
+        controller.startSleepTimerAtBookEnd()
+        assertTrue(controller.sleepTimerAtBookEnd.value)
+
+        player.ended = true
+        advanceTimeBy(501)
+        assertFalse(player.playing)
+        assertFalse(controller.sleepTimerAtBookEnd.value)
+        assertNull(controller.currentAtmosphereId.value)
+    }
+
+    @Test fun quotePreviewPausesMainPlayerAndAutoStopsAfterClipDuration() = runTest {
+        val player = FakePlayer()
+        val controller = GlobalAudioController(player, FakeDownloader(), progress(), backgroundScope)
+        controller.playTrack(book, isPremium = true)
+        assertTrue(player.playing)
+
+        controller.startQuotePreview(book, startPositionMs = 25_000L, durationMs = 15_000L)
+        assertFalse(player.playing)
+        assertTrue(controller.isQuotePreviewPlaying.value)
+        assertEquals("https://example.com/a.mp3", player.previewUrl)
+        assertEquals(25_000L, player.previewPos)
+
+        controller.seekQuotePreview(30_000L)
+        assertEquals(30_000L, player.previewPos)
+
+        advanceTimeBy(15_001)
+        assertFalse(controller.isQuotePreviewPlaying.value)
+        assertNull(player.previewUrl)
+    }
+
+    @Test fun podcastEpisodeDownloadPersistsMetadataAndPlaysOffline() = runTest {
+        val player = FakePlayer()
+        val files = FakeDownloader()
+        val progress = progress()
+        val controller = GlobalAudioController(player, files, progress, backgroundScope)
+        val ep = com.semtinazizi.kitapduy.model.PodcastEpisode(
+            id = "podcast_ep_7",
+            title = "Bölüm 7",
+            audioUrl = "https://cdn.example.com/ep7.mp3"
+        )
+        var downloaded = false
+        controller.downloadPodcastEpisode(ep, "111 Hz") { downloaded = it }
+        runCurrent()
+        assertTrue(downloaded)
+        assertEquals("podcast_ep_7.mp3", files.requestedFile)
+
+        files.local = "file:///podcast_ep_7.mp3"
+        controller.playPodcastEpisode(ep, "111 Hz")
+        assertEquals("file:///podcast_ep_7.mp3", player.items.single().url)
+    }
 }
 
 private class FakeDownloader : FileDownloader {
@@ -449,18 +567,24 @@ private class FakePlayer : AudioPlayer {
     var durationMs = 100_000L
     var playing = false
     var buffering = false
+    var ended = false
     var simulatedError: String? = null
+    var atmosphereUrl: String? = null
+    var atmospherePlaying = false
+    var recordedAtmosphereVolume = 0.5f
+    var previewUrl: String? = null
+    var previewPos = 0L
     override fun initialize() { initialized = true }
     override fun play(url: String) {}
     override fun playQueue(items: List<AudioMediaItem>, startIndex: Int, startPositionMs: Long) {
-        this.items = items; index = startIndex; playing = true; buffering = false; simulatedError = null
+        this.items = items; index = startIndex; playing = true; buffering = false; ended = false; simulatedError = null
         position = if (startPositionMs > 0) startPositionMs else items[index].startPositionMs
     }
     override fun currentMediaId() = items.getOrNull(index)?.id
     override fun pause() { playing = false; buffering = false }
-    override fun resume() { playing = true; simulatedError = null }
-    override fun stop() { playing = false; buffering = false; simulatedError = null; items = emptyList(); index = 0 }
-    override fun seekTo(positionMs: Long) { position = positionMs }
+    override fun resume() { playing = true; ended = false; simulatedError = null }
+    override fun stop() { playing = false; buffering = false; ended = false; simulatedError = null; items = emptyList(); index = 0 }
+    override fun seekTo(positionMs: Long) { position = positionMs; ended = false }
     override fun getCurrentPosition() = position
     override fun getDuration() = durationMs
     override fun isPlaying() = playing
@@ -468,8 +592,22 @@ private class FakePlayer : AudioPlayer {
     override fun getPlaybackError() = simulatedError
     override fun clearPlaybackError() { simulatedError = null }
     override fun setPlaybackSpeed(speed: Float) {}
-    override fun playAtmosphere(url: String, volume: Float) {}
-    override fun stopAtmosphere() {}
-    override fun setAtmosphereVolume(volume: Float) {}
+    override fun playAtmosphere(url: String, volume: Float) { atmosphereUrl = url; recordedAtmosphereVolume = volume; atmospherePlaying = true }
+    override fun pauseAtmosphere() { atmospherePlaying = false }
+    override fun resumeAtmosphere() { if (atmosphereUrl != null) atmospherePlaying = true }
+    override fun stopAtmosphere() { atmosphereUrl = null; atmospherePlaying = false }
+    override fun setAtmosphereVolume(volume: Float) { recordedAtmosphereVolume = volume }
+    override fun hasReachedTrackEnd() = ended
+    override fun skipToMediaId(mediaId: String): Boolean {
+        val target = items.indexOfFirst { it.id == mediaId }
+        if (target < 0) return false
+        index = target
+        position = items[target].startPositionMs
+        return true
+    }
+    override fun startPreview(url: String, startPositionMs: Long) { previewUrl = url; previewPos = startPositionMs }
+    override fun seekPreviewTo(positionMs: Long) { previewPos = positionMs }
+    override fun stopPreview() { previewUrl = null }
+    override fun isPreviewPlaying() = previewUrl != null
     override fun release() {}
 }

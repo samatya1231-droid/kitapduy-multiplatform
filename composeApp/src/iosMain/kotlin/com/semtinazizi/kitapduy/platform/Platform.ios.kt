@@ -1,8 +1,17 @@
 package com.semtinazizi.kitapduy.platform
 
+import platform.Foundation.NSBundle
+
 actual val platformName: String = "iOS"
 
 actual fun createAudioPlayer(): AudioPlayer = IosAudioPlayer()
+
+actual fun resolveBundledAudioUrl(resourceName: String, extension: String): String? {
+    val bundle = NSBundle.mainBundle
+    val direct = bundle.URLForResource(resourceName, withExtension = extension)?.absoluteString
+    if (!direct.isNullOrBlank()) return direct
+    return bundle.URLForResource(resourceName, withExtension = extension, subdirectory = "Audio")?.absoluteString
+}
 
 actual object AppConfig {
     // iOS'ta değerler Info.plist'ten veya hardcoded olarak gelir

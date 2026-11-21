@@ -15,6 +15,8 @@ import io.github.jan.supabase.postgrest.postgrest
 import com.semtinazizi.kitapduy.platform.AppConfig
 import com.semtinazizi.kitapduy.util.UrlSanitizer
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 
 class SupabaseSocialRepository(
     private val supabaseClient: SupabaseClient,
@@ -66,59 +68,117 @@ class SupabaseSocialRepository(
         if (cleanQuery.isEmpty()) return emptyList()
         val blocked = authRepository.currentUserUid?.let { authRepository.getBlockedUsers(it).toSet() }.orEmpty()
 
-        val remoteUsers = try {
-            supabaseClient.postgrest["users"]
-                .select {
-                    filter {
-                        or {
-                            ilike("name", "%$cleanQuery%")
-                            ilike("username", "%$cleanQuery%")
+        return coroutineScope {
+            val remoteDeferred = async {
+                try {
+                    supabaseClient.postgrest["users"]
+                        .select {
+                            filter {
+                                or {
+                                    ilike("name", "%$cleanQuery%")
+                                    ilike("username", "%$cleanQuery%")
+                                }
+                            }
+                            limit(30)
                         }
-                    }
+                        .decodeList<UserProfile>()
+                        .filter { it.uid.isNotBlank() && it.uid !in blocked }
+                        .map {
+                            it.copy(
+                                photoUrl = fixUrl(it.photoUrl),
+                                coverPhotoUrl = fixUrl(it.coverPhotoUrl)
+                            )
+                        }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Throwable) {
+                    emptyList()
                 }
-                .decodeList<UserProfile>()
-                .filter { it.uid !in blocked }
-                .map {
-                    it.copy(
-                        photoUrl = fixUrl(it.photoUrl),
-                        coverPhotoUrl = fixUrl(it.coverPhotoUrl)
-                    )
+            }
+
+            val postsDeferred = async {
+                try {
+                    supabaseClient.postgrest["posts"]
+                        .select {
+                            filter {
+                                ilike("user_name", "%$cleanQuery%")
+                            }
+                            order("created_at", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+                            limit(60)
+                        }
+                        .decodeList<SupabasePost>()
+                        .filter { !it.userId.isNullOrBlank() && it.userId !in blocked }
+                        .distinctBy { it.userId }
+                        .map { post ->
+                            val uid = post.userId!!.trim()
+                            UserProfile(
+                                uid = uid,
+                                name = post.userName?.takeIf { it.isNotBlank() } ?: "Okur",
+                                username = "okur_${uid.take(5)}",
+                                bio = "Merhaba, ben bir KitapDuy okuruyum!",
+                                photoUrl = fixUrl(post.userPhoto),
+                                isPremium = post.isPremium ?: false
+                            )
+                        }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Throwable) {
+                    emptyList()
                 }
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (e: Throwable) {
-            e.printStackTrace()
-            emptyList()
+            }
+
+            val bridgeDeferred = async {
+                CrossPlatformBridgeHelper.searchBridgeUsers(httpClient, cleanQuery)
+                    .filter { it.uid.isNotBlank() && it.uid !in blocked }
+            }
+
+            mergeUserSearchResults(
+                query = cleanQuery,
+                remoteUsers = remoteDeferred.await(),
+                bridgeUsers = bridgeDeferred.await(),
+                postAuthors = postsDeferred.await()
+            )
         }
+    }
 
-        if (remoteUsers.isNotEmpty()) return remoteUsers
-
-        return try {
-            supabaseClient.postgrest["posts"]
-                .select {
-                    filter {
-                        ilike("user_name", "%$cleanQuery%")
-                    }
-                }
-                .decodeList<SupabasePost>()
-                .filter { !it.userId.isNullOrBlank() && it.userId !in blocked }
-                .distinctBy { it.userId }
-                .map { post ->
-                    val uid = post.userId!!.trim()
-                    UserProfile(
-                        uid = uid,
-                        name = post.userName?.takeIf { it.isNotBlank() } ?: "Okur",
-                        username = "okur_${uid.take(5)}",
-                        bio = "Merhaba, ben bir KitapDuy okuruyum!",
-                        photoUrl = fixUrl(post.userPhoto),
-                        isPremium = post.isPremium ?: false
+    internal companion object {
+        fun mergeUserSearchResults(
+            query: String,
+            remoteUsers: List<UserProfile>,
+            bridgeUsers: List<UserProfile>,
+            postAuthors: List<UserProfile>
+        ): List<UserProfile> {
+            val mergedByUid = linkedMapOf<String, UserProfile>()
+            // Priority: Supabase users -> Cross-platform bridge (Firestore/Android) -> Posts authors
+            for (profile in remoteUsers) {
+                if (profile.uid.isNotBlank()) mergedByUid[profile.uid] = profile
+            }
+            for (profile in bridgeUsers) {
+                val existing = mergedByUid[profile.uid]
+                if (existing == null) {
+                    mergedByUid[profile.uid] = profile
+                } else {
+                    mergedByUid[profile.uid] = existing.copy(
+                        photoUrl = existing.photoUrl?.takeIf { it.isNotBlank() } ?: profile.photoUrl,
+                        isPremium = existing.isPremium || profile.isPremium
                     )
                 }
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (e: Throwable) {
-            e.printStackTrace()
-            emptyList()
+            }
+            for (author in postAuthors) {
+                val existing = mergedByUid[author.uid]
+                if (existing == null) {
+                    mergedByUid[author.uid] = author
+                } else if (existing.photoUrl.isNullOrBlank() && !author.photoUrl.isNullOrBlank()) {
+                    mergedByUid[author.uid] = existing.copy(photoUrl = author.photoUrl)
+                }
+            }
+            val lower = query.trim().lowercase()
+            return mergedByUid.values.sortedWith(
+                compareByDescending<UserProfile> {
+                    it.name.lowercase().startsWith(lower) || it.username.orEmpty().lowercase().startsWith(lower)
+                }.thenByDescending { it.hasPremium() }
+                    .thenBy { it.name.lowercase() }
+            )
         }
     }
 

@@ -204,7 +204,7 @@ data class SettingsScreen(val isPremium: Boolean = false) : Screen {
                 SettingsItem(icon = Icons.Filled.Notifications, title = "Bildirimler", subtitle = when (notificationsEnabled) {
                     true -> "Açık"
                     false -> "Kapalı"
-                    null -> "Kullanılamıyor"
+                    null -> "Cihaz ayarlarından yönetin"
                 }) { if (notificationsEnabled != null) showNotificationOptions = true }
                 SettingsItem(icon = Icons.Filled.Info, title = "Gizlilik Politikası") {
                     navigator.push(LegalScreen(LegalDocument.PRIVACY))
@@ -284,7 +284,7 @@ fun SettingsItem(
         onClick = onClick,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         shape = RoundedCornerShape(16.dp),
-        modifier = modifier.fillMaxWidth().padding(bottom = 8.dp)
+        modifier = modifier.fillMaxWidth().heightIn(min = 52.dp).padding(bottom = 8.dp)
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(shape = CircleShape, color = iconTint.copy(alpha = 0.1f), modifier = Modifier.size(40.dp)) {

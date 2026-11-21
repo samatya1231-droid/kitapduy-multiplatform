@@ -460,6 +460,40 @@ class XcodeProjectSanityTests(unittest.TestCase):
         resource_file_refs = [objects[bf_id]["fileRef"] for bf_id in resources_phase["files"]]
         self.assertIn(variant_id, resource_file_refs)
 
+    def test_iosapp_bundled_audio_resources_are_wired(self):
+        pbxproj_text = (REPO_ROOT / "iosApp/iosApp.xcodeproj/project.pbxproj").read_text(encoding="utf-8")
+        pbxproj = self._parse_openstep_plist(pbxproj_text)
+        objects = pbxproj["objects"]
+        iosapp_target = objects["7555FF7A242A565900829871"]
+        iosapp_group = objects["7555FF7D242A565900829871"]
+
+        audio_groups = [
+            objects[cid] for cid in iosapp_group["children"]
+            if objects[cid]["isa"] == "PBXGroup" and objects[cid].get("path") == "Audio"
+        ]
+        self.assertEqual(len(audio_groups), 1)
+        audio_group = audio_groups[0]
+        audio_refs = {objects[cid]["path"]: cid for cid in audio_group["children"]}
+
+        resources_phase = next(
+            objects[pid] for pid in iosapp_target["buildPhases"]
+            if objects[pid]["isa"] == "PBXResourcesBuildPhase"
+        )
+        resource_file_refs = {objects[bf_id]["fileRef"] for bf_id in resources_phase["files"]}
+
+        expected_audio = (
+            "rain_sound.mp3",
+            "fire_sound.mp3",
+            "cafe_sound.mp3",
+            "forest_sound.mp3",
+            "kitapduy_tanitim.wav",
+            "kitapduy_tanitim_bitis.wav",
+        )
+        for filename in expected_audio:
+            self.assertIn(filename, audio_refs, f"{filename} missing from Audio PBXGroup")
+            self.assertIn(audio_refs[filename], resource_file_refs, f"{filename} missing from Resources build phase")
+            self.assertTrue((REPO_ROOT / "iosApp/iosApp/Audio" / filename).is_file(), f"{filename} missing on disk")
+
     def test_release_and_simulator_scripts_validate_turkish_localization(self):
         release_sh = (REPO_ROOT / "ci/build-ios-release.sh").read_text(encoding="utf-8")
         self.assertIn("--development-region tr", release_sh)

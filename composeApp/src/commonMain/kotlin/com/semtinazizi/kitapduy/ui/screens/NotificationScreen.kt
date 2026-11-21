@@ -107,8 +107,20 @@ class NotificationScreen : Screen {
                             colors = ListItemDefaults.colors(containerColor = if (note.isRead) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.surfaceVariant),
                             modifier = Modifier.clickable(enabled = !opening && !note.bookId.isNullOrBlank()) {
                                 val target = note.bookId.orEmpty()
-                                when (note.type) {
-                                    "like", "comment", "reply" -> navigator.push(PostDetailScreen(target))
+                                val uid = auth.currentUserUid
+                                if (!note.isRead && note.id != null && !uid.isNullOrBlank()) {
+                                    val noteId = note.id
+                                    notes = notes.map { if (it.id == noteId) it.copy(isRead = true) else it }
+                                    scope.launch {
+                                        runCatching {
+                                            client.postgrest["notifications"].update(mapOf("is_read" to true)) {
+                                                filter { eq("receiver_id", uid); eq("id", noteId) }
+                                            }
+                                        }
+                                    }
+                                }
+                                when (note.type.lowercase()) {
+                                    "like", "comment", "reply", "poll_vote" -> navigator.push(PostDetailScreen(target))
                                     "follow" -> navigator.push(UserProfileScreen(target))
                                     else -> scope.launch {
                                         opening = true

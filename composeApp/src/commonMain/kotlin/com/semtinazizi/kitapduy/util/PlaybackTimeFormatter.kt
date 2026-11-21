@@ -49,6 +49,30 @@ object PlaybackTimeFormatter {
         }
     }
 
+    fun formatListenedDurationText(positionMs: Long): String {
+        if (positionMs <= 0L) return "Dinlemeye başla"
+        val totalSeconds = (positionMs / 1000L).coerceAtLeast(1L)
+        if (totalSeconds < 60L) {
+            return "$totalSeconds saniye dinlendi · Devam et"
+        }
+        val totalMinutes = totalSeconds / 60L
+        val remSeconds = totalSeconds % 60L
+        if (totalMinutes < 60L) {
+            return if (remSeconds == 0L) {
+                "$totalMinutes dakika dinlendi · Devam et"
+            } else {
+                "$totalMinutes dk $remSeconds sn dinlendi · Devam et"
+            }
+        }
+        val hours = totalMinutes / 60L
+        val remMinutes = totalMinutes % 60L
+        return if (remMinutes == 0L) {
+            "$hours saat dinlendi · Devam et"
+        } else {
+            "$hours sa $remMinutes dk dinlendi · Devam et"
+        }
+    }
+
     fun parseRssDurationToMs(raw: String?): Long {
         val clean = raw?.trim().orEmpty()
         if (clean.isEmpty()) return 0L

@@ -22,7 +22,7 @@ class SupabasePostDetailRepository(
         userId = row.userId, userName = row.userName, userPhotoUrl = resolveFeedUrl(row.userPhoto),
         text = row.text, isPremium = row.isPremium,
         likedBy = row.likedBy.orEmpty().split(',').filter { it.isNotBlank() },
-        timestamp = row.createdAt?.let { runCatching { kotlinx.datetime.Instant.parse(it).toEpochMilliseconds() }.getOrNull() } ?: 0L)
+        timestamp = parseSupabaseTimestamp(row.createdAt))
 
     override suspend fun getPost(id: String): FeedItem? = client.postgrest["posts"].select {
         filter { eq("id", id.toLong()) }

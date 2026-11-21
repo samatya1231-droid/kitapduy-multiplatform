@@ -9,6 +9,7 @@ import com.semtinazizi.kitapduy.di.appModules
 class KitapDuyApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        com.semtinazizi.kitapduy.platform.androidAppContext = applicationContext
 
         // BuildConfig değerlerini platform helper'a aktar
         BuildConfigHelper.supabaseUrl = BuildConfig.SUPABASE_URL

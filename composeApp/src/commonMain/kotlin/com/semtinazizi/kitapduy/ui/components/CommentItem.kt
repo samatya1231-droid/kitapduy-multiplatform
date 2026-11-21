@@ -304,8 +304,8 @@ fun CommentHeader(
             Box {
                 IconButton(
                     onClick = onMenuClick,
-                    modifier = Modifier.size(32.dp)
-                ) { Icon(Icons.Default.MoreVert, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    modifier = Modifier.sizeIn(minWidth = 44.dp, minHeight = 44.dp)
+                ) { Icon(Icons.Default.MoreVert, contentDescription = "Yorum seçenekleri", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                 DropdownMenu(
                     expanded = showMenu,
                     onDismissRequest = onDismissMenu
@@ -415,11 +415,11 @@ fun ReplyInputSection(
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.primary
             ),
-            modifier = Modifier.size(40.dp)
+            modifier = Modifier.sizeIn(minWidth = 44.dp, minHeight = 44.dp)
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.Send,
-                null,
+                contentDescription = "Yanıt gönder",
                 modifier = Modifier.size(20.dp)
             )
         }

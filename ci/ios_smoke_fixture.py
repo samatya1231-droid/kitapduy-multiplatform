@@ -395,6 +395,7 @@ def serve_fixture():
     followers = []
     reports = []
     blocked_users = []
+    book_requests = []
     askida_books = []
     askida_messages = []
     quiz_leaderboard = [
@@ -678,6 +679,8 @@ def serve_fixture():
                     rows = [dict(item) for item in reports]
                 elif table == "blocked_users":
                     rows = [dict(item) for item in blocked_users]
+                elif table == "book_requests":
+                    rows = [dict(item) for item in book_requests]
                 else:
                     rows = []
             # Support PostgREST filters (eq, neq, ilike, in, is, or), ordering, range & exact counts.
@@ -755,6 +758,7 @@ def serve_fixture():
                 "/rest/v1/notifications",
                 "/rest/v1/reports",
                 "/rest/v1/blocked_users",
+                "/rest/v1/book_requests",
                 "/rest/v1/askida_kitap",
                 "/rest/v1/askida_mesaj",
                 "/rest/v1/quiz_leaderboard",
@@ -842,6 +846,12 @@ def serve_fixture():
                         stored = {**row, "created_at": now}
                         blocked_users.append(stored)
                         created.append(dict(stored))
+                elif path == "/rest/v1/book_requests":
+                    for row in rows:
+                        stored = {**row, "id": next_id("book_requests"), "created_at": now}
+                        book_requests.append(stored)
+                        created.append(dict(stored))
+                    requests.append("submit_book_request")
                 elif path == "/rest/v1/askida_kitap":
                     for row in rows:
                         stored = dict(row)

@@ -36,13 +36,20 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.data.repository.CrossPlatformBridgeHelper
+import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import com.semtinazizi.kitapduy.model.Book
 import com.semtinazizi.kitapduy.model.Podcast
 import com.semtinazizi.kitapduy.model.UserProfile
 import com.semtinazizi.kitapduy.ui.components.SmartImage
 import com.semtinazizi.kitapduy.ui.theme.PlayfairDisplayFamily
+import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import com.semtinazizi.kitapduy.ui.viewmodel.SearchCategory
 import com.semtinazizi.kitapduy.ui.viewmodel.SearchScreenModel
+import io.github.jan.supabase.SupabaseClient
+import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 class SearchScreen : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -50,6 +57,11 @@ class SearchScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = koinScreenModel<SearchScreenModel>()
+        val supabaseClient = koinInject<SupabaseClient>()
+        val authRepository = koinInject<AuthRepository>()
+        val authViewModel = koinViewModel<AuthViewModel>()
+        val userProfile by authViewModel.userProfile.collectAsState()
+        val scope = rememberCoroutineScope()
 
         val query by viewModel.searchQuery.collectAsState()
         val selectedCategory by viewModel.selectedCategory.collectAsState()
@@ -62,6 +74,7 @@ class SearchScreen : Screen {
         var showRequestDialog by remember { mutableStateOf(false) }
         var requestedBookTitle by remember { mutableStateOf("") }
         var requestedAuthor by remember { mutableStateOf("") }
+        var isSubmittingRequest by remember { mutableStateOf(false) }
         var requestSentNotice by remember { mutableStateOf(false) }
 
         if (showRequestDialog) {
@@ -93,14 +106,30 @@ class SearchScreen : Screen {
                 },
                 confirmButton = {
                     Button(
-                        enabled = requestedBookTitle.isNotBlank(),
+                        enabled = requestedBookTitle.isNotBlank() && !isSubmittingRequest,
                         onClick = {
-                            requestedBookTitle = ""
-                            requestedAuthor = ""
-                            showRequestDialog = false
-                            requestSentNotice = true
+                            val titleToSend = requestedBookTitle.trim()
+                            val authorToSend = requestedAuthor.trim()
+                            isSubmittingRequest = true
+                            scope.launch {
+                                try {
+                                    CrossPlatformBridgeHelper.submitBookRequest(
+                                        supabaseClient = supabaseClient,
+                                        userId = userProfile?.uid ?: authRepository.currentUserUid,
+                                        userName = userProfile?.name,
+                                        bookTitle = titleToSend,
+                                        author = authorToSend
+                                    )
+                                } finally {
+                                    isSubmittingRequest = false
+                                    requestedBookTitle = ""
+                                    requestedAuthor = ""
+                                    showRequestDialog = false
+                                    requestSentNotice = true
+                                }
+                            }
                         }
-                    ) { Text("Gönder") }
+                    ) { Text(if (isSubmittingRequest) "Gönderiliyor…" else "Gönder") }
                 },
                 dismissButton = {
                     TextButton(onClick = { showRequestDialog = false }) { Text("Vazgeç") }

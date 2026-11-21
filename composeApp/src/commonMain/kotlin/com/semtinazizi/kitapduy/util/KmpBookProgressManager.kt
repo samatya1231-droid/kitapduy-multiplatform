@@ -1,12 +1,18 @@
 package com.semtinazizi.kitapduy.util
 
 import com.russhwolf.settings.Settings
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class KmpBookProgressManager(private val settings: Settings = Settings()) {
+    private val _progressRevision = MutableStateFlow(0L)
+    val progressRevision: StateFlow<Long> = _progressRevision.asStateFlow()
 
     fun saveProgress(id: String, pos: Long) {
         if (pos > 0) {
             settings.putLong(id, pos)
+            _progressRevision.value += 1L
         }
     }
 
@@ -22,6 +28,7 @@ class KmpBookProgressManager(private val settings: Settings = Settings()) {
 
     fun saveLastPlayedBook(id: String) {
         settings.putString("last_played_book_id", id)
+        _progressRevision.value += 1L
     }
 
     fun getLastPlayedBook(): String? {

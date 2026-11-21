@@ -40,13 +40,24 @@ interface AudioPlayer {
     fun currentMediaId(): String? = null
     fun setPlaybackSpeed(speed: Float)
     fun playAtmosphere(url: String, volume: Float = 0.5f)
+    fun pauseAtmosphere() {}
+    fun resumeAtmosphere() {}
     fun stopAtmosphere()
     fun setAtmosphereVolume(volume: Float)
+    fun hasReachedTrackEnd(): Boolean = false
+    fun skipToMediaId(mediaId: String): Boolean = false
+    fun startPreview(url: String, startPositionMs: Long) {}
+    fun seekPreviewTo(positionMs: Long) {}
+    fun stopPreview() {}
+    fun isPreviewPlaying(): Boolean = false
     fun release()
 }
 
 /** Platform'a uygun AudioPlayer oluşturur */
 expect fun createAudioPlayer(): AudioPlayer
+
+/** Paketlenmiş yerel ses kaynağının (atmosfer veya tanıtım) URI'sini döndürür. */
+expect fun resolveBundledAudioUrl(resourceName: String, extension: String): String?
 
 /**
  * Uygulama config değerleri

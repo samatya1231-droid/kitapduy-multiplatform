@@ -46,6 +46,7 @@ import com.semtinazizi.kitapduy.model.Book
 import com.semtinazizi.kitapduy.model.Podcast
 import com.semtinazizi.kitapduy.model.ScienceArticle
 import com.semtinazizi.kitapduy.model.getMoodList
+import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -80,15 +81,22 @@ class HomeScreen : Screen {
         val progressManager = org.koin.compose.koinInject<com.semtinazizi.kitapduy.util.KmpBookProgressManager>()
         val audioController = org.koin.compose.koinInject<com.semtinazizi.kitapduy.ui.viewmodel.GlobalAudioController>()
         val playingBook by audioController.currentBook.collectAsState()
-        val lastId = playingBook?.id ?: progressManager.getLastPlayedBook()
-        val continueListeningBook = books.firstOrNull {
-            it.id == lastId && (it.id == playingBook?.id || progressManager.getProgress(it.id) > 0)
+        val livePositionMs by audioController.currentPositionMs.collectAsState()
+        val progressRevision by progressManager.progressRevision.collectAsState()
+        val lastId = remember(playingBook?.id, progressRevision) {
+            playingBook?.id ?: progressManager.getLastPlayedBook()
+        }
+        val continueListeningBook = remember(books, lastId, playingBook?.id, progressRevision) {
+            books.firstOrNull {
+                it.id == lastId && (it.id == playingBook?.id || progressManager.getProgress(it.id) > 0)
+            }
         }
         val displayBook = continueListeningBook
             ?: remember(books) { books.asSequence().filter { it.id != "local_ci_book" }.maxByOrNull { it.viewCount } }
             ?: books.firstOrNull()
 
         val lazyListState = rememberLazyListState()
+        val coroutineScope = rememberCoroutineScope()
         val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
 
         val showStickySearchBar by remember {
@@ -197,7 +205,12 @@ class HomeScreen : Screen {
                                 item(key = "cat_all") {
                                     FilterChip(
                                         selected = true,
-                                        onClick = {},
+                                        onClick = {
+                                            coroutineScope.launch {
+                                                lazyListState.animateScrollToItem(0)
+                                            }
+                                            homeViewModel.refresh()
+                                        },
                                         label = { Text("Tümü") },
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = if (isLight) Color(0xFF6D4C2D) else SleekChampagne,
@@ -235,27 +248,20 @@ class HomeScreen : Screen {
                         }
                         displayBook?.let { book ->
                             item(key = "continue_listening") {
-                                val listeningMinutes = when {
-                                    continueListeningBook == null -> 0L
-                                    playingBook?.id == book.id -> {
-                                        val position = audioController.currentPosition.collectAsState()
-                                        val duration = audioController.duration.collectAsState()
-                                        val minutes by remember(book.id) {
-                                            derivedStateOf {
-                                                val positionMs = if (duration.value > 0) {
-                                                    (position.value * duration.value).toLong()
-                                                } else {
-                                                    progressManager.getProgress(book.id)
-                                                }
-                                                positionMs / 60_000
-                                            }
-                                        }
-                                        minutes
-                                    }
-                                    else -> progressManager.getProgress(book.id) / 60_000
+                                val savedPositionMs = remember(book.id, progressRevision) {
+                                    progressManager.getProgress(book.id).coerceAtLeast(0L)
                                 }
-                                ContinueListeningCard(book, hasHistory = continueListeningBook != null,
-                                    listeningMinutes = listeningMinutes, onClick = { navigator.push(BookDetailScreen(book)) })
+                                val listenedPositionMs = when {
+                                    continueListeningBook == null -> 0L
+                                    playingBook?.id == book.id -> maxOf(livePositionMs, savedPositionMs)
+                                    else -> savedPositionMs
+                                }
+                                ContinueListeningCard(
+                                    book = book,
+                                    hasHistory = continueListeningBook != null,
+                                    listenedPositionMs = listenedPositionMs,
+                                    onClick = { navigator.push(BookDetailScreen(book)) }
+                                )
                             }
                         }
                         if (recommendedBooks.isNotEmpty()) item(key = "recommended_books") {
@@ -524,7 +530,7 @@ class HomeScreen : Screen {
     }
 
     @Composable
-    private fun ContinueListeningCard(book: Book, hasHistory: Boolean, listeningMinutes: Long, onClick: () -> Unit) {
+    private fun ContinueListeningCard(book: Book, hasHistory: Boolean, listenedPositionMs: Long, onClick: () -> Unit) {
         Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
             SpotifySectionHeader(if (hasHistory) "Dinlemeye devam et" else "İlk hikâyeni keşfet")
             Surface(
@@ -588,7 +594,11 @@ class HomeScreen : Screen {
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                text = if (hasHistory) "$listeningMinutes dakika dinlendi · Devam et" else "Kitabı keşfet",
+                                text = if (hasHistory) {
+                                    com.semtinazizi.kitapduy.util.PlaybackTimeFormatter.formatListenedDurationText(listenedPositionMs)
+                                } else {
+                                    "Kitabı keşfet"
+                                },
                                 color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold

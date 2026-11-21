@@ -1,5 +1,6 @@
 package com.semtinazizi.kitapduy.platform
 
+import android.content.Context
 import android.os.Build
 import com.semtinazizi.kitapduy.BuildConfig
 
@@ -12,8 +13,15 @@ import javax.crypto.spec.SecretKeySpec
 
 actual val platformName: String = "Android ${Build.VERSION.SDK_INT}"
 
+internal var androidAppContext: Context? = null
 
 actual fun createAudioPlayer(): AudioPlayer = AndroidAudioPlayer()
+
+actual fun resolveBundledAudioUrl(resourceName: String, extension: String): String? {
+    val ctx = androidAppContext ?: return null
+    val resId = ctx.resources.getIdentifier(resourceName, "raw", ctx.packageName)
+    return if (resId != 0) "android.resource://${ctx.packageName}/raw/$resourceName" else null
+}
 
 actual object AppConfig {
     actual val supabaseUrl: String = BuildConfig.SUPABASE_URL

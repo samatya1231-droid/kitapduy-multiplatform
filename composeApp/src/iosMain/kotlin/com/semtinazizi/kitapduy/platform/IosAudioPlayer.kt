@@ -29,6 +29,20 @@ class IosAudioPlayer : AudioPlayer {
     private var cachedAssetDurationMs: Long = 0L
     private var lastPlaybackError: String? = null
     private var reachedEnd = false
+    private var previewPlayer: AVPlayer? = null
+    private var previewPlaying: Boolean = false
+    private var previewReadyJob: Job? = null
+    private var previewEndObserver: platform.darwin.NSObjectProtocol? = null
+
+    private fun resolveNsUrl(rawUrl: String): NSURL? {
+        val trimmed = rawUrl.trim()
+        if (trimmed.isEmpty()) return null
+        if (trimmed.startsWith("/")) {
+            return NSURL.fileURLWithPath(trimmed)
+        }
+        val safeUrl = UrlSanitizer.sanitizeUrl(trimmed)
+        return NSURL.URLWithString(safeUrl) ?: NSURL.URLWithString(trimmed)
+    }
 
     private fun finiteSecondsToMs(seconds: Double): Long {
         if (!seconds.isFinite() || seconds <= 0.0) return 0L
@@ -97,8 +111,7 @@ class IosAudioPlayer : AudioPlayer {
         lastPlaybackError = null
         reachedEnd = false
         val item = queue.getOrNull(queueIndex) ?: return
-        val safeUrl = UrlSanitizer.sanitizeUrl(item.url)
-        val url = NSURL.URLWithString(safeUrl) ?: NSURL.URLWithString(item.url)
+        val url = resolveNsUrl(item.url)
         if (url == null) {
             NSLog("KitapDuy playback invalid URL: ${item.url}")
             avPlayer?.replaceCurrentItemWithPlayerItem(null)
@@ -348,30 +361,38 @@ class IosAudioPlayer : AudioPlayer {
     }
 
     override fun playAtmosphere(url: String, volume: Float) {
-        val safeUrl = UrlSanitizer.sanitizeUrl(url)
-        val nsUrl = NSURL.URLWithString(safeUrl) ?: NSURL.URLWithString(url) ?: return
+        initialize()
+        val nsUrl = resolveNsUrl(url) ?: return
         val playerItem = AVPlayerItem(uRL = nsUrl)
         if (atmospherePlayer == null) {
             atmospherePlayer = AVPlayer(playerItem = playerItem)
         } else {
             atmospherePlayer?.replaceCurrentItemWithPlayerItem(playerItem)
         }
-        atmospherePlayer?.volume = volume
+        atmospherePlayer?.volume = volume.coerceIn(0f, 1f)
         atmospherePlayer?.play()
-        
+
         atmosphereLoopObserver?.let {
             platform.Foundation.NSNotificationCenter.defaultCenter.removeObserver(it)
             atmosphereLoopObserver = null
         }
-        
+
         atmosphereLoopObserver = platform.Foundation.NSNotificationCenter.defaultCenter.addObserverForName(
             name = platform.AVFoundation.AVPlayerItemDidPlayToEndTimeNotification,
-            `object` = atmospherePlayer?.currentItem,
-            queue = null
+            `object` = playerItem,
+            queue = platform.Foundation.NSOperationQueue.mainQueue
         ) { _ ->
             atmospherePlayer?.seekToTime(platform.CoreMedia.CMTimeMake(0, 1))
             atmospherePlayer?.play()
         }
+    }
+
+    override fun pauseAtmosphere() {
+        atmospherePlayer?.pause()
+    }
+
+    override fun resumeAtmosphere() {
+        atmospherePlayer?.play()
     }
 
     override fun stopAtmosphere() {
@@ -380,16 +401,90 @@ class IosAudioPlayer : AudioPlayer {
             atmosphereLoopObserver = null
         }
         atmospherePlayer?.pause()
+        atmospherePlayer?.replaceCurrentItemWithPlayerItem(null)
         atmospherePlayer = null
     }
 
     override fun setAtmosphereVolume(volume: Float) {
-        atmospherePlayer?.volume = volume
+        atmospherePlayer?.volume = volume.coerceIn(0f, 1f)
+    }
+
+    override fun hasReachedTrackEnd(): Boolean = reachedEnd
+
+    override fun skipToMediaId(mediaId: String): Boolean {
+        val targetIndex = queue.indexOfFirst { it.id == mediaId }
+        if (targetIndex < 0) return false
+        queueIndex = targetIndex
+        shouldPlay = true
+        playCurrentItem(queue[targetIndex].startPositionMs)
+        return true
+    }
+
+    override fun startPreview(url: String, startPositionMs: Long) {
+        stopPreview()
+        initialize()
+        val nsUrl = resolveNsUrl(url) ?: return
+        val item = AVPlayerItem(uRL = nsUrl)
+        val player = AVPlayer(playerItem = item)
+        previewPlayer = player
+        previewPlaying = true
+        previewEndObserver = platform.Foundation.NSNotificationCenter.defaultCenter.addObserverForName(
+            AVPlayerItemDidPlayToEndTimeNotification,
+            item,
+            platform.Foundation.NSOperationQueue.mainQueue
+        ) {
+            previewPlaying = false
+            previewPlayer?.pause()
+        }
+        val safeStart = startPositionMs.coerceAtLeast(0L)
+        if (safeStart <= 0L) {
+            player.play()
+        }
+        previewReadyJob = scope.launch {
+            val ready = withTimeoutOrNull(15_000) {
+                while (item.status == AVPlayerItemStatusUnknown) delay(50)
+                item.status == AVPlayerItemStatusReadyToPlay
+            } == true
+            if (!ready || previewPlayer != player) {
+                if (previewPlayer == player) stopPreview()
+                return@launch
+            }
+            if (safeStart > 0L) {
+                player.seekToTime(platform.CoreMedia.CMTimeMake(value = safeStart, timescale = 1000))
+            }
+            if (previewPlaying) {
+                player.play()
+            }
+        }
+    }
+
+    override fun seekPreviewTo(positionMs: Long) {
+        val safePos = positionMs.coerceAtLeast(0L)
+        previewPlayer?.seekToTime(platform.CoreMedia.CMTimeMake(value = safePos, timescale = 1000))
+    }
+
+    override fun stopPreview() {
+        previewPlaying = false
+        previewReadyJob?.cancel()
+        previewReadyJob = null
+        previewEndObserver?.let {
+            platform.Foundation.NSNotificationCenter.defaultCenter.removeObserver(it)
+            previewEndObserver = null
+        }
+        previewPlayer?.pause()
+        previewPlayer?.replaceCurrentItemWithPlayerItem(null)
+        previewPlayer = null
+    }
+
+    override fun isPreviewPlaying(): Boolean {
+        val player = previewPlayer ?: return false
+        return previewPlaying && player.timeControlStatus == AVPlayerTimeControlStatusPlaying
     }
 
     override fun release() {
         stop()
         stopAtmosphere()
+        stopPreview()
         avPlayer = null
         remoteTargets.forEach { (command, target) -> command.removeTarget(target) }
         remoteTargets.clear()

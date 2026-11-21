@@ -10,6 +10,7 @@ import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Count
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
@@ -270,6 +271,73 @@ internal object CrossPlatformBridgeHelper {
             throw cancelled
         } catch (_: Throwable) {
             null
+        }
+    }
+
+    @Serializable
+    private data class SupabaseBookRequestInsert(
+        @kotlinx.serialization.SerialName("user_id") val userId: String,
+        @kotlinx.serialization.SerialName("user_name") val userName: String,
+        @kotlinx.serialization.SerialName("book_title") val bookTitle: String,
+        val author: String = "",
+        val status: String = "pending"
+    )
+
+    suspend fun searchBridgeUsers(httpClient: HttpClient?, query: String): List<UserProfile> {
+        val cleanQuery = query.trim()
+        if (isLocalFixture() || httpClient == null || cleanQuery.length < 2) return emptyList()
+        return try {
+            val raw = httpClient.get(BRIDGE_URL) {
+                parameter("action", "search_users")
+                parameter("q", cleanQuery)
+            }.bodyAsText()
+            json.decodeFromString<List<BridgeUserDto>>(raw)
+                .filter { it.uid.isNotBlank() }
+                .map { dto ->
+                    UserProfile(
+                        uid = dto.uid,
+                        name = dto.name.ifBlank { "KitapDuy Okuru" },
+                        username = dto.username,
+                        bio = dto.bio,
+                        photoUrl = UrlSanitizer.normalizeMediaUrl(dto.photoUrl, UrlSanitizer.CUSTOM_R2_BASE_URL),
+                        coverPhotoUrl = UrlSanitizer.normalizeMediaUrl(dto.coverPhotoUrl, UrlSanitizer.CUSTOM_R2_BASE_URL),
+                        badges = dto.badges,
+                        premiumUntil = dto.premiumUntil,
+                        isPremium = dto.isPremium,
+                        streak = dto.streak
+                    )
+                }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    }
+
+    suspend fun submitBookRequest(
+        supabaseClient: SupabaseClient,
+        userId: String?,
+        userName: String?,
+        bookTitle: String,
+        author: String
+    ): Boolean {
+        val cleanTitle = bookTitle.trim()
+        if (cleanTitle.isBlank()) return false
+        return try {
+            supabaseClient.postgrest["book_requests"].insert(
+                SupabaseBookRequestInsert(
+                    userId = userId?.takeIf { it.isNotBlank() } ?: "anonymous",
+                    userName = userName?.takeIf { it.isNotBlank() } ?: "KitapDuy Okuru",
+                    bookTitle = cleanTitle,
+                    author = author.trim(),
+                    status = "pending"
+                )
+            )
+            true
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            false
         }
     }
 

@@ -155,11 +155,20 @@ data class BookDetailScreen(val book: Book) : Screen {
         var showQuoteDialog by remember { mutableStateOf(false) }
 
         val currentSpeed by audioController.playbackSpeed.collectAsState()
-        var currentAtmosphere by remember { mutableStateOf<String?>(null) }
-        var atmosphereVolume by remember { mutableStateOf(0.5f) }
+        val currentAtmosphere by audioController.currentAtmosphereId.collectAsState()
+        val atmosphereVolume by audioController.atmosphereVolume.collectAsState()
         val timerRemaining by audioController.sleepTimerRemainingMinutes.collectAsState()
+        val timerRemainingSeconds by audioController.sleepTimerRemainingSeconds.collectAsState()
+        val timerAtBookEnd by audioController.sleepTimerAtBookEnd.collectAsState()
+        val isQuotePreviewPlaying by audioController.isQuotePreviewPlaying.collectAsState()
+        val playingBook by audioController.currentBook.collectAsState()
+        val liveDuration by audioController.duration.collectAsState()
         val isDownloading by audioController.isDownloading.collectAsState()
         var downloadMessage by remember { mutableStateOf<String?>(null) }
+
+        LaunchedEffect(isPremium) {
+            audioController.skipActiveAdIfPremium(isPremium)
+        }
         downloadMessage?.let { message ->
             AlertDialog(onDismissRequest = { downloadMessage = null }, text = { Text(message) },
                 confirmButton = { TextButton(onClick = { downloadMessage = null }) { Text("Tamam") } })
@@ -222,7 +231,8 @@ data class BookDetailScreen(val book: Book) : Screen {
                         AudioPlayerControls(
                             audioController = audioController,
                             book = book,
-                            isPremium = isPremium
+                            isPremium = isPremium,
+                            onUpgradeClick = { navigator.root.push(SubscriptionPaywallScreen()) }
                         )
 
                         Spacer(Modifier.height(32.dp))
@@ -231,6 +241,8 @@ data class BookDetailScreen(val book: Book) : Screen {
                             isLiked = isLiked,
                             likeCount = likeCount,
                             currentSpeed = currentSpeed,
+                            isAtmosphereActive = currentAtmosphere != null,
+                            isSleepTimerActive = timerRemainingSeconds > 0 || timerAtBookEnd,
                             isDownloading = isDownloading,
                             isDownloaded = audioController.isDownloaded(book.id),
                             onToggleLike = { viewModel.toggleLike(book.id, userId) },
@@ -253,8 +265,14 @@ data class BookDetailScreen(val book: Book) : Screen {
 
                         Spacer(Modifier.height(32.dp))
 
-                        OutlinedButton(onClick = { showShelfDialog = true },
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).testTag("book-add-shelf")) {
+                        OutlinedButton(
+                            onClick = { showShelfDialog = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .padding(horizontal = 24.dp)
+                                .testTag("book-add-shelf")
+                        ) {
                             Text("Kitaplığıma ekle")
                         }
                         Spacer(Modifier.height(16.dp))
@@ -334,20 +352,22 @@ data class BookDetailScreen(val book: Book) : Screen {
 
             BookDetailTopBar(onBackClick = { navigator.pop() })
 
+            val quoteTotalDurationMs = if (playingBook?.id == book.id && liveDuration > 0f) {
+                liveDuration.toLong()
+            } else {
+                book.duration.coerceAtLeast(0L)
+            }
+
             BookDetailDialogs(
                 showAtmosphereDialog = showAtmosphereDialog,
                 onDismissAtmosphere = { showAtmosphereDialog = false },
                 currentAtmosphere = currentAtmosphere,
-                onAtmosphereSelected = {
-                    currentAtmosphere = it
-                    if (it != null) audioController.playAtmosphere(it, atmosphereVolume)
-                    else audioController.stopAtmosphere()
+                onAtmosphereSelected = { soundId ->
+                    val fallback = atmosphereSounds.firstOrNull { it.id == soundId }?.fallbackUrl
+                    audioController.selectAtmosphere(soundId, fallback)
                 },
                 atmosphereVolume = atmosphereVolume,
-                onAtmosphereVolumeChange = {
-                    atmosphereVolume = it
-                    audioController.setAtmosphereVolume(it)
-                },
+                onAtmosphereVolumeChange = { audioController.setAtmosphereVolume(it) },
                 isPremium = isPremium,
                 onPremiumUpgrade = { navigator.root.push(SubscriptionPaywallScreen()) },
                 showSpeedDialog = showSpeedDialog,
@@ -357,17 +377,40 @@ data class BookDetailScreen(val book: Book) : Screen {
                 showTimerDialog = showTimerDialog,
                 onDismissTimer = { showTimerDialog = false },
                 timerRemaining = timerRemaining,
+                timerRemainingSeconds = timerRemainingSeconds,
+                timerAtBookEnd = timerAtBookEnd,
                 onTimerSelected = { audioController.startSleepTimer(it) },
+                onStopAtBookEnd = { audioController.startSleepTimerAtBookEnd() },
                 onCancelTimer = { audioController.cancelSleepTimer() },
                 showQuoteDialog = showQuoteDialog,
-                onDismissQuote = { showQuoteDialog = false },
+                onDismissQuote = {
+                    audioController.stopQuotePreview()
+                    showQuoteDialog = false
+                },
                 bookTitle = book.title,
                 bookAuthor = book.author,
-                onShareQuoteToFeed = { quoteText ->
+                bookCoverUrl = book.coverUrl,
+                userName = userName,
+                userPhotoUrl = userProfile?.photoUrl,
+                quoteInitialPositionMs = audioController.currentPositionMsFor(book.id),
+                quoteTotalDurationMs = quoteTotalDurationMs,
+                isQuotePreviewPlaying = isQuotePreviewPlaying,
+                onToggleQuotePreview = { startPosMs ->
+                    if (isQuotePreviewPlaying) {
+                        audioController.stopQuotePreview()
+                    } else {
+                        audioController.startQuotePreview(book, startPosMs)
+                    }
+                },
+                onQuotePreviewPositionChanged = { startPosMs ->
+                    audioController.seekQuotePreview(startPosMs)
+                },
+                onStopQuotePreview = { audioController.stopQuotePreview() },
+                onShareQuoteToFeed = { quoteText, startPosMs ->
                     viewModel.shareQuoteToFeed(
                         book = book,
                         quoteText = quoteText,
-                        positionMs = audioController.currentPositionMsFor(book.id),
+                        positionMs = startPosMs,
                         userId = userId,
                         userName = userName,
                         userPhoto = userProfile?.photoUrl,
@@ -417,13 +460,25 @@ private fun BookDetailDialogs(
     showTimerDialog: Boolean,
     onDismissTimer: () -> Unit,
     timerRemaining: Int,
+    timerRemainingSeconds: Int,
+    timerAtBookEnd: Boolean,
     onTimerSelected: (Int) -> Unit,
+    onStopAtBookEnd: () -> Unit,
     onCancelTimer: () -> Unit,
     showQuoteDialog: Boolean,
     onDismissQuote: () -> Unit,
     bookTitle: String,
     bookAuthor: String,
-    onShareQuoteToFeed: ((String) -> Unit)? = null
+    bookCoverUrl: String,
+    userName: String,
+    userPhotoUrl: String?,
+    quoteInitialPositionMs: Long,
+    quoteTotalDurationMs: Long,
+    isQuotePreviewPlaying: Boolean,
+    onToggleQuotePreview: (Long) -> Unit,
+    onQuotePreviewPositionChanged: (Long) -> Unit,
+    onStopQuotePreview: () -> Unit,
+    onShareQuoteToFeed: ((String, Long) -> Unit)? = null
 ) {
     if (showAtmosphereDialog) {
         AtmosphereDialog(
@@ -447,8 +502,13 @@ private fun BookDetailDialogs(
         SleepTimerDialog(
             onDismiss = onDismissTimer,
             remainingMinutes = timerRemaining,
+            remainingSeconds = timerRemainingSeconds,
+            isAtBookEnd = timerAtBookEnd,
+            isPremiumUser = isPremium,
             onTimerSelected = onTimerSelected,
-            onCancelTimer = onCancelTimer
+            onStopAtBookEnd = onStopAtBookEnd,
+            onCancelTimer = onCancelTimer,
+            onUpgradeClick = onPremiumUpgrade
         )
     }
     if (showQuoteDialog) {
@@ -456,6 +516,15 @@ private fun BookDetailDialogs(
             onDismiss = onDismissQuote,
             bookTitle = bookTitle,
             bookAuthor = bookAuthor,
+            bookCoverUrl = bookCoverUrl,
+            userName = userName,
+            userPhotoUrl = userPhotoUrl,
+            initialPositionMs = quoteInitialPositionMs,
+            totalDurationMs = quoteTotalDurationMs,
+            isPreviewPlaying = isQuotePreviewPlaying,
+            onTogglePreview = onToggleQuotePreview,
+            onPreviewPositionChanged = onQuotePreviewPositionChanged,
+            onStopPreview = onStopQuotePreview,
             onShareQuoteToFeed = onShareQuoteToFeed
         )
     }
@@ -551,12 +620,15 @@ private fun PremiumAndAdsSection(isPremium: Boolean, onPremiumClick: () -> Unit)
 private fun AudioPlayerControls(
     audioController: GlobalAudioController,
     book: Book,
-    isPremium: Boolean
+    isPremium: Boolean,
+    onUpgradeClick: () -> Unit = {}
 ) {
     val currentBook by audioController.currentBook.collectAsState()
     val isPlaying by audioController.isPlaying.collectAsState()
     val isBuffering by audioController.isBuffering.collectAsState()
     val isAdPlaying by audioController.isAdPlaying.collectAsState()
+    val isPostRollAd by audioController.isPostRollAd.collectAsState()
+    val adRemainingSeconds by audioController.adRemainingSeconds.collectAsState()
     val playbackError by audioController.playbackError.collectAsState()
     val currentPosition by audioController.currentPosition.collectAsState()
     val currentPositionMs by audioController.currentPositionMs.collectAsState()
@@ -596,19 +668,44 @@ private fun AudioPlayerControls(
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = BrandGold.copy(alpha = 0.14f),
-                    border = BorderStroke(1.dp, BrandGold.copy(alpha = 0.4f)),
+                    border = BorderStroke(1.dp, BrandGold.copy(alpha = 0.45f)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 12.dp)
                         .testTag("book-ad-banner")
                 ) {
-                    Text(
-                        text = "🎧 Kısa tanıtım oynatılıyor • Kitabınız birazdan başlayacak",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        val countdownSuffix = if (adRemainingSeconds > 0) " (${adRemainingSeconds} sn)" else ""
+                        Text(
+                            text = if (isPostRollAd) {
+                                "🎧 KitapDuy tanıtımı$countdownSuffix"
+                            } else {
+                                "🎧 KitapDuy tanıtımı$countdownSuffix • Kitabınız birazdan başlayacak"
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f).padding(end = 8.dp)
+                        )
+                        Surface(
+                            onClick = onUpgradeClick,
+                            shape = RoundedCornerShape(20.dp),
+                            color = BrandGold,
+                            modifier = Modifier.heightIn(min = 36.dp)
+                        ) {
+                            Text(
+                                text = "👑 Reklamsız",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.Black,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -770,6 +867,8 @@ private fun BookActionBar(
     isLiked: Boolean,
     likeCount: Int,
     currentSpeed: Float,
+    isAtmosphereActive: Boolean = false,
+    isSleepTimerActive: Boolean = false,
     isDownloading: Boolean,
     isDownloaded: Boolean,
     onToggleLike: () -> Unit,
@@ -799,13 +898,13 @@ private fun BookActionBar(
         BookActionBarItem(
             icon = Icons.Default.Air,
             label = "Atmosfer",
-            tint = MaterialTheme.colorScheme.onSurface,
+            tint = if (isAtmosphereActive) BrandGold else MaterialTheme.colorScheme.onSurface,
             onClick = onShowAtmosphereDialog
         )
         BookActionBarItem(
             icon = Icons.Default.Timer,
             label = "Uyku",
-            tint = MaterialTheme.colorScheme.onSurface,
+            tint = if (isSleepTimerActive) BrandGold else MaterialTheme.colorScheme.onSurface,
             onClick = onShowTimerDialog
         )
         BookActionBarItem(

@@ -470,6 +470,7 @@ fun AskidaKitapBagis(viewModel: AskidaViewModel, onSuccess: () -> Unit) {
     var selectedImageBytes by remember { mutableStateOf<ByteArray?>(null) }
     var selectedImageExtension by remember { mutableStateOf<String?>(null) }
     var selectedImageName by remember { mutableStateOf<String?>(null) }
+    val focusManager = LocalFocusManager.current
     val coroutineScope = rememberCoroutineScope()
     
     val categories = listOf("Roman", "Eğitim", "Akademik", "Çocuk", "Dini", "Diğer")
@@ -490,7 +491,13 @@ fun AskidaKitapBagis(viewModel: AskidaViewModel, onSuccess: () -> Unit) {
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState())) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp)
+    ) {
         Text("Bir İyilik Bırak", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
         Text("Kitabın yeni bir hayat bulsun.", color = Color.Gray, fontSize = 14.sp)
 
@@ -528,6 +535,8 @@ fun AskidaKitapBagis(viewModel: AskidaViewModel, onSuccess: () -> Unit) {
         OutlinedTextField(
             value = bookName, onValueChange = { bookName = it },
             label = { Text("Kitap Adı") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
             modifier = Modifier.fillMaxWidth().testTag("askida-donate-title"),
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFFFFD700), unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(0.1f))
@@ -538,6 +547,9 @@ fun AskidaKitapBagis(viewModel: AskidaViewModel, onSuccess: () -> Unit) {
         OutlinedTextField(
             value = city, onValueChange = { city = it },
             label = { Text("Şehir") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
             modifier = Modifier.fillMaxWidth().testTag("askida-donate-city"),
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFFFFD700), unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(0.1f)),
@@ -592,6 +604,7 @@ fun AskidaKitapBagis(viewModel: AskidaViewModel, onSuccess: () -> Unit) {
 
         Button(
             onClick = {
+                focusManager.clearFocus()
                 if (bookName.isBlank()) return@Button
                 if (city.isBlank()) return@Button
                 viewModel.donateBook(bookName, city, selectedCondition, donorNote, selectedCategory, selectedImageBytes, selectedImageExtension) { success -> 
@@ -606,5 +619,7 @@ fun AskidaKitapBagis(viewModel: AskidaViewModel, onSuccess: () -> Unit) {
             if (isUploading) CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(24.dp))
             else Text("Askıya Bırak", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 18.sp)
         }
+
+        Spacer(modifier = Modifier.height(140.dp))
     }
 }

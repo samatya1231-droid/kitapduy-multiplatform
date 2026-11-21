@@ -814,6 +814,13 @@ class FixtureTest(unittest.TestCase):
             self.assertEqual(updated_board[0]["user_id"], USER_ID)
             self.assertEqual(updated_board[0]["total_score"], 5000)
 
+            self.request_json(
+                url + "/rest/v1/book_requests",
+                [{"user_id": USER_ID, "user_name": "Deneme Okuru", "book_title": "Satranç", "author": "Stefan Zweig"}],
+            )
+            requests_rows = self.request_json(url + "/rest/v1/book_requests")
+            self.assertTrue(any(r["book_title"] == "Satranç" for r in requests_rows))
+
     def test_extended_social_library_notifications_and_filters(self):
         with smoke.serve_fixture() as (url, events):
             # users[0] must remain current profile, while community_users are searchable.

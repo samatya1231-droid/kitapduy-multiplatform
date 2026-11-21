@@ -97,7 +97,7 @@ struct KitapDuyApp: App {
 
 
 @MainActor
-final class PushService: NSObject, OSNotificationPermissionObserver, OSPushSubscriptionObserver {
+final class PushService: NSObject, OSNotificationPermissionObserver, OSPushSubscriptionObserver, OSNotificationLifecycleListener {
     static let shared = PushService()
     private var configured = false
     private var checkedInitialPermission = false
@@ -109,6 +109,7 @@ final class PushService: NSObject, OSNotificationPermissionObserver, OSPushSubsc
         configured = true
         OneSignal.initialize(appId, withLaunchOptions: launchOptions)
         OneSignal.Notifications.addPermissionObserver(self)
+        OneSignal.Notifications.addForegroundLifecycleListener(self)
         OneSignal.User.pushSubscription.addObserver(self)
         PushNotificationBridge.shared.configureIdentity { userId in
             // FIFO main-queue delivery preserves rapid login/logout/account-switch order.
@@ -167,5 +168,9 @@ final class PushService: NSObject, OSNotificationPermissionObserver, OSPushSubsc
 
     nonisolated func onPushSubscriptionDidChange(state: OSPushSubscriptionChangedState) {
         DispatchQueue.main.async { PushService.shared.refreshPermission() }
+    }
+
+    nonisolated func onWillDisplay(event: OSNotificationWillDisplayEvent) {
+        event.notification.display()
     }
 }

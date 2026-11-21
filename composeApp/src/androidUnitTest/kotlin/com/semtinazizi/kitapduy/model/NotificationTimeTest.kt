@@ -7,8 +7,10 @@ class NotificationTimeTest {
     @Test fun parsesSupabaseTimestampWithOffsetAndFraction() {
         val utc = NotificationItem(createdAt = "2026-09-28T09:00:00.123Z")
         val local = NotificationItem(createdAt = "2026-09-28T12:00:00.123+03:00")
+        val postgres = NotificationItem(createdAt = "2026-09-28 09:00:00.123+00")
         assertTrue(utc.timestamp > 0)
         assertEquals(utc.timestamp, local.timestamp)
+        assertEquals(utc.timestamp, postgres.timestamp)
     }
     @Test fun missingOrMalformedTimeDoesNotPretendToBeRecent() {
         assertEquals("", getRelativeTime(NotificationItem().timestamp))

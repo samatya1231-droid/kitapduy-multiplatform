@@ -19,13 +19,17 @@ class AndroidAudioPlayer : AudioPlayer {
     private var context: Context? = null
     private var queuedItems: List<AudioMediaItem> = emptyList()
     private var playbackError: String? = null
+    private var reachedEnd: Boolean = false
+    private var previewPlayer: ExoPlayer? = null
 
     fun setContext(ctx: Context) {
         context = ctx
+        androidAppContext = ctx.applicationContext
         exoPlayer = ExoPlayer.Builder(ctx).build()
         exoPlayer?.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 playbackError = null
+                reachedEnd = false
                 val item = queuedItems.getOrNull(exoPlayer?.currentMediaItemIndex ?: -1) ?: return
                 if (item.startPositionMs > 0) exoPlayer?.seekTo(item.startPositionMs)
             }
@@ -33,6 +37,9 @@ class AndroidAudioPlayer : AudioPlayer {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_READY) {
                     playbackError = null
+                    reachedEnd = false
+                } else if (playbackState == Player.STATE_ENDED) {
+                    reachedEnd = true
                 }
             }
 
@@ -151,13 +158,21 @@ class AndroidAudioPlayer : AudioPlayer {
         val ctx = context ?: return
         if (atmospherePlayer == null) {
             atmospherePlayer = ExoPlayer.Builder(ctx).build().apply {
-                repeatMode = Player.REPEAT_MODE_ALL
+                repeatMode = Player.REPEAT_MODE_ONE
             }
         }
         val mediaItem = MediaItem.fromUri(UrlSanitizer.sanitizeUrl(url))
         atmospherePlayer?.setMediaItem(mediaItem)
-        atmospherePlayer?.volume = volume
+        atmospherePlayer?.volume = volume.coerceIn(0f, 1f)
         atmospherePlayer?.prepare()
+        atmospherePlayer?.play()
+    }
+
+    override fun pauseAtmosphere() {
+        atmospherePlayer?.pause()
+    }
+
+    override fun resumeAtmosphere() {
         atmospherePlayer?.play()
     }
 
@@ -168,13 +183,50 @@ class AndroidAudioPlayer : AudioPlayer {
     }
 
     override fun setAtmosphereVolume(volume: Float) {
-        atmospherePlayer?.volume = volume
+        atmospherePlayer?.volume = volume.coerceIn(0f, 1f)
     }
+
+    override fun hasReachedTrackEnd(): Boolean = reachedEnd
+
+    override fun skipToMediaId(mediaId: String): Boolean {
+        val player = exoPlayer ?: return false
+        val targetIndex = queuedItems.indexOfFirst { it.id == mediaId }
+        if (targetIndex < 0) return false
+        val startPos = queuedItems[targetIndex].startPositionMs.coerceAtLeast(0L)
+        player.seekTo(targetIndex, startPos)
+        player.prepare()
+        player.play()
+        return true
+    }
+
+    override fun startPreview(url: String, startPositionMs: Long) {
+        stopPreview()
+        val ctx = context ?: return
+        val player = ExoPlayer.Builder(ctx).build()
+        previewPlayer = player
+        player.setMediaItem(MediaItem.fromUri(UrlSanitizer.sanitizeUrl(url)))
+        player.prepare()
+        if (startPositionMs > 0L) player.seekTo(startPositionMs)
+        player.play()
+    }
+
+    override fun seekPreviewTo(positionMs: Long) {
+        previewPlayer?.seekTo(positionMs.coerceAtLeast(0L))
+    }
+
+    override fun stopPreview() {
+        previewPlayer?.stop()
+        previewPlayer?.release()
+        previewPlayer = null
+    }
+
+    override fun isPreviewPlaying(): Boolean = previewPlayer?.isPlaying == true
 
     override fun release() {
         exoPlayer?.release()
         exoPlayer = null
         stopAtmosphere()
+        stopPreview()
     }
 }
 

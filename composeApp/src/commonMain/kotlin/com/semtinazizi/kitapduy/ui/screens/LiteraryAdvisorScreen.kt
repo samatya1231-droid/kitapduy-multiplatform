@@ -482,7 +482,7 @@ class LiteraryAdvisorScreen(
                 },
                 text = {
                     Text(
-                        text = "Edebi Danışman, KitapDuy sesli kitap arşivindeki ${books.count { !it.category.equals("Podcast", ignoreCase = true) }} eseri ruh halinize, sevdiğiniz yazarlara ve okuma derinliğinize göre eşleştirir; karakter, tema ve fikir tartışmalarında size eşlik eder.",
+                        text = "Edebi Danışman, KitapDuy sesli kitap arşivindeki eserleri ruh halinize, sevdiğiniz yazarlara ve okuma derinliğinize göre eşleştirir; karakter, tema ve fikir tartışmalarında size eşlik eder.",
                         style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp)
                     )
                 },
@@ -604,8 +604,8 @@ private fun AdvisorWelcomeSection(
 
         TextButton(
             onClick = onInformation,
-            contentPadding = PaddingValues(vertical = 8.dp),
-            modifier = Modifier.testTag("advisor-archive-about")
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
+            modifier = Modifier.heightIn(min = 44.dp).testTag("advisor-archive-about")
         ) {
             Icon(Icons.Filled.Info, contentDescription = null, modifier = Modifier.size(15.dp))
             Spacer(Modifier.width(7.dp))
@@ -690,6 +690,7 @@ private fun MoodQuickChipsSection(
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.68f),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
                     modifier = Modifier
+                        .heightIn(min = 44.dp)
                         .testTag("advisor-mood-${chip.id}")
                         .semantics(mergeDescendants = true) {}
                 ) {
@@ -700,7 +701,7 @@ private fun MoodQuickChipsSection(
                             fontSize = 13.sp
                         ),
                         color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp)
                     )
                 }
             }
@@ -800,7 +801,7 @@ private fun AdvisorMessageBubble(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             TextButton(
                 onClick = onRead,
-                modifier = Modifier.testTag("advisor-reading-view")
+                modifier = Modifier.heightIn(min = 44.dp).testTag("advisor-reading-view")
             ) {
                 Icon(Icons.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
@@ -846,7 +847,7 @@ private fun AdvisorMessageBubble(
                         onClick = { onFollowUp(prompt) },
                         label = { Text(label, style = MaterialTheme.typography.labelMedium) },
                         shape = RoundedCornerShape(18.dp),
-                        modifier = Modifier.testTag("advisor-followup-$index")
+                        modifier = Modifier.heightIn(min = 44.dp).testTag("advisor-followup-$index")
                     )
                 }
             }
@@ -932,9 +933,9 @@ private fun AudiobookRecommendationCard(
                         containerColor = SleekChampagne,
                         contentColor = Color.Black
                     ),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
                     modifier = Modifier
-                        .height(34.dp)
+                        .heightIn(min = 44.dp)
                         .testTag("advisor-rec-listen-${book.id}")
                 ) {
                     Icon(
@@ -1139,7 +1140,7 @@ private fun buildWorkReply(
     val recs = if (selectedBook != null) {
         listOf(selectedBook)
     } else if (extraMp != null && extraMp.suggestedTags.isNotEmpty()) {
-        findCatalogMatches(extraMp.suggestedTags.joinToString(" "), catalog, limit = 2)
+        findCatalogMatches(extraMp.suggestedTags.joinToString(" "), catalog, limit = 2, allowFallback = false)
     } else {
         emptyList()
     }
@@ -1173,7 +1174,8 @@ private fun buildWorkReply(
 private fun findCatalogMatches(
     query: String,
     catalog: List<Book>,
-    limit: Int = 2
+    limit: Int = 2,
+    allowFallback: Boolean = true
 ): List<Book> {
     val audiobooks = catalog.filter {
         !it.category.trim().equals("Podcast", ignoreCase = true) && it.id != "local_ci_book"
@@ -1237,6 +1239,7 @@ private fun findCatalogMatches(
         if (scored.isNotEmpty()) return scored
     }
 
+    if (!allowFallback) return emptyList()
     return audiobooks.sortedByDescending { it.viewCount }.take(limit)
 }
 
@@ -1324,11 +1327,17 @@ private fun buildAdvisorReply(
     val mentionsKnownWork = catalog.any { mentionsTitle(q, it.title) } ||
         KmpLiteraryAdvisorKnowledge.allKnownWorkTitles.any { mentionsTitle(q, it) } ||
         KmpLiteraryAdvisorKnowledge.findMasterpieceAnalysis(q, null, depth) != null
-    val asksAboutWork = explicitIntent == "analysis" || analysisRequest.containsMatchIn(q) ||
-        previousWorkReference.containsMatchIn(q) || mentionsKnownWork
-    if (asksAboutWork && explicitIntent != "recommendation" && !recommendationRequest.containsMatchIn(q)) {
-        val workReply = buildWorkReply(q, catalog, previousTitle, depth, spoilerNote)
-        if (workReply.analyzedTitle != null) return workReply
+    val isPureAnalysisAsk = (explicitIntent == "analysis" || analysisRequest.containsMatchIn(q)) &&
+        explicitIntent != "recommendation" &&
+        !recommendationRequest.containsMatchIn(q)
+    val asksAboutWork = isPureAnalysisAsk || previousWorkReference.containsMatchIn(q) || mentionsKnownWork
+    val pendingWorkReply = if (asksAboutWork && explicitIntent != "recommendation" && !recommendationRequest.containsMatchIn(q)) {
+        buildWorkReply(q, catalog, previousTitle, depth, spoilerNote)
+    } else {
+        null
+    }
+    if (pendingWorkReply != null && pendingWorkReply.analyzedTitle != null) {
+        return pendingWorkReply
     }
 
     val conceptMatch = KmpLiteraryAdvisorKnowledge.findConceptReply(q, depth)
@@ -1348,6 +1357,10 @@ private fun buildAdvisorReply(
             answerKind = concept.categoryLabel,
             recommendedBooks = conceptRecs
         )
+    }
+
+    if (isPureAnalysisAsk && pendingWorkReply != null) {
+        return pendingWorkReply
     }
 
     val recs = findCatalogMatches(prompt, catalog, limit = 2)

@@ -60,9 +60,7 @@ data class NotificationItem(
 ) {
     val displayId: String get() = id?.toString() ?: ""
     val safeBookId: String get() = bookId ?: ""
-    val timestamp: Long get() = createdAt?.let {
-        runCatching { kotlinx.datetime.Instant.parse(it).toEpochMilliseconds() }.getOrNull()
-    } ?: 0L
+    val timestamp: Long get() = com.semtinazizi.kitapduy.data.repository.parseSupabaseTimestamp(createdAt)
 }
 
 @Serializable

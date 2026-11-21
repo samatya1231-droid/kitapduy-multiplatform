@@ -103,19 +103,32 @@ fun MiniPlayerSection(
                 }
 
                 if (!isPremium) {
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = Color(0xFFFFD700).copy(alpha = buttonAlpha),
-                        border = BorderStroke(1.dp, Color(0xFFFFD700).copy(alpha = 0.8f)),
-                        modifier = Modifier.padding(end = 12.dp).clickable { 
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onUpgradeClick() 
-                        }
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .padding(end = 6.dp)
+                            .heightIn(min = 44.dp)
+                            .clip(RoundedCornerShape(50))
+                            .clickable {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onUpgradeClick()
+                            }
+                            .padding(horizontal = 2.dp, vertical = 6.dp)
+                            .semantics(mergeDescendants = true) {}
                     ) {
-                        Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = "💎", fontSize = 10.sp)
-                            Spacer(Modifier.width(4.dp))
-                            Text(text = "Reklamsız", color = Color.Black, fontWeight = FontWeight.ExtraBold, fontSize = 9.sp)
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = Color(0xFFFFD700).copy(alpha = buttonAlpha),
+                            border = BorderStroke(1.dp, Color(0xFFFFD700).copy(alpha = 0.8f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(text = "💎", fontSize = 10.sp)
+                                Spacer(Modifier.width(4.dp))
+                                Text(text = "Reklamsız", color = Color.Black, fontWeight = FontWeight.ExtraBold, fontSize = 9.sp)
+                            }
                         }
                     }
                 }

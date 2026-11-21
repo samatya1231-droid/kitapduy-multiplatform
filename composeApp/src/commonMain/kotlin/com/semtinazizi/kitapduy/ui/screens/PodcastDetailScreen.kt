@@ -57,8 +57,9 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
         val navigator = LocalNavigator.currentOrThrow
         val scrollState = rememberScrollState()
         val authViewModel = koinViewModel<AuthViewModel>()
+        val billingManager = koinInject<com.semtinazizi.kitapduy.platform.BillingManager>()
         val userProfile by authViewModel.userProfile.collectAsState()
-        val isPremium = userProfile?.hasPremium() == true
+        val isPremium = billingManager.isPremium.collectAsState().value || userProfile?.hasPremium() == true
 
         var isDescriptionExpanded by remember { mutableStateOf(false) }
 
@@ -71,11 +72,21 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
         var showAtmosphereDialog by remember { mutableStateOf(false) }
         var showSpeedDialog by remember { mutableStateOf(false) }
         var showTimerDialog by remember { mutableStateOf(false) }
+        var downloadMessage by remember { mutableStateOf<String?>(null) }
+        downloadMessage?.let { message ->
+            AlertDialog(
+                onDismissRequest = { downloadMessage = null },
+                text = { Text(message) },
+                confirmButton = { TextButton(onClick = { downloadMessage = null }) { Text("Tamam") } }
+            )
+        }
         
         val currentSpeed by audioController.playbackSpeed.collectAsState()
-        var currentAtmosphere by remember { mutableStateOf<String?>(null) }
-        var atmosphereVolume by remember { mutableStateOf(0.5f) }
+        val currentAtmosphere by audioController.currentAtmosphereId.collectAsState()
+        val atmosphereVolume by audioController.atmosphereVolume.collectAsState()
         val timerRemaining by audioController.sleepTimerRemainingMinutes.collectAsState()
+        val timerRemainingSeconds by audioController.sleepTimerRemainingSeconds.collectAsState()
+        val timerAtBookEnd by audioController.sleepTimerAtBookEnd.collectAsState()
         val isDownloading by audioController.isDownloading.collectAsState()
 
         val displayImageUrl = episode.imageUrl?.takeIf { it.isNotBlank() }
@@ -252,7 +263,11 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                                     .padding(horizontal = 6.dp, vertical = 6.dp)
                                     .semantics(mergeDescendants = true) {}
                             ) {
-                                Icon(Icons.Default.Air, null, tint = MaterialTheme.colorScheme.onSurface)
+                                Icon(
+                                    Icons.Default.Air,
+                                    null,
+                                    tint = if (currentAtmosphere != null) BrandGold else MaterialTheme.colorScheme.onSurface
+                                )
                                 Text("Atmosfer", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
                             }
                             Column(
@@ -265,7 +280,11 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                                     .padding(horizontal = 6.dp, vertical = 6.dp)
                                     .semantics(mergeDescendants = true) {}
                             ) {
-                                Icon(Icons.Default.Timer, null, tint = MaterialTheme.colorScheme.onSurface)
+                                Icon(
+                                    Icons.Default.Timer,
+                                    null,
+                                    tint = if (timerRemainingSeconds > 0 || timerAtBookEnd) BrandGold else MaterialTheme.colorScheme.onSurface
+                                )
                                 Text("Uyku", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
                             }
                             Column(
@@ -275,15 +294,28 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                                     .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                                     .clip(RoundedCornerShape(12.dp))
                                     .clickable {
-                                        if (!isPremium) {
+                                        if (isPremium) {
+                                            if (!audioController.isDownloaded(episode.id)) {
+                                                audioController.downloadPodcastEpisode(episode, podcastTitle) { success ->
+                                                    downloadMessage = if (success) "Bölüm indirildi." else "Bölüm indirilemedi. Lütfen tekrar deneyin."
+                                                }
+                                            } else {
+                                                downloadMessage = "Bu bölüm zaten indirildi."
+                                            }
+                                        } else {
                                             navigator.root.push(SubscriptionPaywallScreen())
                                         }
                                     }
                                     .padding(horizontal = 6.dp, vertical = 6.dp)
                                     .semantics(mergeDescendants = true) {}
                             ) {
-                                Icon(Icons.Default.Download, null, tint = MaterialTheme.colorScheme.onSurface)
-                                Text("İndir", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                                val downloaded = audioController.isDownloaded(episode.id)
+                                Icon(
+                                    if (downloaded) Icons.Default.DownloadDone else Icons.Default.Download,
+                                    null,
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(if (isDownloading) "İndiriliyor" else "İndir", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                         
@@ -340,16 +372,12 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                 AtmosphereDialog(
                     onDismiss = { showAtmosphereDialog = false },
                     currentSound = currentAtmosphere,
-                    onSoundSelected = { 
-                        currentAtmosphere = it
-                        if (it != null) audioController.playAtmosphere(it, atmosphereVolume)
-                        else audioController.stopAtmosphere()
+                    onSoundSelected = { soundId ->
+                        val fallback = atmosphereSounds.firstOrNull { it.id == soundId }?.fallbackUrl
+                        audioController.selectAtmosphere(soundId, fallback)
                     },
                     volume = atmosphereVolume,
-                    onVolumeChange = { 
-                        atmosphereVolume = it
-                        audioController.setAtmosphereVolume(it)
-                    },
+                    onVolumeChange = { audioController.setAtmosphereVolume(it) },
                     isPremiumUser = isPremium,
                     onUpgradeClick = { navigator.root.push(SubscriptionPaywallScreen()) }
                 )
@@ -365,8 +393,13 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                 SleepTimerDialog(
                     onDismiss = { showTimerDialog = false },
                     remainingMinutes = timerRemaining,
+                    remainingSeconds = timerRemainingSeconds,
+                    isAtBookEnd = timerAtBookEnd,
+                    isPremiumUser = isPremium,
                     onTimerSelected = { audioController.startSleepTimer(it) },
-                    onCancelTimer = { audioController.cancelSleepTimer() }
+                    onStopAtBookEnd = { audioController.startSleepTimerAtBookEnd() },
+                    onCancelTimer = { audioController.cancelSleepTimer() },
+                    onUpgradeClick = { navigator.root.push(SubscriptionPaywallScreen()) }
                 )
             }
         }
