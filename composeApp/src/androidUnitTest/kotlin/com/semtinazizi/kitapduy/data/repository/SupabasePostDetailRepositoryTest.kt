@@ -66,4 +66,15 @@ class SupabasePostDetailRepositoryTest {
             assertFailsWith<IllegalArgumentException> { repository.addComment("1", "a".repeat(2001)) }
         } finally { client.close() }
     }
+
+    @Test fun nonNumericAndroidBookIdReturnsNullOrEmptyWithoutNumberFormatException() = runTest {
+        val engine = MockEngine { error("Network should not be called for non-numeric post ID") }
+        val client = createSupabaseClient("https://example.invalid", "test-key") { install(Postgrest); httpEngine = engine }
+        try {
+            val repository = SupabasePostDetailRepository(client, auth)
+            assertNull(repository.getPost("0mVxipNVFmBxtJNs9O0J"))
+            assertEquals(emptyList(), repository.getComments("0mVxipNVFmBxtJNs9O0J"))
+            assertFailsWith<IllegalArgumentException> { repository.addComment("0mVxipNVFmBxtJNs9O0J", "Test") }
+        } finally { client.close() }
+    }
 }

@@ -570,6 +570,7 @@ private fun AdvisorWelcomeSection(
             color = SleekChampagne.copy(alpha = 0.12f),
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 48.dp)
                 .testTag("advisor-reading-route")
                 .semantics(mergeDescendants = true) {}
         ) {

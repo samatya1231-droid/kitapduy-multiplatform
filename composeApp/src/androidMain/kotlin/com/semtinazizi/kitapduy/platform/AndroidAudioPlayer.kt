@@ -51,6 +51,7 @@ class AndroidAudioPlayer : AudioPlayer {
                         exoPlayer?.prepare()
                         exoPlayer?.play()
                     } else {
+                        reachedEnd = true
                         exoPlayer?.stop()
                     }
                     return
@@ -67,6 +68,7 @@ class AndroidAudioPlayer : AudioPlayer {
     override fun play(url: String) {
         val player = exoPlayer ?: return
         playbackError = null
+        reachedEnd = false
         val mediaItem = MediaItem.fromUri(UrlSanitizer.sanitizeUrl(url))
         player.setMediaItem(mediaItem)
         player.prepare()
@@ -77,6 +79,7 @@ class AndroidAudioPlayer : AudioPlayer {
         val player = exoPlayer ?: return
         if (items.isEmpty()) return
         playbackError = null
+        reachedEnd = false
         queuedItems = items
         
         val mediaItems = items.map { item ->
@@ -107,6 +110,10 @@ class AndroidAudioPlayer : AudioPlayer {
     override fun resume() {
         val player = exoPlayer ?: return
         playbackError = null
+        if (player.playbackState == Player.STATE_ENDED) {
+            reachedEnd = false
+            player.seekTo(0L)
+        }
         if (player.playbackState == Player.STATE_IDLE) {
             player.prepare()
         }
@@ -115,10 +122,12 @@ class AndroidAudioPlayer : AudioPlayer {
 
     override fun stop() {
         playbackError = null
+        reachedEnd = false
         exoPlayer?.stop()
     }
 
     override fun seekTo(positionMs: Long) {
+        reachedEnd = false
         exoPlayer?.seekTo(positionMs)
     }
 
@@ -192,6 +201,7 @@ class AndroidAudioPlayer : AudioPlayer {
         val player = exoPlayer ?: return false
         val targetIndex = queuedItems.indexOfFirst { it.id == mediaId }
         if (targetIndex < 0) return false
+        reachedEnd = false
         val startPos = queuedItems[targetIndex].startPositionMs.coerceAtLeast(0L)
         player.seekTo(targetIndex, startPos)
         player.prepare()
@@ -221,6 +231,11 @@ class AndroidAudioPlayer : AudioPlayer {
     }
 
     override fun isPreviewPlaying(): Boolean = previewPlayer?.isPlaying == true
+
+    override fun getPreviewDuration(): Long {
+        val raw = previewPlayer?.duration ?: 0L
+        return if (raw > 0L) raw else 0L
+    }
 
     override fun release() {
         exoPlayer?.release()

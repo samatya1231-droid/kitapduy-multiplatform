@@ -234,4 +234,45 @@ class CrossPlatformSyncAndPremiumPolicyTest {
             client.close()
         }
     }
+
+    @Test
+    fun bookCommentsExcludePollsAndFormatAndroidSpoilerPrefix() = runTest {
+        val engine = MockEngine { request ->
+            if (request.url.encodedPath.endsWith("/rest/v1/posts")) {
+                respond(
+                    """
+                    [
+                      {"id":10,"created_at":"2026-11-20T12:00:00Z","user_id":"android_u1","user_name":"Selnur Kara","comment":"[SPOILER] Son bölümde dedektif sırrı çözüyor","is_premium":true},
+                      {"id":11,"created_at":"2026-11-20T12:05:00Z","user_id":"android_u2","user_name":"Ahmet","book_name":"Anket","comment":"Hangi kitap?","poll_options":["A","B"]}
+                    ]
+                    """.trimIndent(),
+                    HttpStatusCode.OK,
+                    jsonHeaders
+                )
+            } else {
+                respond("[]", HttpStatusCode.OK, jsonHeaders)
+            }
+        }
+        val client = createSupabaseClient("https://example.invalid", "test-key") {
+            install(Postgrest)
+            httpEngine = engine
+        }
+        try {
+            val repo = FeedActionsRepository(client, authAs("me"))
+            val comments = repo.bookComments("book_123")
+            assertEquals(1, comments.size)
+            assertEquals("⚠️ Spoiler: Son bölümde dedektif sırrı çözüyor", comments.single().text)
+        } finally {
+            client.close()
+        }
+    }
+
+    @Test
+    fun notificationTitleForTypeCoversPollVoteAndSocialTypes() {
+        assertEquals("📊 Ankete Yeni Oy", CrossPlatformBridgeHelper.notificationTitleForType("poll_vote"))
+        assertEquals("👋 Yeni Takipçi", CrossPlatformBridgeHelper.notificationTitleForType("FOLLOW"))
+        assertEquals("❤️ Yeni Beğeni", CrossPlatformBridgeHelper.notificationTitleForType("like"))
+        assertEquals("💬 Yeni Yorum", CrossPlatformBridgeHelper.notificationTitleForType("comment"))
+        assertEquals("💬 Yorumuna Yanıt", CrossPlatformBridgeHelper.notificationTitleForType("reply"))
+    }
 }

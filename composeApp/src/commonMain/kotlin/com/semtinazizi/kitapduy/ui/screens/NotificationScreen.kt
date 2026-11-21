@@ -88,8 +88,11 @@ class NotificationScreen : Screen {
                                 client.postgrest["notifications"].update(mapOf("is_read" to true)) {
                                     filter { eq("receiver_id", uid); isIn("id", unreadIds) }
                                 }
-                                if (auth.currentUserUid == uid) notes = notes.map {
-                                    if (it.id in unreadIds) it.copy(isRead = true) else it
+                                if (auth.currentUserUid == uid) {
+                                    notes = notes.map {
+                                        if (it.id in unreadIds) it.copy(isRead = true) else it
+                                    }
+                                    com.semtinazizi.kitapduy.platform.PushNotificationBridge.onForegroundNotificationReceived()
                                 }
                             } catch (cancelled: CancellationException) { throw cancelled }
                             catch (failure: Exception) { readError = true }
@@ -105,8 +108,8 @@ class NotificationScreen : Screen {
                             supportingContent = { if (note.timestamp > 0) Text(com.semtinazizi.kitapduy.ui.components.getRelativeTime(note.timestamp)) },
                             leadingContent = { Icon(Icons.Default.Notifications, null, tint = MaterialTheme.colorScheme.primary) },
                             colors = ListItemDefaults.colors(containerColor = if (note.isRead) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.surfaceVariant),
-                            modifier = Modifier.clickable(enabled = !opening && !note.bookId.isNullOrBlank()) {
-                                val target = note.bookId.orEmpty()
+                            modifier = Modifier.clickable(enabled = !opening) {
+                                val target = note.bookId.orEmpty().trim()
                                 val uid = auth.currentUserUid
                                 if (!note.isRead && note.id != null && !uid.isNullOrBlank()) {
                                     val noteId = note.id
@@ -116,13 +119,13 @@ class NotificationScreen : Screen {
                                             client.postgrest["notifications"].update(mapOf("is_read" to true)) {
                                                 filter { eq("receiver_id", uid); eq("id", noteId) }
                                             }
+                                            com.semtinazizi.kitapduy.platform.PushNotificationBridge.onForegroundNotificationReceived()
                                         }
                                     }
                                 }
-                                when (note.type.lowercase()) {
-                                    "like", "comment", "reply", "poll_vote" -> navigator.push(PostDetailScreen(target))
-                                    "follow" -> navigator.push(UserProfileScreen(target))
-                                    else -> scope.launch {
+                                if (target.isBlank()) return@clickable
+                                val openBookOrPodcast: () -> Unit = {
+                                    scope.launch {
                                         opening = true
                                         try {
                                             if (target.startsWith("podcast_")) {
@@ -141,6 +144,17 @@ class NotificationScreen : Screen {
                                         catch (failure: Exception) { error = "İçerik açılamadı. Tekrar dene." }
                                         finally { opening = false }
                                     }
+                                }
+                                when (note.type.trim().lowercase()) {
+                                    "like", "comment", "reply", "poll_vote" -> {
+                                        if (target.toLongOrNull() != null) {
+                                            navigator.push(PostDetailScreen(target))
+                                        } else {
+                                            openBookOrPodcast()
+                                        }
+                                    }
+                                    "follow" -> navigator.push(UserProfileScreen(target))
+                                    else -> openBookOrPodcast()
                                 }
                             })
                         HorizontalDivider()

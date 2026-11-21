@@ -496,6 +496,10 @@ fun AskidaKitapBagis(viewModel: AskidaViewModel, onSuccess: () -> Unit) {
             .fillMaxSize()
             .imePadding()
             .verticalScroll(rememberScrollState())
+            .clickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = null
+            ) { focusManager.clearFocus() }
             .padding(24.dp)
     ) {
         Text("Bir İyilik Bırak", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
@@ -536,7 +540,8 @@ fun AskidaKitapBagis(viewModel: AskidaViewModel, onSuccess: () -> Unit) {
             value = bookName, onValueChange = { bookName = it },
             label = { Text("Kitap Adı") },
             singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
             modifier = Modifier.fillMaxWidth().testTag("askida-donate-title"),
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFFFFD700), unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(0.1f))

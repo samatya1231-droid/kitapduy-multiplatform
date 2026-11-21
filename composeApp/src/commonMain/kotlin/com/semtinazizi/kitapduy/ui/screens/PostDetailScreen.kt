@@ -95,8 +95,18 @@ class PostDetailScreen(private val postId: String) : Screen {
                     items(comments, key = { it.id }) { comment ->
                         Card(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(12.dp)) {
-                                Text(comment.userName, style = MaterialTheme.typography.titleSmall,
-                                    modifier = Modifier.clickable { navigator.push(UserProfileScreen(comment.userId)) })
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .heightIn(min = 44.dp)
+                                        .clickable { navigator.push(UserProfileScreen(comment.userId)) }
+                                ) {
+                                    Text(comment.userName, style = MaterialTheme.typography.titleSmall)
+                                    if (comment.isPremium) {
+                                        Spacer(Modifier.width(6.dp))
+                                        com.semtinazizi.kitapduy.ui.components.VipPremiumBadge(showText = true)
+                                    }
+                                }
                                 Text(comment.text, Modifier.padding(vertical = 8.dp))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     TextButton(onClick = { model.like(comment.id) }, enabled = auth.currentUserUid != null) {

@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -121,6 +122,7 @@ fun CommentItem(
                             userName = comment.userName,
                             timestamp = comment.timestamp,
                             isOwner = currentUserId == comment.userId,
+                            isPremium = comment.isPremium,
                             onMenuClick = { showMenu = true },
                             showMenu = showMenu,
                             onDismissMenu = { showMenu = false },
@@ -246,8 +248,16 @@ fun CommentAvatar(
     isPremium: Boolean,
     size: androidx.compose.ui.unit.Dp = 48.dp
 ) {
+    val borderColor = if (isPremium) com.semtinazizi.kitapduy.ui.theme.SleekChampagne else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
     Box(modifier = Modifier.size(size)) {
-        val avatarModifier = Modifier.fillMaxSize().clip(CircleShape)
+        val avatarModifier = Modifier
+            .fillMaxSize()
+            .clip(CircleShape)
+            .border(
+                width = if (isPremium) 1.5.dp else 0.5.dp,
+                color = borderColor,
+                shape = CircleShape
+            )
         SmartImage(
             imageUrl = userPhotoUrl,
             contentDescription = userName,
@@ -256,18 +266,6 @@ fun CommentAvatar(
             isAvatar = true,
             fallbackText = userName
         )
-        
-        if (isPremium) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .size(14.dp)
-                    .background(MaterialTheme.colorScheme.primary, CircleShape)
-                    .padding(2.dp)
-            ) {
-                Text("👑", fontSize = 8.sp, modifier = Modifier.align(Alignment.Center))
-            }
-        }
     }
 }
 
@@ -280,20 +278,27 @@ fun CommentHeader(
     onMenuClick: () -> Unit,
     onDismissMenu: () -> Unit,
     onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    isPremium: Boolean = false
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column {
-            Text(
-                text = userName,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.titleSmall
-            )
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = userName,
+                    fontWeight = if (isPremium) FontWeight.ExtraBold else FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.titleSmall
+                )
+                if (isPremium) {
+                    Spacer(Modifier.width(6.dp))
+                    VipPremiumBadge(showText = true)
+                }
+            }
             Text(
                 getRelativeTime(timestamp),
                 style = MaterialTheme.typography.labelSmall,
@@ -498,8 +503,8 @@ fun ReplyItem(
                             style = MaterialTheme.typography.labelLarge
                         )
                         if (reply.isPremium) {
-                            Spacer(Modifier.width(4.dp))
-                            Text("👑", fontSize = 10.sp)
+                            Spacer(Modifier.width(6.dp))
+                            VipPremiumBadge(showText = true)
                         }
                     }
                     Text(

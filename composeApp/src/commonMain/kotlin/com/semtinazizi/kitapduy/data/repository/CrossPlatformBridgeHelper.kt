@@ -204,6 +204,7 @@ internal object CrossPlatformBridgeHelper {
                     put("receiverId", cleanReceiver)
                     put("senderName", senderName.ifBlank { "Bir okur" })
                     put("type", normalizedType.uppercase())
+                    put("title", notificationTitleForType(normalizedType))
                     put("body", message)
                     put("postId", targetId.orEmpty())
                 }.toString()
@@ -216,6 +217,15 @@ internal object CrossPlatformBridgeHelper {
             } catch (_: Throwable) {
             }
         }
+    }
+
+    internal fun notificationTitleForType(type: String): String = when (type.trim().lowercase()) {
+        "like" -> "❤️ Yeni Beğeni"
+        "comment" -> "💬 Yeni Yorum"
+        "reply" -> "💬 Yorumuna Yanıt"
+        "follow" -> "👋 Yeni Takipçi"
+        "poll_vote" -> "📊 Ankete Yeni Oy"
+        else -> "📚 KitapDuy Bildirimi"
     }
 
     suspend fun unreadNotificationCount(supabaseClient: SupabaseClient, userId: String): Int {

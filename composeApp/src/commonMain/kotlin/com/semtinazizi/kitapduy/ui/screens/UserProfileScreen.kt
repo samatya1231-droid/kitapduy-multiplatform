@@ -169,7 +169,8 @@ class UserProfileScreen(val targetUserId: String? = null) : Screen {
                             onPhotoClick = { profile?.photoUrl?.takeIf { it.isNotBlank() }?.let { zoomedImage = it } },
                             onEditPhoto = { coverUpload = false; picker.launch() },
                             onFollowers = { followDialog = true; uid?.let { model.fetchFollowList(it, true) } },
-                            onFollowing = { followDialog = false; uid?.let { model.fetchFollowList(it, false) } })
+                            onFollowing = { followDialog = false; uid?.let { model.fetchFollowList(it, false) } },
+                            isPremium = premium)
                         val badges = profile?.badges.orEmpty().filterNot { it.equals("premium", true) }.distinct()
                         if (badges.isNotEmpty()) LazyRow(contentPadding = PaddingValues(horizontal = 20.dp),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)) {

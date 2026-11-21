@@ -55,5 +55,21 @@ fun initializeIOSConfig(
  * PKCE kodunu mevcut kimlik dogrulama koprusu uzerinden isler.
  */
 fun handleOAuthDeepLink(url: String) {
-    IosAuthenticationBridge.handleCallback(url)
+    val clean = url.trim()
+    val isOAuth = clean.startsWith("kitapduy://login-callback", ignoreCase = true) ||
+        clean.contains("code=", ignoreCase = true) ||
+        clean.contains("access_token=", ignoreCase = true) ||
+        clean.contains("error=", ignoreCase = true)
+    if (isOAuth) {
+        IosAuthenticationBridge.handleCallback(clean)
+    } else if (clean.startsWith("kitapduy://", ignoreCase = true)) {
+        com.semtinazizi.kitapduy.platform.PushNotificationBridge.onNotificationClicked(
+            socialType = null,
+            postId = null,
+            bookId = null,
+            deepLink = clean
+        )
+    } else {
+        IosAuthenticationBridge.handleCallback(clean)
+    }
 }

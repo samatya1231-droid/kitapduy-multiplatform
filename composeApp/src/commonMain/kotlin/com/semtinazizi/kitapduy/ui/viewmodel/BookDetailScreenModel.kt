@@ -76,12 +76,22 @@ class BookDetailScreenModel(
                    userPhoto: String?, isPremium: Boolean, userId: String, userName: String,
                    onSuccess: () -> Unit = {}) {
         if (isSending.value || text.isBlank()) return
-        if (userId.isBlank()) { error.value = "Lütfen giriş yapın."; return }
+        val resolvedUid = userId.trim().takeIf { it.isNotBlank() }
+            ?: authRepository?.currentUserUid?.trim()?.takeIf { it.isNotBlank() }
+        if (resolvedUid == null) { error.value = "Lütfen giriş yapın."; return }
         isSending.value = true
         screenModelScope.launch {
             try {
-                check(feed.createPost(userId, userName, userPhoto, bookId, bookTitle, text.trim(),
-                    isPremium, bookCoverUrl, null)) { "Yorum gönderilemedi. Lütfen tekrar deneyin." }
+                val loadedProfile = if (userName.isBlank() || userName == "Kullanıcı" || userPhoto.isNullOrBlank()) {
+                    runCatching { authRepository?.getUserProfile(resolvedUid) }.getOrNull()
+                } else null
+                val finalName = loadedProfile?.name?.takeIf { it.isNotBlank() }
+                    ?: userName.takeIf { it.isNotBlank() }
+                    ?: "KitapDuy Okuru"
+                val finalPhoto = userPhoto?.takeIf { it.isNotBlank() } ?: loadedProfile?.photoUrl
+                val finalPremium = isPremium || loadedProfile?.hasPremium() == true
+                check(feed.createPost(resolvedUid, finalName, finalPhoto, bookId, bookTitle, text.trim(),
+                    finalPremium, bookCoverUrl, null)) { "Yorum gönderilemedi. Lütfen tekrar deneyin." }
                 onSuccess()
                 comments.value = actions.bookComments(bookId)
             } catch (e: CancellationException) { throw e }
@@ -161,20 +171,33 @@ class BookDetailScreenModel(
     ) {
         val clean = quoteText.trim()
         if (clean.isBlank()) return
-        if (userId.isBlank()) { error.value = "Alıntı paylaşmak için giriş yapın."; return }
+        val resolvedUid = userId.trim().takeIf { it.isNotBlank() }
+            ?: authRepository?.currentUserUid?.trim()?.takeIf { it.isNotBlank() }
+        if (resolvedUid == null) { error.value = "Alıntı paylaşmak için giriş yapın."; return }
         screenModelScope.launch {
             try {
+                val loadedProfile = if (userName.isBlank() || userName == "Kullanıcı" || userPhoto.isNullOrBlank()) {
+                    runCatching { authRepository?.getUserProfile(resolvedUid) }.getOrNull()
+                } else null
+                val finalName = loadedProfile?.name?.takeIf { it.isNotBlank() }
+                    ?: userName.takeIf { it.isNotBlank() }
+                    ?: "KitapDuy Okuru"
+                val finalPhoto = userPhoto?.takeIf { it.isNotBlank() } ?: loadedProfile?.photoUrl
+                val finalPremium = isPremium || loadedProfile?.hasPremium() == true
+                val normalizedAudio = UrlSanitizer.normalizeMediaUrl(book.audioUrl).takeIf {
+                    it.startsWith("http://", ignoreCase = true) || it.startsWith("https://", ignoreCase = true)
+                }
                 val formatted = if (clean.startsWith("\"") && clean.endsWith("\"")) clean else "\"$clean\""
                 val ok = feed.createQuotePost(
-                    userId = userId,
-                    userName = userName.ifBlank { "Kullanıcı" },
-                    userPhoto = userPhoto,
+                    userId = resolvedUid,
+                    userName = finalName,
+                    userPhoto = finalPhoto,
                     bookId = book.id,
                     bookName = book.title,
                     comment = formatted,
-                    isPremium = isPremium,
+                    isPremium = finalPremium,
                     imageUrl = UrlSanitizer.normalizeMediaUrl(book.coverUrl).ifBlank { null },
-                    audioUrl = UrlSanitizer.normalizeMediaUrl(book.audioUrl).ifBlank { null },
+                    audioUrl = normalizedAudio,
                     startPos = positionMs.coerceAtLeast(0L)
                 )
                 check(ok) { "Alıntı akışta paylaşılamadı. Lütfen tekrar deneyin." }

@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -339,16 +340,16 @@ fun FeedCard(
                                 .heightIn(min = 44.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                                .drawBehind {
+                                    if (showResults && percentage > 0f) {
+                                        drawRect(
+                                            color = Color(0xFFFFD700).copy(alpha = 0.3f),
+                                            size = androidx.compose.ui.geometry.Size(size.width * percentage, size.height)
+                                        )
+                                    }
+                                }
                                 .then(if (!hasVoted) Modifier.clickable { onVotePoll(item.id, optionIndex) } else Modifier)
                         ) {
-                            if (showResults) {
-                                Box(
-                                    modifier = Modifier
-                                        .matchParentSize()
-                                        .fillMaxWidth(percentage)
-                                        .background(Color(0xFFFFD700).copy(alpha = 0.3f))
-                                )
-                            }
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()

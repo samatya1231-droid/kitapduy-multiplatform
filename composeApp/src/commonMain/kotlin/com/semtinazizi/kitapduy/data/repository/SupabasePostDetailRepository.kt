@@ -24,24 +24,31 @@ class SupabasePostDetailRepository(
         likedBy = row.likedBy.orEmpty().split(',').filter { it.isNotBlank() },
         timestamp = parseSupabaseTimestamp(row.createdAt))
 
-    override suspend fun getPost(id: String): FeedItem? = client.postgrest["posts"].select {
-        filter { eq("id", id.toLong()) }
-    }.decodeSingleOrNull<SupabasePost>()?.let(::mapSupabasePostToFeedItem)
+    override suspend fun getPost(id: String): FeedItem? {
+        val numericId = id.trim().toLongOrNull() ?: return null
+        return client.postgrest["posts"].select {
+            filter { eq("id", numericId) }
+        }.decodeSingleOrNull<SupabasePost>()?.let(::mapSupabasePostToFeedItem)
+    }
 
-    override suspend fun getComments(postId: String): List<Comment> = client.postgrest["feed_comments"].select {
-        filter { eq("post_id", postId.toLong()) }; order("created_at", Order.DESCENDING)
-    }.decodeList<SupabaseComment>().map(::map)
+    override suspend fun getComments(postId: String): List<Comment> {
+        val numericPostId = postId.trim().toLongOrNull() ?: return emptyList()
+        return client.postgrest["feed_comments"].select {
+            filter { eq("post_id", numericPostId) }; order("created_at", Order.DESCENDING)
+        }.decodeList<SupabaseComment>().map(::map)
+    }
 
     override suspend fun addComment(postId: String, text: String): Comment {
+        val numericPostId = requireNotNull(postId.trim().toLongOrNull()) { "Geçersiz gönderi kimliği." }
         val userId = uid()
         val body = clean(text)
         val profile = auth.getUserProfile(userId) ?: error("Profil yüklenemedi. Lütfen tekrar deneyin.")
         // The author always comes from the authenticated session, never the viewed profile.
-        val row = SupabaseInsertFeedComment(postId.toLong(), userId, profile.name, profile.photoUrl, profile.hasPremium(), body)
+        val row = SupabaseInsertFeedComment(numericPostId, userId, profile.name, profile.photoUrl, profile.hasPremium(), body)
         val saved = map(client.postgrest["feed_comments"].insert(row) { select() }.decodeSingle<SupabaseComment>())
         refreshCommentCount(postId)
         val targetPostOwner = runCatching {
-            client.postgrest["posts"].select { filter { eq("id", postId.toLong()) } }.decodeSingleOrNull<SupabasePost>()?.userId
+            client.postgrest["posts"].select { filter { eq("id", numericPostId) } }.decodeSingleOrNull<SupabasePost>()?.userId
         }.getOrNull()
         if (!targetPostOwner.isNullOrBlank() && targetPostOwner != userId) {
             val senderName = profile.name.takeIf { it.isNotBlank() } ?: "Bir okur"
@@ -60,23 +67,29 @@ class SupabasePostDetailRepository(
     }
 
     override suspend fun editComment(postId: String, commentId: String, text: String): Comment {
+        val numericPostId = requireNotNull(postId.trim().toLongOrNull()) { "Geçersiz gönderi kimliği." }
+        val numericCommentId = requireNotNull(commentId.trim().toLongOrNull()) { "Geçersiz yorum kimliği." }
         val userId = uid(); val body = clean(text)
         val updated = client.postgrest["feed_comments"].update({ set("comment_text", body) }) {
-            filter { eq("id", commentId.toLong()); eq("post_id", postId.toLong()); eq("user_id", userId) }; select()
+            filter { eq("id", numericCommentId); eq("post_id", numericPostId); eq("user_id", userId) }; select()
         }.decodeSingleOrNull<SupabaseComment>() ?: error("Yorum değiştirilemedi; silinmiş veya başka bir kullanıcıya ait olabilir.")
         return map(updated)
     }
 
     override suspend fun deleteComment(postId: String, commentId: String) {
+        val numericPostId = requireNotNull(postId.trim().toLongOrNull()) { "Geçersiz gönderi kimliği." }
+        val numericCommentId = requireNotNull(commentId.trim().toLongOrNull()) { "Geçersiz yorum kimliği." }
         val userId = uid()
         val deleted = client.postgrest["feed_comments"].delete {
-            filter { eq("id", commentId.toLong()); eq("post_id", postId.toLong()); eq("user_id", userId) }; select()
+            filter { eq("id", numericCommentId); eq("post_id", numericPostId); eq("user_id", userId) }; select()
         }.decodeList<SupabaseComment>()
         check(deleted.isNotEmpty()) { "Yorum silinemedi; silinmiş veya başka bir kullanıcıya ait olabilir." }
         refreshCommentCount(postId)
     }
 
     override suspend fun likeComment(postId: String, commentId: String): Comment {
+        val numericPostId = requireNotNull(postId.trim().toLongOrNull()) { "Geçersiz gönderi kimliği." }
+        val numericCommentId = requireNotNull(commentId.trim().toLongOrNull()) { "Geçersiz yorum kimliği." }
         var commentOwnerId: String? = null
         var currentUserId = ""
         var newlyLiked = false
@@ -84,7 +97,7 @@ class SupabasePostDetailRepository(
             val userId = uid()
             currentUserId = userId
             val row = client.postgrest["feed_comments"].select {
-                filter { eq("id", commentId.toLong()); eq("post_id", postId.toLong()) }
+                filter { eq("id", numericCommentId); eq("post_id", numericPostId) }
             }.decodeSingle<SupabaseComment>()
             commentOwnerId = row.userId
             val likes = row.likedBy.orEmpty().split(',').filter { it.isNotBlank() }.toMutableSet()
@@ -93,7 +106,7 @@ class SupabasePostDetailRepository(
                 newlyLiked = true
             }
             val savedRow = client.postgrest["feed_comments"].update({ set("likes", likes.size); set("liked_by", likes.joinToString(",")) }) {
-                filter { eq("id", commentId.toLong()); eq("post_id", postId.toLong()) }; select()
+                filter { eq("id", numericCommentId); eq("post_id", numericPostId) }; select()
             }.decodeSingleOrNull<SupabaseComment>() ?: error("Beğeni kaydedilemedi.")
             map(savedRow)
         }
@@ -114,13 +127,14 @@ class SupabasePostDetailRepository(
     }
 
     private suspend fun refreshCommentCount(postId: String) {
+        val numericPostId = postId.trim().toLongOrNull() ?: return
         // The comment is already committed. A counter failure must not invite a duplicate submission.
         try {
             val total = client.postgrest["feed_comments"].select {
-                filter { eq("post_id", postId.toLong()) }; count(Count.EXACT); head = true
+                filter { eq("post_id", numericPostId) }; count(Count.EXACT); head = true
             }.countOrNull() ?: return
             client.postgrest["posts"].update({ set("comment_count", total) }) {
-                filter { eq("id", postId.toLong()) }
+                filter { eq("id", numericPostId) }
             }
         } catch (cancelled: CancellationException) {
             throw cancelled

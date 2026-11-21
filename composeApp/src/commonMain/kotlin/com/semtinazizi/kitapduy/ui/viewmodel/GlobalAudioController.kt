@@ -46,6 +46,9 @@ class GlobalAudioController(
 
     private var sleepTimerJob: Job? = null
     private var quotePreviewJob: Job? = null
+    private var quotePreviewClipDurationMs: Long = 15_000L
+    private var quotePreviewObservedPlaying: Boolean = false
+    private var currentBookIsPremium: Boolean = false
     private var seenActiveTrackForBookEnd: Boolean = false
     private var lastPostedListeningContentId: String? = null
     private var lastSavedContentId: String? = null
@@ -128,6 +131,9 @@ class GlobalAudioController(
     private val _isQuotePreviewPlaying = MutableStateFlow(false)
     val isQuotePreviewPlaying: StateFlow<Boolean> = _isQuotePreviewPlaying.asStateFlow()
 
+    private val _quotePreviewDurationMs = MutableStateFlow(0L)
+    val quotePreviewDurationMs: StateFlow<Long> = _quotePreviewDurationMs.asStateFlow()
+
     init {
         audioPlayer.initialize()
         // Track position, buffering, ad state and errors periodically
@@ -180,6 +186,17 @@ class GlobalAudioController(
                 return
             }
         }
+        if (_isQuotePreviewPlaying.value) {
+            val previewDur = audioPlayer.getPreviewDuration().coerceAtLeast(0L)
+            if (previewDur > 0L) {
+                _quotePreviewDurationMs.value = previewDur
+            }
+            if (audioPlayer.isPreviewPlaying()) {
+                quotePreviewObservedPlaying = true
+            } else if (quotePreviewObservedPlaying) {
+                stopQuotePreview()
+            }
+        }
         _playbackError.value = audioPlayer.getPlaybackError()
     }
 
@@ -189,6 +206,7 @@ class GlobalAudioController(
     }
 
     fun skipActiveAdIfPremium(isPremium: Boolean) {
+        if (isPremium) currentBookIsPremium = true
         if (!isPremium || !_isAdPlaying.value) return
         val activeBook = _currentBook.value
         if (_isPostRollAd.value || activeBook == null) {
@@ -248,9 +266,11 @@ class GlobalAudioController(
         return progressManager.getProgress(contentId).coerceAtLeast(0L)
     }
 
-    fun playTrack(book: Book, isPremium: Boolean = false) {
+    fun playTrack(book: Book, isPremium: Boolean = false, restartFromBeginning: Boolean = false) {
         saveProgress(force = true)
         resetSaveThrottle()
+        seenActiveTrackForBookEnd = false
+        currentBookIsPremium = isPremium
         audioPlayer.clearPlaybackError()
         _playbackError.value = null
         _currentBook.value = book
@@ -264,6 +284,7 @@ class GlobalAudioController(
         val playUrl = localPath ?: UrlSanitizer.normalizeMediaUrl(book.audioUrl)
         val normalizedCoverUrl = UrlSanitizer.normalizeMediaUrl(book.coverUrl)
         progressManager.saveContentMetadata(book.id, book.title, book.author, normalizedCoverUrl, playUrl)
+        val startPositionMs = if (restartFromBeginning) 0L else progressManager.getProgress(book.id)
 
         if (!isPremium && localPath == null && !book.id.startsWith("local_") && !isCiSmokeTest()) {
             val preRollAd = AudioMediaItem(
@@ -286,7 +307,7 @@ class GlobalAudioController(
                 title = book.title,
                 artist = book.author,
                 artworkUrl = normalizedCoverUrl,
-                startPositionMs = progressManager.getProgress(book.id)
+                startPositionMs = startPositionMs
             )
             audioPlayer.playQueue(listOf(preRollAd, mainItem, postRollAd))
         } else {
@@ -298,7 +319,7 @@ class GlobalAudioController(
                         book.title,
                         book.author,
                         normalizedCoverUrl,
-                        progressManager.getProgress(book.id)
+                        startPositionMs
                     )
                 )
             )
@@ -317,10 +338,12 @@ class GlobalAudioController(
 
     fun playPodcastEpisode(
         episode: com.semtinazizi.kitapduy.model.PodcastEpisode,
-        podcastTitle: String = ""
+        podcastTitle: String = "",
+        restartFromBeginning: Boolean = false
     ) {
         saveProgress(force = true)
         resetSaveThrottle()
+        seenActiveTrackForBookEnd = false
         audioPlayer.clearPlaybackError()
         _playbackError.value = null
         val resolvedTitle = podcastTitle.trim().takeIf { it.isNotBlank() }
@@ -328,6 +351,7 @@ class GlobalAudioController(
         val normalizedAudioUrl = UrlSanitizer.normalizeMediaUrl(episode.audioUrl)
         val playUrl = localPath ?: normalizedAudioUrl
         val normalizedImageUrl = episode.imageUrl?.let { UrlSanitizer.normalizeMediaUrl(it) }.orEmpty()
+        val startPositionMs = if (restartFromBeginning) 0L else progressManager.getProgress(episode.id)
         _currentEpisode.value = episode
         _currentPodcastTitle.value = resolvedTitle
         _currentBook.value = null
@@ -349,7 +373,7 @@ class GlobalAudioController(
                     episode.title,
                     artist = resolvedTitle.orEmpty(),
                     artworkUrl = normalizedImageUrl,
-                    startPositionMs = progressManager.getProgress(episode.id)
+                    startPositionMs = startPositionMs
                 )
             )
         )
@@ -421,6 +445,7 @@ class GlobalAudioController(
     fun playFeedAudio(item: com.semtinazizi.kitapduy.model.FeedItem, url: String, position: Long) {
         saveProgress(force = true)
         resetSaveThrottle()
+        seenActiveTrackForBookEnd = false
         audioPlayer.clearPlaybackError()
         _playbackError.value = null
         val id = "feed_" + item.id
@@ -464,6 +489,22 @@ class GlobalAudioController(
             stopQuotePreview()
             audioPlayer.clearPlaybackError()
             _playbackError.value = null
+            if (audioPlayer.hasReachedTrackEnd()) {
+                val activeBook = _currentBook.value
+                val activeEp = _currentEpisode.value
+                when {
+                    activeBook != null && !activeBook.id.startsWith("feed_") -> {
+                        playTrack(activeBook, isPremium = currentBookIsPremium, restartFromBeginning = true)
+                        if (_currentAtmosphereId.value != null) audioPlayer.resumeAtmosphere()
+                        return
+                    }
+                    activeEp != null -> {
+                        playPodcastEpisode(activeEp, _currentPodcastTitle.value.orEmpty(), restartFromBeginning = true)
+                        if (_currentAtmosphereId.value != null) audioPlayer.resumeAtmosphere()
+                        return
+                    }
+                }
+            }
             audioPlayer.resume()
             if (_currentAtmosphereId.value != null) {
                 audioPlayer.resumeAtmosphere()
@@ -571,8 +612,16 @@ class GlobalAudioController(
             _isBuffering.value = false
         }
         quotePreviewJob?.cancel()
+        quotePreviewClipDurationMs = durationMs.coerceAtLeast(1_000L)
+        quotePreviewObservedPlaying = false
+        _quotePreviewDurationMs.value = 0L
         _isQuotePreviewPlaying.value = true
         audioPlayer.startPreview(targetUrl, startPositionMs.coerceAtLeast(0L))
+        scheduleQuotePreviewAutoStop(quotePreviewClipDurationMs)
+    }
+
+    private fun scheduleQuotePreviewAutoStop(durationMs: Long) {
+        quotePreviewJob?.cancel()
         quotePreviewJob = scope.launch {
             delay(durationMs.coerceAtLeast(1_000L))
             stopQuotePreview()
@@ -582,27 +631,32 @@ class GlobalAudioController(
     fun seekQuotePreview(positionMs: Long) {
         if (_isQuotePreviewPlaying.value) {
             audioPlayer.seekPreviewTo(positionMs.coerceAtLeast(0L))
+            scheduleQuotePreviewAutoStop(quotePreviewClipDurationMs)
         }
     }
 
     fun stopQuotePreview() {
         quotePreviewJob?.cancel()
         quotePreviewJob = null
+        quotePreviewObservedPlaying = false
         audioPlayer.stopPreview()
         _isQuotePreviewPlaying.value = false
     }
 
     fun downloadBook(book: Book, onComplete: (Boolean) -> Unit) {
         if (_isDownloading.value) { onComplete(false); return }
+        val normalizedAudioUrl = UrlSanitizer.normalizeMediaUrl(book.audioUrl)
+        if (normalizedAudioUrl.isBlank()) { onComplete(false); return }
+        val normalizedCoverUrl = UrlSanitizer.normalizeMediaUrl(book.coverUrl)
         _isDownloading.value = true
         scope.launch {
             _isDownloading.value = true
             _downloadProgress.value = 0f
             try {
-                fileDownloader.downloadFile(book.audioUrl, book.id + ".mp3") { progress ->
+                fileDownloader.downloadFile(normalizedAudioUrl, book.id + ".mp3") { progress ->
                     _downloadProgress.value = progress
                 }
-                progressManager.saveContentMetadata(book.id, book.title, book.author, book.coverUrl, book.audioUrl)
+                progressManager.saveContentMetadata(book.id, book.title, book.author, normalizedCoverUrl, normalizedAudioUrl)
                 onComplete(true)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e

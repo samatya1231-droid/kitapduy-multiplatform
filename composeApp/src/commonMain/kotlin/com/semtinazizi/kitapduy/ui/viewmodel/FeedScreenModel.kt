@@ -187,6 +187,10 @@ class FeedScreenModel(
         }
     }
 
+    fun refreshUnreadNotifications() {
+        refreshUnreadNotificationsSilently()
+    }
+
     private fun refreshUnreadNotificationsSilently() {
         screenModelScope.launch {
             try {

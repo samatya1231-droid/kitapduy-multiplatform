@@ -42,7 +42,10 @@ import com.semtinazizi.kitapduy.ui.screens.tabs.LocalTabRootRequest
 import com.semtinazizi.kitapduy.ui.components.MiniPlayerSection
 import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
 import com.semtinazizi.kitapduy.ui.viewmodel.GlobalAudioController
+import com.semtinazizi.kitapduy.domain.repository.BookRepository
 import com.semtinazizi.kitapduy.platform.BillingManager
+import com.semtinazizi.kitapduy.platform.PushNotificationBridge
+import com.semtinazizi.kitapduy.platform.PushNotificationRoute
 import com.semtinazizi.kitapduy.ui.theme.SleekChampagne
 import com.semtinazizi.kitapduy.ui.theme.SleekDarkBackground
 import org.koin.compose.koinInject
@@ -58,6 +61,7 @@ class MainScreen : Screen {
     override fun Content() {
         val audioController = koinInject<GlobalAudioController>()
         val billingManager = koinInject<BillingManager>()
+        val bookRepository = koinInject<BookRepository>()
         val authViewModel = koinViewModel<AuthViewModel>()
         val userProfile by authViewModel.userProfile.collectAsState()
         val isPremium = (billingManager.isPremium.collectAsState().value || userProfile?.hasPremium() == true)
@@ -69,8 +73,46 @@ class MainScreen : Screen {
         val isBuffering by audioController.isBuffering.collectAsState()
         val currentPosition by audioController.currentPosition.collectAsState()
         val duration by audioController.duration.collectAsState()
+        val pendingNotification by PushNotificationBridge.pendingNotification.collectAsState()
         val rootNavigator = LocalNavigator.currentOrThrow
         val tabRootRequests = remember { mutableStateMapOf<Tab, Int>() }
+
+        LaunchedEffect(pendingNotification) {
+            val event = pendingNotification ?: return@LaunchedEffect
+            PushNotificationBridge.consumePendingNotification()
+            when (val route = PushNotificationBridge.resolveRoute(event)) {
+                is PushNotificationRoute.UserProfile -> {
+                    rootNavigator.push(UserProfileScreen(route.userId))
+                }
+                is PushNotificationRoute.PostDetail -> {
+                    rootNavigator.push(PostDetailScreen(route.postId))
+                }
+                is PushNotificationRoute.Podcast -> {
+                    val resolved = runCatching {
+                        bookRepository.resolvePodcastEpisode(route.podcastId, fallbackTitle = "Podcast")
+                    }.getOrNull()
+                    if (resolved != null) {
+                        rootNavigator.push(PodcastDetailScreen(resolved.first, resolved.second))
+                    } else {
+                        rootNavigator.push(NotificationScreen())
+                    }
+                }
+                is PushNotificationRoute.Book -> {
+                    val book = runCatching {
+                        bookRepository.getBookById(route.bookId)
+                            ?: bookRepository.getBooks().find { it.id == route.bookId }
+                    }.getOrNull()
+                    if (book != null) {
+                        rootNavigator.push(BookDetailScreen(book))
+                    } else {
+                        rootNavigator.push(NotificationScreen())
+                    }
+                }
+                PushNotificationRoute.Notifications -> {
+                    rootNavigator.push(NotificationScreen())
+                }
+            }
+        }
 
         TabNavigator(HomeTab) { tabNavigator ->
             Scaffold(

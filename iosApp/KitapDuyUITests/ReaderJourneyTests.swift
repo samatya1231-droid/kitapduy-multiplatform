@@ -703,13 +703,18 @@ final class ReaderJourneyTests: XCTestCase {
             try waitFor("Uyku modu penceresi kapanmalı") { !self.text("Uyku Modu").exists }
 
             try tap(text("Alıntı"))
-            try visible(element("quote-dialog-input"))
+            if element("quote-plus-1s").waitForExistence(timeout: 2), element("quote-plus-1s").isHittable {
+                element("quote-plus-1s").tap()
+            }
+            try visible(element("quote-dialog-input"), scroll: true)
             try type("Harika bir dedektif girisi", into: element("quote-dialog-input"))
+            dismissKeyboardIfNeeded()
+            dismissNonReturnKeyboard()
             try tap(text("Alıntıyı kopyala"), scroll: true)
             try waitFor("Alıntı penceresi kapanmalı") { !self.element("quote-dialog-input").exists }
 
             try tap(text("Alıntı"))
-            try visible(element("quote-dialog-input"))
+            try visible(element("quote-dialog-input"), scroll: true)
             try type("Dedektiflik bir sanattir", into: element("quote-dialog-input"))
             dismissKeyboardIfNeeded()
             dismissNonReturnKeyboard()
@@ -1098,10 +1103,16 @@ final class ReaderJourneyTests: XCTestCase {
             try type("Simyaci", into: element("askida-donate-title"))
             dismissKeyboardIfNeeded()
             dismissNonReturnKeyboard()
+            if app.keyboards.firstMatch.exists, text("Bir İyilik Bırak").exists, text("Bir İyilik Bırak").isHittable {
+                text("Bir İyilik Bırak").tap()
+            }
             try visible(element("askida-donate-city"), scroll: true)
             try type("Bursa", into: element("askida-donate-city"))
             dismissKeyboardIfNeeded()
             dismissNonReturnKeyboard()
+            if app.keyboards.firstMatch.exists, text("Bir İyilik Bırak").exists, text("Bir İyilik Bırak").isHittable {
+                text("Bir İyilik Bırak").tap()
+            }
             for _ in 0..<6 {
                 if isOnScreenAndHittable(element("askida-donate-submit")) { break }
                 swipeSafeUp()
@@ -1392,22 +1403,25 @@ final class ReaderJourneyTests: XCTestCase {
 
     private func dismissNonReturnKeyboard() {
         guard app.keyboards.firstMatch.exists else { return }
-        for key in ["Hide keyboard", "Dismiss", "Done", "Bitti"] {
+        for key in ["Hide keyboard", "Dismiss", "Done", "Bitti", "Tamam"] {
             let keyButton = app.keyboards.buttons[key]
             if keyButton.exists && keyButton.isHittable {
                 keyButton.tap()
                 return
             }
         }
-        let toolbarDone = app.toolbars.buttons["Done"]
-        if toolbarDone.exists && toolbarDone.isHittable {
-            toolbarDone.tap()
+        for label in ["Done", "Bitti", "Tamam"] {
+            let toolbarDone = app.toolbars.buttons[label]
+            if toolbarDone.exists && toolbarDone.isHittable {
+                toolbarDone.tap()
+                return
+            }
         }
     }
 
     private func dismissKeyboardIfNeeded() {
         guard app.keyboards.firstMatch.exists else { return }
-        for key in ["Return", "return", "Search", "search", "Done", "Bitti", "Ara", "Gönder", "Send"] {
+        for key in ["Return", "return", "Search", "search", "Done", "Bitti", "Tamam", "Sonraki", "Next", "İleri", "Ara", "Gönder", "Send"] {
             let keyButton = app.keyboards.buttons[key]
             if keyButton.exists && keyButton.isHittable {
                 keyButton.tap()

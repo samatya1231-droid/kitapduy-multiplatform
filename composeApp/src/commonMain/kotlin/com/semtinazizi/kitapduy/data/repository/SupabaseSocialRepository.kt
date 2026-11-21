@@ -286,8 +286,20 @@ class SupabaseSocialRepository(
 
     override suspend fun sendNotification(receiverId: String, message: String, type: String) {
         try {
-            val notification = SupabaseInsertNotification(receiverId = receiverId, message = message, type = type)
-            supabaseClient.postgrest["notifications"].insert(notification)
+            val senderId = authRepository.currentUserUid.orEmpty()
+            val senderName = senderId.takeIf { it.isNotBlank() }
+                ?.let { runCatching { authRepository.getUserProfile(it)?.name }.getOrNull() }
+                ?.takeIf { it.isNotBlank() } ?: "Bir okur"
+            CrossPlatformBridgeHelper.sendSocialNotification(
+                supabaseClient = supabaseClient,
+                httpClient = httpClient,
+                receiverId = receiverId,
+                senderId = senderId,
+                senderName = senderName,
+                type = type,
+                message = message,
+                targetId = null
+            )
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (e: Throwable) {

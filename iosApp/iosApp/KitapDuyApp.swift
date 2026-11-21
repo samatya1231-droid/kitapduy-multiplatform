@@ -97,7 +97,7 @@ struct KitapDuyApp: App {
 
 
 @MainActor
-final class PushService: NSObject, OSNotificationPermissionObserver, OSPushSubscriptionObserver, OSNotificationLifecycleListener {
+final class PushService: NSObject, OSNotificationPermissionObserver, OSPushSubscriptionObserver, OSNotificationLifecycleListener, OSNotificationClickListener {
     static let shared = PushService()
     private var configured = false
     private var checkedInitialPermission = false
@@ -110,6 +110,7 @@ final class PushService: NSObject, OSNotificationPermissionObserver, OSPushSubsc
         OneSignal.initialize(appId, withLaunchOptions: launchOptions)
         OneSignal.Notifications.addPermissionObserver(self)
         OneSignal.Notifications.addForegroundLifecycleListener(self)
+        OneSignal.Notifications.addClickListener(self)
         OneSignal.User.pushSubscription.addObserver(self)
         PushNotificationBridge.shared.configureIdentity { userId in
             // FIFO main-queue delivery preserves rapid login/logout/account-switch order.
@@ -172,5 +173,34 @@ final class PushService: NSObject, OSNotificationPermissionObserver, OSPushSubsc
 
     nonisolated func onWillDisplay(event: OSNotificationWillDisplayEvent) {
         event.notification.display()
+        DispatchQueue.main.async {
+            PushNotificationBridge.shared.onForegroundNotificationReceived()
+        }
+    }
+
+    nonisolated func onClick(event: OSNotificationClickEvent) {
+        let data = event.notification.additionalData
+        let socialType = (data?["social_type"] as? String)
+            ?? (data?["type"] as? String)
+        let postId: String? = {
+            if let s = data?["post_id"] as? String { return s }
+            if let s = data?["postId"] as? String { return s }
+            if let n = data?["post_id"] as? NSNumber { return n.stringValue }
+            return nil
+        }()
+        let bookId = (data?["book_id"] as? String)
+            ?? (data?["bookId"] as? String)
+        let deepLink = (data?["deep_link"] as? String)
+            ?? (data?["deepLink"] as? String)
+            ?? event.result.url
+        DispatchQueue.main.async {
+            PushNotificationBridge.shared.onNotificationClicked(
+                socialType: socialType,
+                postId: postId,
+                bookId: bookId,
+                deepLink: deepLink
+            )
+            PushNotificationBridge.shared.onForegroundNotificationReceived()
+        }
     }
 }

@@ -33,6 +33,7 @@ class IosAudioPlayer : AudioPlayer {
     private var previewPlaying: Boolean = false
     private var previewReadyJob: Job? = null
     private var previewEndObserver: platform.darwin.NSObjectProtocol? = null
+    private var cachedPreviewDurationMs: Long = 0L
 
     private fun resolveNsUrl(rawUrl: String): NSURL? {
         val trimmed = rawUrl.trim()
@@ -119,6 +120,7 @@ class IosAudioPlayer : AudioPlayer {
                 queueIndex++
                 playCurrentItem(queue[queueIndex].startPositionMs)
             } else if (item.id == "kitapduy_postroll_ad") {
+                reachedEnd = true
                 shouldPlay = false
                 updateNowPlayingInfo()
             } else {
@@ -172,6 +174,7 @@ class IosAudioPlayer : AudioPlayer {
                     queueIndex++
                     playCurrentItem(queue[queueIndex].startPositionMs)
                 } else if (item.id == "kitapduy_postroll_ad") {
+                    reachedEnd = true
                     shouldPlay = false
                     avPlayer?.pause()
                     updateNowPlayingInfo()
@@ -449,6 +452,20 @@ class IosAudioPlayer : AudioPlayer {
                 if (previewPlayer == player) stopPreview()
                 return@launch
             }
+            val itemDur = finiteSecondsToMs(platform.CoreMedia.CMTimeGetSeconds(item.duration))
+            if (itemDur > 0L) {
+                cachedPreviewDurationMs = itemDur
+            } else {
+                val asset = item.asset
+                launch {
+                    val assetDur = withContext(Dispatchers.Default) {
+                        finiteSecondsToMs(platform.CoreMedia.CMTimeGetSeconds(asset.duration))
+                    }
+                    if (previewPlayer == player && assetDur > 0L) {
+                        cachedPreviewDurationMs = assetDur
+                    }
+                }
+            }
             if (safeStart > 0L) {
                 player.seekToTime(platform.CoreMedia.CMTimeMake(value = safeStart, timescale = 1000))
             }
@@ -465,6 +482,7 @@ class IosAudioPlayer : AudioPlayer {
 
     override fun stopPreview() {
         previewPlaying = false
+        cachedPreviewDurationMs = 0L
         previewReadyJob?.cancel()
         previewReadyJob = null
         previewEndObserver?.let {
@@ -479,6 +497,15 @@ class IosAudioPlayer : AudioPlayer {
     override fun isPreviewPlaying(): Boolean {
         val player = previewPlayer ?: return false
         return previewPlaying && player.timeControlStatus == AVPlayerTimeControlStatusPlaying
+    }
+
+    override fun getPreviewDuration(): Long {
+        val item = previewPlayer?.currentItem
+        if (item != null) {
+            val itemDur = finiteSecondsToMs(platform.CoreMedia.CMTimeGetSeconds(item.duration))
+            if (itemDur > 0L) return itemDur
+        }
+        return cachedPreviewDurationMs
     }
 
     override fun release() {

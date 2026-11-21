@@ -153,6 +153,7 @@ data class BookDetailScreen(val book: Book) : Screen {
         var showSpeedDialog by remember { mutableStateOf(false) }
         var showTimerDialog by remember { mutableStateOf(false) }
         var showQuoteDialog by remember { mutableStateOf(false) }
+        var quoteSnapshotPositionMs by remember(book.id) { mutableLongStateOf(0L) }
 
         val currentSpeed by audioController.playbackSpeed.collectAsState()
         val currentAtmosphere by audioController.currentAtmosphereId.collectAsState()
@@ -161,6 +162,7 @@ data class BookDetailScreen(val book: Book) : Screen {
         val timerRemainingSeconds by audioController.sleepTimerRemainingSeconds.collectAsState()
         val timerAtBookEnd by audioController.sleepTimerAtBookEnd.collectAsState()
         val isQuotePreviewPlaying by audioController.isQuotePreviewPlaying.collectAsState()
+        val quotePreviewDurationMs by audioController.quotePreviewDurationMs.collectAsState()
         val playingBook by audioController.currentBook.collectAsState()
         val liveDuration by audioController.duration.collectAsState()
         val isDownloading by audioController.isDownloading.collectAsState()
@@ -249,13 +251,18 @@ data class BookDetailScreen(val book: Book) : Screen {
                             onShowSpeedDialog = { showSpeedDialog = true },
                             onShowAtmosphereDialog = { showAtmosphereDialog = true },
                             onShowTimerDialog = { showTimerDialog = true },
-                            onShowQuoteDialog = { showQuoteDialog = true },
+                            onShowQuoteDialog = {
+                                quoteSnapshotPositionMs = audioController.currentPositionMsFor(book.id)
+                                showQuoteDialog = true
+                            },
                             onDownloadClick = {
                                 if (isPremium) {
                                     if (!audioController.isDownloaded(book.id)) {
                                         audioController.downloadBook(book) { success ->
                                             downloadMessage = if (success) "Kitap indirildi." else "Kitap indirilemedi. Lütfen tekrar deneyin."
                                         }
+                                    } else {
+                                        downloadMessage = "Bu kitap zaten indirildi."
                                     }
                                 } else {
                                     navigator.root.push(SubscriptionPaywallScreen())
@@ -352,10 +359,10 @@ data class BookDetailScreen(val book: Book) : Screen {
 
             BookDetailTopBar(onBackClick = { navigator.pop() })
 
-            val quoteTotalDurationMs = if (playingBook?.id == book.id && liveDuration > 0f) {
-                liveDuration.toLong()
-            } else {
-                book.duration.coerceAtLeast(0L)
+            val quoteTotalDurationMs = when {
+                playingBook?.id == book.id && liveDuration > 0f -> liveDuration.toLong()
+                quotePreviewDurationMs > 0L -> quotePreviewDurationMs
+                else -> book.duration.coerceAtLeast(0L)
             }
 
             BookDetailDialogs(
@@ -369,7 +376,11 @@ data class BookDetailScreen(val book: Book) : Screen {
                 atmosphereVolume = atmosphereVolume,
                 onAtmosphereVolumeChange = { audioController.setAtmosphereVolume(it) },
                 isPremium = isPremium,
-                onPremiumUpgrade = { navigator.root.push(SubscriptionPaywallScreen()) },
+                onPremiumUpgrade = {
+                    if (navigator.root.lastItem !is SubscriptionPaywallScreen) {
+                        navigator.root.push(SubscriptionPaywallScreen())
+                    }
+                },
                 showSpeedDialog = showSpeedDialog,
                 onDismissSpeed = { showSpeedDialog = false },
                 currentSpeed = currentSpeed,
@@ -392,7 +403,7 @@ data class BookDetailScreen(val book: Book) : Screen {
                 bookCoverUrl = book.coverUrl,
                 userName = userName,
                 userPhotoUrl = userProfile?.photoUrl,
-                quoteInitialPositionMs = audioController.currentPositionMsFor(book.id),
+                quoteInitialPositionMs = quoteSnapshotPositionMs,
                 quoteTotalDurationMs = quoteTotalDurationMs,
                 isQuotePreviewPlaying = isQuotePreviewPlaying,
                 onToggleQuotePreview = { startPosMs ->
@@ -695,15 +706,19 @@ private fun AudioPlayerControls(
                             onClick = onUpgradeClick,
                             shape = RoundedCornerShape(20.dp),
                             color = BrandGold,
-                            modifier = Modifier.heightIn(min = 36.dp)
+                            modifier = Modifier.heightIn(min = 44.dp)
                         ) {
-                            Text(
-                                text = "👑 Reklamsız",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color.Black,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                            )
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = "👑 Reklamsız",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.Black
+                                )
+                            }
                         }
                     }
                 }

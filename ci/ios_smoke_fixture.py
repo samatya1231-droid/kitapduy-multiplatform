@@ -10,6 +10,7 @@ import re
 from threading import Lock, Thread
 import time
 from urllib.parse import parse_qs, urlsplit
+import zlib
 
 USER_ID = "b408ace6-91d0-4c5d-98cc-001234567890"
 BOOK_ID = "local_ci_book"
@@ -46,36 +47,49 @@ def normalize_tr(value):
     )
 
 
-def _resolve_cover_name(book_id, category, tags, available_covers):
+def _resolve_cover_name(book_id, category, tags, available_covers, title=""):
     top_name = f"top_{book_id}.jpg"
     if top_name in available_covers:
         return top_name
-    for raw in [category] + list(tags or []):
-        c = normalize_tr(raw)
-        if "polisiye" in c and "cat_polisiye_kizil_dosya.jpg" in available_covers:
-            return "cat_polisiye_kizil_dosya.jpg"
-        if "roman" in c and "cat_roman_budala.jpg" in available_covers:
-            return "cat_roman_budala.jpg"
-        if "tarih" in c and "cat_tarih_lincoln.jpg" in available_covers:
-            return "cat_tarih_lincoln.jpg"
-        if "felsefe" in c and "cat_felsefe_schopenhauer.jpg" in available_covers:
-            return "cat_felsefe_schopenhauer.jpg"
-        if "bilim kurgu" in c and "cat_bilimkurgu_frankenstein.jpg" in available_covers:
-            return "cat_bilimkurgu_frankenstein.jpg"
-        if "siir" in c and "cat_siir_siirler.jpg" in available_covers:
-            return "cat_siir_siirler.jpg"
-        if "kisisel" in c and "cat_gelisim_kendime.jpg" in available_covers:
-            return "cat_gelisim_kendime.jpg"
-        if "cocuk" in c and "cat_cocuk_ozal.jpg" in available_covers:
-            return "cat_cocuk_ozal.jpg"
-        if "turk" in c and "cat_turk_kandil.jpg" in available_covers:
-            return "cat_turk_kandil.jpg"
-        if "ingilizce" in c and "cat_ingilizce_sherlock.jpg" in available_covers:
-            return "cat_ingilizce_sherlock.jpg"
-        if "klasik" in c and "cat_klasik_budala.jpg" in available_covers:
-            return "cat_klasik_budala.jpg"
-    if "cat_dunya_demir_akce.jpg" in available_covers:
-        return "cat_dunya_demir_akce.jpg"
+    norm_title = normalize_tr(title)
+    title_matches = (
+        ("demir akce", "cat_dunya_demir_akce.jpg"),
+        ("oz yolculugu", "cat_cocuk_ozal.jpg"),
+        ("demir irade", "demir_irade.jpg"),
+        ("dorian gray", "dorian_gray.jpg"),
+        ("hayvan ciftligi", "hayvan_ciftligi.jpg"),
+        ("kucuk prens", "kucuk_prens.jpg"),
+        ("keloglan", "keloglan.jpg"),
+        ("andersen", "andersen.jpg"),
+        ("jekyll", "dr_jekyll.jpg"),
+        ("kizil dosya", "kizil_dosya.jpg"),
+        ("sherlock", "sherlock_gloria.jpg"),
+        ("gurur ve onyargi", "pride_prejudice.jpg"),
+        ("pride and prejudice", "pride_prejudice.jpg"),
+        ("sussex", "sussex_vampiri.jpg"),
+        ("kandil", "kandil.jpg"),
+        ("tilsim", "talisman.jpg"),
+        ("talisman", "talisman.jpg"),
+        ("karpuz", "karpuz_sergisi.jpg"),
+        ("kirlangic", "kirlangiclar.jpg"),
+        ("alman gocmen", "alman_gocmen.jpg"),
+        ("gizemli kimlik", "gizemli_kimlik.jpg"),
+        ("dort hikaye", "dort_hikaye.jpg"),
+        ("ozguven", "ozguven.jpg"),
+    )
+    for keyword, cover_name in title_matches:
+        if keyword in norm_title and cover_name in available_covers:
+            return cover_name
+
+    # Distribute unmapped books across distinct non-podcast covers deterministically by book_id
+    # instead of assigning the same cover (e.g. Demir Akce) to every book in a category.
+    distinct_pool = sorted(
+        name for name in available_covers
+        if not name.startswith("podcast_") and name != "cat_dunya_demir_akce.jpg"
+    )
+    if distinct_pool:
+        digest = zlib.crc32(f"{book_id}:{norm_title}".encode("utf-8"))
+        return distinct_pool[digest % len(distinct_pool)]
     return next(iter(sorted(available_covers)))
 
 
@@ -89,7 +103,7 @@ def _load_catalog_templates(available_covers):
             "author": "Deneme Yazarı",
             "category": "Roman",
             "tags": ["Roman"],
-            "cover_file": "dorian_gray.jpg" if "dorian_gray.jpg" in available_covers else _resolve_cover_name(BOOK_ID, "Roman", [], available_covers),
+            "cover_file": "dorian_gray.jpg" if "dorian_gray.jpg" in available_covers else _resolve_cover_name(BOOK_ID, "Roman", [], available_covers, "KitapDuy Deneme Kitabı"),
             "description": "Simülatör için örnek sesli kitap.",
             "duration": 90_000,
             "view_count": 10,
@@ -103,13 +117,14 @@ def _load_catalog_templates(available_covers):
             continue
         category = item.get("category") or "Dünya Edebiyatı"
         tags = item.get("tags") or []
+        title = item.get("title", "")
         templates.append({
             "id": book_id,
-            "title": item.get("title", ""),
+            "title": title,
             "author": item.get("author", ""),
             "category": category,
             "tags": tags,
-            "cover_file": _resolve_cover_name(book_id, category, tags, available_covers),
+            "cover_file": _resolve_cover_name(book_id, category, tags, available_covers, title),
             "description": item.get("description", ""),
             "duration": item.get("duration", 0),
             "view_count": item.get("view_count", 0),

@@ -379,7 +379,11 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                     volume = atmosphereVolume,
                     onVolumeChange = { audioController.setAtmosphereVolume(it) },
                     isPremiumUser = isPremium,
-                    onUpgradeClick = { navigator.root.push(SubscriptionPaywallScreen()) }
+                    onUpgradeClick = {
+                        if (navigator.root.lastItem !is SubscriptionPaywallScreen) {
+                            navigator.root.push(SubscriptionPaywallScreen())
+                        }
+                    }
                 )
             }
             if (showSpeedDialog) {
@@ -399,7 +403,11 @@ data class PodcastDetailScreen(val episode: PodcastEpisode, val podcastTitle: St
                     onTimerSelected = { audioController.startSleepTimer(it) },
                     onStopAtBookEnd = { audioController.startSleepTimerAtBookEnd() },
                     onCancelTimer = { audioController.cancelSleepTimer() },
-                    onUpgradeClick = { navigator.root.push(SubscriptionPaywallScreen()) }
+                    onUpgradeClick = {
+                        if (navigator.root.lastItem !is SubscriptionPaywallScreen) {
+                            navigator.root.push(SubscriptionPaywallScreen())
+                        }
+                    }
                 )
             }
         }

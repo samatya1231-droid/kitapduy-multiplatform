@@ -81,8 +81,17 @@ fun QuoteDialog(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var quote by remember { mutableStateOf("") }
-    var adjustedPosMs by remember(initialPositionMs, totalDurationMs) {
+    var adjustedPosMs by remember {
         mutableLongStateOf(clampQuoteStartPosition(initialPositionMs, totalDurationMs))
+    }
+
+    LaunchedEffect(totalDurationMs) {
+        if (totalDurationMs > 0L) {
+            val clamped = clampQuoteStartPosition(adjustedPosMs, totalDurationMs)
+            if (clamped != adjustedPosMs) {
+                adjustedPosMs = clamped
+            }
+        }
     }
 
     val maxStartMs = if (totalDurationMs > 0L) {
@@ -291,10 +300,10 @@ fun QuoteDialog(
 
                         TextButton(
                             onClick = { updateStartPos(adjustedPosMs - 1_000L) },
-                            contentPadding = PaddingValues(horizontal = 6.dp),
-                            modifier = Modifier.heightIn(min = 44.dp).testTag("quote-minus-1s")
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                            modifier = Modifier.defaultMinSize(minWidth = 44.dp, minHeight = 44.dp).testTag("quote-minus-1s")
                         ) {
-                            Text("-1 sn", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text("-1 sn", fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, softWrap = false)
                         }
 
                         Button(
@@ -305,7 +314,7 @@ fun QuoteDialog(
                                 contentColor = Color.Black
                             ),
                             shape = RoundedCornerShape(24.dp),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                             modifier = Modifier.heightIn(min = 44.dp).testTag("quote-preview-toggle")
                         ) {
                             Icon(
@@ -317,16 +326,18 @@ fun QuoteDialog(
                             Text(
                                 text = if (isPreviewPlaying) "Durdur" else "Önizle",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
+                                fontSize = 13.sp,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
 
                         TextButton(
                             onClick = { updateStartPos(adjustedPosMs + 1_000L) },
-                            contentPadding = PaddingValues(horizontal = 6.dp),
-                            modifier = Modifier.heightIn(min = 44.dp).testTag("quote-plus-1s")
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                            modifier = Modifier.defaultMinSize(minWidth = 44.dp, minHeight = 44.dp).testTag("quote-plus-1s")
                         ) {
-                            Text("+1 sn", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text("+1 sn", fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, softWrap = false)
                         }
 
                         OutlinedIconButton(

@@ -125,6 +125,12 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
         val authViewModel = koinViewModel<AuthViewModel>()
         val userProfile by authViewModel.userProfile.collectAsState()
         val unreadNotifications by viewModel.unreadNotificationCount.collectAsState()
+        val incomingNotificationRevision by com.semtinazizi.kitapduy.platform.PushNotificationBridge.incomingNotificationRevision.collectAsState()
+        LaunchedEffect(incomingNotificationRevision) {
+            if (incomingNotificationRevision > 0L) {
+                viewModel.refreshUnreadNotifications()
+            }
+        }
 
         val isAdmin = userProfile?.badges?.contains("admin") == true
         val isPremium = userProfile?.hasPremium() == true

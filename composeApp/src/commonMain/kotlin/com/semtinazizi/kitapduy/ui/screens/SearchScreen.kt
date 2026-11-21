@@ -696,13 +696,22 @@ fun UserSearchResultItem(user: UserProfile, onClick: () -> Unit) {
                 .weight(1f)
                 .padding(horizontal = 16.dp)
         ) {
-            Text(
-                text = user.name,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = user.name,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = if (user.hasPremium()) FontWeight.ExtraBold else FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
-            )
+                if (user.hasPremium()) {
+                    Spacer(Modifier.width(6.dp))
+                    com.semtinazizi.kitapduy.ui.components.VipPremiumBadge(showText = true)
+                }
+            }
             if (!user.username.isNullOrBlank()) {
                 Text(
                     text = "@${user.username}",

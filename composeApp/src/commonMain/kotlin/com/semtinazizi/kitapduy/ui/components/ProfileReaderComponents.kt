@@ -72,7 +72,8 @@ internal fun ProfileIdentityCard(
     name: String, photoUrl: String?, isOwner: Boolean, membership: String,
     followers: Int, following: Int, uploading: Boolean,
     onPhotoClick: () -> Unit, onEditPhoto: () -> Unit,
-    onFollowers: () -> Unit, onFollowing: () -> Unit
+    onFollowers: () -> Unit, onFollowing: () -> Unit,
+    isPremium: Boolean = false
 ) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -82,7 +83,8 @@ internal fun ProfileIdentityCard(
                 Surface(
                     modifier = Modifier.size(80.dp).clip(CircleShape).clickable(onClick = onPhotoClick),
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surfaceVariant
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    border = if (isPremium) BorderStroke(2.dp, com.semtinazizi.kitapduy.ui.theme.SleekChampagne) else null
                 ) {
                     if (uploading) Box(contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(Modifier.size(28.dp))
@@ -91,9 +93,18 @@ internal fun ProfileIdentityCard(
                 }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(name, style = MaterialTheme.typography.headlineSmall.copy(
-                    fontFamily = com.semtinazizi.kitapduy.ui.theme.PlayfairDisplayFamily, fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.onSurface)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(name, style = MaterialTheme.typography.headlineSmall.copy(
+                        fontFamily = com.semtinazizi.kitapduy.ui.theme.PlayfairDisplayFamily, fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f, fill = false))
+                    if (isPremium) {
+                        VipPremiumBadge(showText = true)
+                    }
+                }
                 Text(membership, style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

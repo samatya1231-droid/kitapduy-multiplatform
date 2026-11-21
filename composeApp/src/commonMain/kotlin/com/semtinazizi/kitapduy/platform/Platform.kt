@@ -50,6 +50,7 @@ interface AudioPlayer {
     fun seekPreviewTo(positionMs: Long) {}
     fun stopPreview() {}
     fun isPreviewPlaying(): Boolean = false
+    fun getPreviewDuration(): Long = 0L
     fun release()
 }
 

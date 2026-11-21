@@ -544,13 +544,113 @@ class GlobalAudioControllerTest {
         controller.playPodcastEpisode(ep, "111 Hz")
         assertEquals("file:///podcast_ep_7.mp3", player.items.single().url)
     }
+
+    @Test fun togglePlayPauseAfterPostRollEndsRestartsBookFromBeginningInsteadOfReplayingAd() = runTest {
+        val player = FakePlayer()
+        val progress = progress()
+        progress.saveProgress("a", 45_000L)
+        val controller = GlobalAudioController(
+            audioPlayer = player,
+            fileDownloader = FakeDownloader(),
+            progressManager = progress,
+            scope = backgroundScope,
+            isCiSmokeTest = { false },
+            resolveBundledAudio = { name, ext -> "file:///bundle/$name.$ext" }
+        )
+
+        controller.playTrack(book, isPremium = false)
+        assertEquals(listOf("kitapduy_preroll_ad", "a", "kitapduy_postroll_ad"), player.items.map { it.id })
+
+        // Advance to post-roll end
+        player.index = 2
+        player.playing = false
+        player.ended = true
+        advanceTimeBy(501)
+
+        // Pressing play again must restart book from 0:00 (not resume post-roll)
+        controller.togglePlayPause()
+        assertEquals("kitapduy_preroll_ad", player.items[0].id)
+        assertEquals("a", player.items[1].id)
+        assertEquals(0L, player.items[1].startPositionMs)
+        assertTrue(player.playing)
+        assertFalse(player.ended)
+    }
+
+    @Test fun sleepTimerAtBookEndResetsActiveTrackLatchWhenSwitchingBooks() = runTest {
+        val player = FakePlayer()
+        val controller = GlobalAudioController(player, FakeDownloader(), progress(), backgroundScope)
+
+        controller.playTrack(book, isPremium = true)
+        controller.startSleepTimerAtBookEnd()
+        // Poll sees book "a" active
+        advanceTimeBy(501)
+
+        // User switches to book "b" while free (pre-roll plays first); latch must reset!
+        val bookB = book.copy(id = "b", title = "B", audioUrl = "https://example.com/b.mp3")
+        controller.playTrack(bookB, isPremium = false)
+        assertEquals("kitapduy_preroll_ad", player.currentMediaId())
+        assertTrue(controller.sleepTimerAtBookEnd.value)
+        assertTrue(player.playing)
+
+        // Even if pre-roll ends before "b" becomes active, sleep timer must NOT prematurely expire
+        advanceTimeBy(501)
+        assertTrue(player.playing)
+        assertTrue(controller.sleepTimerAtBookEnd.value)
+
+        // Once "b" plays and reaches post-roll, sleep timer expires cleanly
+        player.index = 1
+        advanceTimeBy(501)
+        player.index = 2
+        advanceTimeBy(501)
+        assertFalse(player.playing)
+        assertFalse(controller.sleepTimerAtBookEnd.value)
+    }
+
+    @Test fun seekQuotePreviewExtendsAutoStopTimerAndReportsPreviewDuration() = runTest {
+        val player = FakePlayer().apply { previewDurationMs = 180_000L }
+        val controller = GlobalAudioController(player, FakeDownloader(), progress(), backgroundScope)
+
+        controller.startQuotePreview(book, startPositionMs = 10_000L, durationMs = 15_000L)
+        advanceTimeBy(10_000)
+        assertTrue(controller.isQuotePreviewPlaying.value)
+        assertEquals(180_000L, controller.quotePreviewDurationMs.value)
+
+        // Seeking at t=10s resets the 15s window, so preview is still playing at t=20s
+        controller.seekQuotePreview(40_000L)
+        advanceTimeBy(10_000)
+        assertTrue(controller.isQuotePreviewPlaying.value)
+        assertEquals(40_000L, player.previewPos)
+
+        // And stops after full 15s from the seek
+        advanceTimeBy(5_001)
+        assertFalse(controller.isQuotePreviewPlaying.value)
+        assertNull(player.previewUrl)
+    }
+
+    @Test fun downloadBookNormalizesTurkishUrlAndRejectsBlankUrl() = runTest {
+        val files = FakeDownloader()
+        val controller = GlobalAudioController(FakePlayer(), files, progress(), backgroundScope)
+
+        var ok = false
+        controller.downloadBook(book.copy(id = "tr1", audioUrl = "https://ses.kitapduy.com.tr/oz yolculuğu.mp3")) { ok = it }
+        runCurrent()
+        assertTrue(ok)
+        assertEquals("https://ses.kitapduy.com.tr/oz%20yolculu%C4%9Fu.mp3", files.requestedUrl)
+
+        var blankOk: Boolean? = null
+        controller.downloadBook(book.copy(id = "blank", audioUrl = "   ")) { blankOk = it }
+        runCurrent()
+        assertEquals(false, blankOk)
+    }
 }
 
 private class FakeDownloader : FileDownloader {
+    var requestedUrl: String? = null
     var requestedFile: String? = null
     var local: String? = null
     var fail = false
     override suspend fun downloadFile(url: String, fileName: String, onProgress: (Float) -> Unit): String {
+        requestedUrl = url
         requestedFile = fileName
         if (fail) error("Network unavailable")
         return "file:///" + fileName
@@ -574,6 +674,7 @@ private class FakePlayer : AudioPlayer {
     var recordedAtmosphereVolume = 0.5f
     var previewUrl: String? = null
     var previewPos = 0L
+    var previewDurationMs = 0L
     override fun initialize() { initialized = true }
     override fun play(url: String) {}
     override fun playQueue(items: List<AudioMediaItem>, startIndex: Int, startPositionMs: Long) {
@@ -609,5 +710,6 @@ private class FakePlayer : AudioPlayer {
     override fun seekPreviewTo(positionMs: Long) { previewPos = positionMs }
     override fun stopPreview() { previewUrl = null }
     override fun isPreviewPlaying() = previewUrl != null
+    override fun getPreviewDuration() = previewDurationMs
     override fun release() {}
 }

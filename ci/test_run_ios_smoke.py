@@ -958,6 +958,16 @@ class FixtureTest(unittest.TestCase):
         ):
             self.assertIn(token, swift_text)
 
+    def test_fixture_assigns_distinct_covers_to_demir_akce_and_oz_yolculugu(self):
+        with smoke.serve_fixture() as (url, _events):
+            books = self.request_json(url + "/rest/v1/books")
+            by_title = {book["title"]: book for book in books}
+            self.assertIn("Demir Akçe", by_title)
+            self.assertIn("Oz Yolculuğu", by_title)
+            self.assertNotEqual(by_title["Demir Akçe"]["cover_url"], by_title["Oz Yolculuğu"]["cover_url"])
+            dunya = [book["cover_url"] for book in books if book.get("category") == "Dünya Edebiyatı"][:10]
+            self.assertGreaterEqual(len(set(dunya)), 6)
+
 
 if __name__ == "__main__":
     unittest.main()

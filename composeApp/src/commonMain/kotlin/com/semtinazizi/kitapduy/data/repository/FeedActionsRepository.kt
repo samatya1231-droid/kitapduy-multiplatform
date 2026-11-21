@@ -103,12 +103,26 @@ class FeedActionsRepository(
         check(deleted.isNotEmpty()) { "Gönderi silinemedi; silinmiş veya başka bir kullanıcıya ait olabilir." }
     }
 
+    companion object {
+        internal fun formatBookCommentText(raw: String?): String {
+            val trimmed = raw.orEmpty().trim()
+            return if (trimmed.startsWith("[SPOILER]", ignoreCase = true)) {
+                val body = trimmed.substring(9).trim()
+                if (body.isNotEmpty()) "⚠️ Spoiler: $body" else "⚠️ Spoiler"
+            } else {
+                trimmed
+            }
+        }
+    }
+
     suspend fun bookComments(bookId: String): List<Comment> = client.postgrest["posts"].select {
         filter { eq("book_id", bookId) }
         order("created_at", Order.DESCENDING)
     }.decodeList<SupabasePost>()
         .filter {
             it.audioUrl.isNullOrBlank() &&
+                it.pollOptions.isNullOrEmpty() &&
+                !it.bookName.equals("Anket", ignoreCase = true) &&
                 !it.comment.isNullOrBlank() &&
                 it.comment?.contains("dinlemeye başladı", ignoreCase = true) != true
         }
@@ -123,7 +137,7 @@ class FeedActionsRepository(
                 userId = it.userId.orEmpty(),
                 userName = it.userName.orEmpty(),
                 userPhotoUrl = resolveFeedUrl(it.userPhoto).ifBlank { null },
-                text = it.comment.orEmpty(),
+                text = formatBookCommentText(it.comment),
                 isPremium = it.isPremium == true,
                 timestamp = parseSupabaseTimestamp(it.createdAt),
                 likedBy = normalizedLikes,
