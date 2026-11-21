@@ -157,14 +157,14 @@ class WelcomeScreen : Screen {
                             isLoading = false
                         }
                     },
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    modifier = Modifier.fillMaxWidth().height(52.dp).testTag("welcome-apple-signin"),
                     shape = RoundedCornerShape(26.dp),
                     color = Color.White,
                     shadowElevation = 8.dp
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(AppleIcon, contentDescription = "Apple", tint = Color.Black, modifier = Modifier.size(20.dp))
+                            Icon(AppleIcon, contentDescription = null, tint = Color.Black, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(10.dp))
                             Text("Apple ile Devam Et", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                         }
@@ -187,7 +187,7 @@ class WelcomeScreen : Screen {
                             }
                         }
                     },
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    modifier = Modifier.fillMaxWidth().height(52.dp).testTag("welcome-google-signin"),
                     shape = RoundedCornerShape(26.dp),
                     color = Color.White,
                     shadowElevation = 8.dp
@@ -197,7 +197,7 @@ class WelcomeScreen : Screen {
                             CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(24.dp))
                         } else {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(GoogleIcon, contentDescription = "Google", tint = Color.Unspecified, modifier = Modifier.size(20.dp))
+                                Icon(GoogleIcon, contentDescription = null, tint = Color.Unspecified, modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(10.dp))
                                 Text("Google ile Devam Et", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                             }
@@ -213,14 +213,14 @@ class WelcomeScreen : Screen {
                     onClick = {
                         if (!isLoading) navigator.push(LoginScreen())
                     },
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    modifier = Modifier.fillMaxWidth().height(52.dp).testTag("welcome-email-signin"),
                     shape = RoundedCornerShape(26.dp),
                     color = Color.White.copy(alpha = 0.1f),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.Email, contentDescription = "Email", tint = Color.White, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Filled.Email, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(12.dp))
                             Text("E-Posta ile Giriş Yap", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                         }

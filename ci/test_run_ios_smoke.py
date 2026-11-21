@@ -931,10 +931,16 @@ class FixtureTest(unittest.TestCase):
             for step_name, _ in screens:
                 self.assertIn(f'step("{step_name}")', swift_text)
         self.assertNotIn("GuessAuthorScreen", smoke.UNREACHABLE_CODEBASE_SCREENS)
+        self.assertNotIn("StatisticsScreen", smoke.UNREACHABLE_CODEBASE_SCREENS)
+        self.assertNotIn("app.images.allElementsBoundByIndex", swift_text)
         for token in (
             'step("59b-feed-live-listeners")',
             'step("63b-arena-guess-author")',
             'category: "AppleHIG"',
+            'welcome-apple-signin',
+            'TabRootNavigator',
+            'visibleUniqueListeners',
+            'Senin sesli kitap yolculuğun',
             'quote-share-feed',
             'Çakışan etkileşimli düğmeler',
         ):

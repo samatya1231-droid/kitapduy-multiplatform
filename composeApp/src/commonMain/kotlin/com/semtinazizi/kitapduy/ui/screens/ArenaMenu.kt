@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -337,7 +338,7 @@ private fun DailyRiddle(question: QuizQuestion) {
                 OutlinedButton(
                     onClick = { selection = index },
                     enabled = selection == null,
-                    modifier = Modifier.fillMaxWidth().testTag("quiz-riddle-option-$index")
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).testTag("quiz-riddle-option-$index")
                 ) {
                     Text(label)
                 }

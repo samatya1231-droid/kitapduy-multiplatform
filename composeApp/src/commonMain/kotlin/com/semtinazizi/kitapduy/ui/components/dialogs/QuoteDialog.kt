@@ -2,14 +2,20 @@ package com.semtinazizi.kitapduy.ui.components.dialogs
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,11 +34,15 @@ fun QuoteDialog(
     onShareQuoteToFeed: ((String) -> Unit)? = null
 ) {
     val clipboard = LocalClipboardManager.current
+    val focusManager = LocalFocusManager.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var quote by remember { mutableStateOf("") }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -77,8 +87,15 @@ fun QuoteDialog(
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            OutlinedTextField(value = quote, onValueChange = { quote = it },
-                label = { Text("Alıntın") }, modifier = Modifier.fillMaxWidth().testTag("quote-dialog-input"), minLines = 3)
+            OutlinedTextField(
+                value = quote,
+                onValueChange = { quote = it },
+                label = { Text("Alıntın") },
+                modifier = Modifier.fillMaxWidth().testTag("quote-dialog-input"),
+                minLines = 3,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
+            )
             Spacer(Modifier.height(16.dp))
             Button(
                 enabled = quote.isNotBlank(),

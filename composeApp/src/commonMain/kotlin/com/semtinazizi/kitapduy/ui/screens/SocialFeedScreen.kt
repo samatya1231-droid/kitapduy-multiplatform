@@ -776,7 +776,7 @@ private fun RichListeningDialog(
                     enabled = !isOpeningContent,
                     onClick = onOpenContent,
                     colors = ButtonDefaults.buttonColors(containerColor = gold),
-                    modifier = Modifier.testTag("feed-listening-open-content")
+                    modifier = Modifier.heightIn(min = 44.dp).testTag("feed-listening-open-content")
                 ) {
                     Text(if (isOpeningContent) "Açılıyor…" else "İçeriğe Git", color = Color.Black, fontWeight = FontWeight.Bold)
                 }
@@ -785,9 +785,9 @@ private fun RichListeningDialog(
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (item.userId.isNotBlank()) {
-                    TextButton(enabled = !isOpeningContent, onClick = onViewProfile, modifier = Modifier.testTag("feed-listening-view-profile")) { Text("Profili Gör") }
+                    TextButton(enabled = !isOpeningContent, onClick = onViewProfile, modifier = Modifier.heightIn(min = 44.dp).testTag("feed-listening-view-profile")) { Text("Profili Gör") }
                 }
-                TextButton(enabled = !isOpeningContent, onClick = onDismiss, modifier = Modifier.testTag("feed-listening-close")) { Text("Kapat") }
+                TextButton(enabled = !isOpeningContent, onClick = onDismiss, modifier = Modifier.heightIn(min = 44.dp).testTag("feed-listening-close")) { Text("Kapat") }
             }
         }
     )

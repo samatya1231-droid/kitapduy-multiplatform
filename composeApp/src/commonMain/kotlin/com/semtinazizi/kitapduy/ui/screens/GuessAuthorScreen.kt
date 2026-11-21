@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -52,6 +53,8 @@ class GuessAuthorScreen : Screen {
         val showResultColor by screenModel.showResultColor.collectAsState()
 
         val BrandGold = Color(0xFFFFD700)
+        val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
+        val goldText = if (isLight) Color(0xFF92400E) else BrandGold
         
         if (gameState == GuessAuthorState.GAME_OVER) {
             AlertDialog(
@@ -86,9 +89,9 @@ class GuessAuthorScreen : Screen {
                 dismissButton = {
                     TextButton(
                         onClick = { navigator.pop() },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)
                     ) {
-                        Text("Vazgeç ve Çık", color = Color.Gray, fontWeight = FontWeight.Medium)
+                        Text("Vazgeç ve Çık", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
                     }
                 }
             )
@@ -100,7 +103,7 @@ class GuessAuthorScreen : Screen {
                     title = {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("Kimin Kaleminden?", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Black, fontSize = 20.sp)
-                            Text("Bilgi Yarışması", color = BrandGold, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            Text("Bilgi Yarışması", color = goldText, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                         }
                     },
                     navigationIcon = {
@@ -141,8 +144,8 @@ class GuessAuthorScreen : Screen {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("PUAN", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                            Text("$score", color = BrandGold, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                            Text("PUAN", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                            Text("$score", color = goldText, fontSize = 24.sp, fontWeight = FontWeight.Black)
                         }
                         
                         Row(verticalAlignment = Alignment.CenterVertically) {

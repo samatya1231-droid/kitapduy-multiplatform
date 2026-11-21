@@ -85,11 +85,11 @@ internal fun ReadingSummaryContent(premium: Boolean) {
                     }
                 }
                 item {
-                    Text("Dinleme süresi ve günlük aktivite özeti bu hesap için henüz kullanılamıyor.",
+                    Text("Tamamladığın her sesli kitap anında bu özete ve tür dağılımına yansır.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 item {
-                    Button(onClick = { navigator.push(SearchScreen()) }, modifier = Modifier.fillMaxWidth()) { Text("Kitapları keşfet") }
+                    Button(onClick = { navigator.push(SearchScreen()) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Kitapları keşfet") }
                 }
             }
         }
