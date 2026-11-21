@@ -290,7 +290,7 @@ data class ReportRecord(
 
 @kotlinx.serialization.Serializable
 data class SocialBlockRecord(
-    @kotlinx.serialization.SerialName("blocker_uid") val blockerUid: String,
-    @kotlinx.serialization.SerialName("blocked_uid") val blockedUid: String
+    @kotlinx.serialization.SerialName("blocker_id") val blockerId: String,
+    @kotlinx.serialization.SerialName("blocked_id") val blockedId: String
 )
 

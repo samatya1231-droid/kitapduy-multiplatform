@@ -66,6 +66,9 @@ class MainScreen : Screen {
         val currentPodcastTitle by audioController.currentPodcastTitle.collectAsState()
         val isFullPlayerVisible by audioController.isFullPlayerVisible.collectAsState()
         val isPlaying by audioController.isPlaying.collectAsState()
+        val isBuffering by audioController.isBuffering.collectAsState()
+        val currentPosition by audioController.currentPosition.collectAsState()
+        val duration by audioController.duration.collectAsState()
         val rootNavigator = LocalNavigator.currentOrThrow
         val tabRootRequests = remember { mutableStateMapOf<Tab, Int>() }
 
@@ -88,6 +91,8 @@ class MainScreen : Screen {
                                 coverUrl = coverUrl,
                                 isPlaying = isPlaying,
                                 isPremium = isPremium,
+                                progress = if (duration > 0f) currentPosition else null,
+                                isBuffering = isBuffering,
                                 modifier = Modifier.padding(bottom = 8.dp),
                                 onClick = {
                                     if (currentBook != null) {
@@ -107,6 +112,9 @@ class MainScreen : Screen {
                                 },
                                 onPlayPauseClick = {
                                     audioController.togglePlayPause()
+                                },
+                                onCloseClick = {
+                                    audioController.stopPlayback()
                                 },
                                 onUpgradeClick = {
                                     rootNavigator.root.push(com.semtinazizi.kitapduy.ui.screens.SubscriptionPaywallScreen())

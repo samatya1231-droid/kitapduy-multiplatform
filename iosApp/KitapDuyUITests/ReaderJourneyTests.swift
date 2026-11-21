@@ -1000,8 +1000,11 @@ final class ReaderJourneyTests: XCTestCase {
         }
 
         try tap(element("tab-discover"))
+        try visible(element("discover-query"))
         try step("63-arena-leaderboard-and-modes") {
-            try tap(element("discover-arena-card"), scroll: true)
+            let arenaCard = element("discover-arena-card")
+            _ = arenaCard.waitForExistence(timeout: 15)
+            try tap(arenaCard, scroll: !isOnScreenAndHittable(arenaCard))
             try visible(element("quiz-leaderboard-button"), scroll: true)
             try tap(element("quiz-leaderboard-button"))
             try visible(text("Elif Yılmaz"))
@@ -1286,8 +1289,18 @@ final class ReaderJourneyTests: XCTestCase {
 
     private func search(_ query: String, clearFirst: Bool = false) throws {
         if !element("discover-query").exists { try tap(element("tab-discover")) }
+        try visible(element("discover-query"))
         if clearFirst, element("discover-clear").exists { try tap(element("discover-clear")) }
         try type(query, into: element("discover-query"))
+        if !query.isEmpty {
+            let clearVisible = element("discover-clear").waitForExistence(timeout: 2.5)
+            let rawValue = (element("discover-query").value as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let looksTruncated = !rawValue.isEmpty && rawValue.count < max(2, query.count / 2)
+            if !clearVisible || looksTruncated {
+                if element("discover-clear").exists { try tap(element("discover-clear")) }
+                try type(query, into: element("discover-query"))
+            }
+        }
     }
 
     private func elapsed(_ id: String) -> Int {
@@ -1339,9 +1352,9 @@ final class ReaderJourneyTests: XCTestCase {
         guard target.exists else { return false }
         let winFrame = app.windows.firstMatch.frame
         let frame = target.frame
-        guard !winFrame.isEmpty, !frame.isEmpty, frame.width >= 1, frame.height >= 1 else { return false }
+        guard !winFrame.isEmpty, !frame.isEmpty, frame.width >= 4, frame.height >= 4 else { return false }
         if frame.height <= winFrame.height * 0.6,
-           (frame.minY < -1 || frame.maxY > winFrame.height + 1) {
+           (frame.minY < 20 || frame.maxY > winFrame.height - 4) {
             return false
         }
         let center = CGPoint(x: frame.midX, y: frame.midY)
@@ -1399,7 +1412,7 @@ final class ReaderJourneyTests: XCTestCase {
         if scroll {
             for _ in 0..<8 {
                 if isOnScreenAndHittable(target) { return }
-                if target.exists && !target.frame.isEmpty && target.frame.minY < 60 {
+                if target.exists && !target.frame.isEmpty && target.frame.minY < 100 {
                     swipeSafeDown()
                 } else {
                     swipeSafeUp()

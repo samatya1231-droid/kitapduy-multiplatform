@@ -9,7 +9,10 @@ import kotlinx.serialization.SerialName
 import com.semtinazizi.kitapduy.platform.AppConfig
 import com.semtinazizi.kitapduy.util.UrlSanitizer
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
+import io.ktor.http.isSuccess
 import kotlin.concurrent.Volatile
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -350,7 +353,11 @@ class SupabaseBookRepository(
 
         if (matchedPodcast != null && matchedPodcast.rssUrl.isNotBlank()) {
             val rssXml = runCatching {
-                httpClient.get(matchedPodcast.rssUrl).bodyAsText()
+                val response = httpClient.get(matchedPodcast.rssUrl) {
+                    header(HttpHeaders.UserAgent, com.semtinazizi.kitapduy.ui.viewmodel.PodcastEpisodesViewModel.RSS_USER_AGENT)
+                    header(HttpHeaders.Accept, com.semtinazizi.kitapduy.ui.viewmodel.PodcastEpisodesViewModel.RSS_ACCEPT_HEADER)
+                }
+                if (response.status.isSuccess()) response.bodyAsText() else ""
             }.getOrNull().orEmpty()
             val episodes = if (rssXml.isNotBlank()) {
                 com.semtinazizi.kitapduy.ui.viewmodel.PodcastEpisodesViewModel.parseEpisodesXml(

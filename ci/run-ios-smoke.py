@@ -157,7 +157,6 @@ UNREACHABLE_CODEBASE_SCREENS = (
     "MindLibraryScreen",
     "ScienceArticlesScreen",
     "IndependentPensScreen",
-    "PodcastListScreen",
     "FocusScreen",
     "ClubsScreen",
     "ClubDetailScreen",

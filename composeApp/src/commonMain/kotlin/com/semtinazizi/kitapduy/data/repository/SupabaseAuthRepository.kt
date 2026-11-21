@@ -624,9 +624,9 @@ class SupabaseAuthRepository(
         val localBlocked = localStore.getBlockedUsers(cleanUid)
         val remoteBlocked = try {
             supabaseClient.postgrest["blocked_users"]
-                .select { filter { eq("blocker_uid", cleanUid) } }
+                .select { filter { eq("blocker_id", cleanUid) } }
                 .decodeList<AuthBlockRecord>()
-                .map { it.blockedUid }
+                .map { it.blockedId }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Throwable) {
@@ -638,5 +638,5 @@ class SupabaseAuthRepository(
 
 @kotlinx.serialization.Serializable
 data class AuthBlockRecord(
-    @kotlinx.serialization.SerialName("blocked_uid") val blockedUid: String
+    @kotlinx.serialization.SerialName("blocked_id") val blockedId: String
 )

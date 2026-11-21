@@ -90,9 +90,9 @@ data class AuthorDetailScreen(val authorName: String) : Screen {
                 )
                 
                 Text(
-                    text = " Eser",
+                    text = "${authorBooks.size} Eser",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
                 )
                 

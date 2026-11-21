@@ -707,7 +707,11 @@ class FixtureTest(unittest.TestCase):
             book = self.request_json(url + "/rest/v1/books")[0]
             audio_url = book["audio_url"]
             with urlopen(url + "/podcast.xml", timeout=5) as response:
-                self.assertIn(f'{audio_url}?episode=1" type="audio/mpeg"'.encode(), response.read())
+                podcast_body = response.read()
+                self.assertIn(f'{audio_url}?episode=1" type="audio/mpeg"'.encode(), podcast_body)
+                self.assertIn(b"<pubDate>", podcast_body)
+            with urlopen(url + "/podcast.xml?feed=111hz", timeout=5) as response:
+                self.assertIn(b"<pubDate>", response.read())
             with urlopen(Request(audio_url, method="HEAD"), timeout=5) as response:
                 self.assertEqual(response.headers["Content-Type"], "audio/mpeg")
                 self.assertEqual(response.headers["Accept-Ranges"], "bytes")
@@ -932,6 +936,7 @@ class FixtureTest(unittest.TestCase):
                 self.assertIn(f'step("{step_name}")', swift_text)
         self.assertNotIn("GuessAuthorScreen", smoke.UNREACHABLE_CODEBASE_SCREENS)
         self.assertNotIn("StatisticsScreen", smoke.UNREACHABLE_CODEBASE_SCREENS)
+        self.assertNotIn("PodcastListScreen", smoke.UNREACHABLE_CODEBASE_SCREENS)
         self.assertNotIn("app.images.allElementsBoundByIndex", swift_text)
         for token in (
             'step("59b-feed-live-listeners")',

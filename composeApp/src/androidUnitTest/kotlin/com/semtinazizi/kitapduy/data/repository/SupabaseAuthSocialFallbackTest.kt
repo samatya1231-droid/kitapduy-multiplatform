@@ -371,4 +371,52 @@ class SupabaseAuthSocialFallbackTest {
             client.close()
         }
     }
+
+    @Test
+    fun blockedUsersQueriesAndInsertsUseLiveBlockerIdAndBlockedIdColumns() = runTest {
+        var capturedPostBody = ""
+        var capturedGetQuery = ""
+        val engine = MockEngine { request ->
+            if (request.url.encodedPath.endsWith("/rest/v1/blocked_users")) {
+                if (request.method.value == "POST") {
+                    capturedPostBody = (request.body as? io.ktor.http.content.TextContent)?.text.orEmpty()
+                    respond("[]", HttpStatusCode.Created, jsonHeaders)
+                } else {
+                    capturedGetQuery = request.url.encodedQuery
+                    respond("""[{"blocked_id":"remote-spammer-99"}]""", HttpStatusCode.OK, jsonHeaders)
+                }
+            } else {
+                respond("[]", HttpStatusCode.OK, jsonHeaders)
+            }
+        }
+        val settings = fakeSettings()
+        val client = createSupabaseClient("https://example.invalid", "test-key") {
+            install(Postgrest)
+            install(Auth) {
+                alwaysAutoRefresh = false
+                autoLoadFromStorage = false
+                enableLifecycleCallbacks = false
+                sessionManager = com.semtinazizi.kitapduy.data.AppSessionManager(settings)
+                codeVerifierCache = io.github.jan.supabase.auth.MemoryCodeVerifierCache()
+            }
+            httpEngine = engine
+        }
+        try {
+            val authRepo = SupabaseAuthRepository(client, settings)
+            val socialRepo = SupabaseSocialRepository(client, authRepo, settings)
+
+            assertTrue(socialRepo.blockUser("viewer-42", "remote-spammer-99"))
+            assertTrue(capturedPostBody.contains("\"blocker_id\":\"viewer-42\""), "Expected blocker_id in POST body, got: $capturedPostBody")
+            assertTrue(capturedPostBody.contains("\"blocked_id\":\"remote-spammer-99\""), "Expected blocked_id in POST body, got: $capturedPostBody")
+            assertFalse(capturedPostBody.contains("blocker_uid"))
+            assertFalse(capturedPostBody.contains("blocked_uid"))
+
+            val blocked = authRepo.getBlockedUsers("viewer-42")
+            assertTrue(capturedGetQuery.contains("blocker_id=eq.viewer-42"), "Expected blocker_id filter, got: $capturedGetQuery")
+            assertFalse(capturedGetQuery.contains("blocker_uid"))
+            assertTrue("remote-spammer-99" in blocked)
+        } finally {
+            client.close()
+        }
+    }
 }

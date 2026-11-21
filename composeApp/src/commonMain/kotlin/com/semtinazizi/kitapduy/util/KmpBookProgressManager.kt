@@ -29,10 +29,17 @@ class KmpBookProgressManager(private val settings: Settings = Settings()) {
     }
 
     // 🌟 PODCAST VE DİĞER GEÇİCİ İÇERİKLER İÇİN METADATA SAKLAMA 🌟
-    fun saveContentMetadata(id: String, title: String, author: String, coverUrl: String) {
+    fun saveContentMetadata(id: String, title: String, author: String, coverUrl: String, audioUrl: String = "") {
         settings.putString("meta_${id}_title", title)
         settings.putString("meta_${id}_author", author)
         settings.putString("meta_${id}_cover", coverUrl)
+        if (audioUrl.isNotBlank()) {
+            settings.putString("meta_${id}_audio", audioUrl)
+        }
+    }
+
+    fun getContentAudioUrl(id: String): String {
+        return settings.getString("meta_${id}_audio", "")
     }
 
     fun getContentMetadata(id: String): Triple<String, String, String>? {

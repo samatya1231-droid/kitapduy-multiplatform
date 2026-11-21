@@ -44,6 +44,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.koinScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.semtinazizi.kitapduy.util.PlaybackTimeFormatter
 import com.semtinazizi.kitapduy.util.root
 import com.semtinazizi.kitapduy.model.Book
 import com.semtinazizi.kitapduy.model.Comment
@@ -554,10 +555,34 @@ private fun AudioPlayerControls(
 ) {
     val currentBook by audioController.currentBook.collectAsState()
     val isPlaying by audioController.isPlaying.collectAsState()
+    val isBuffering by audioController.isBuffering.collectAsState()
+    val isAdPlaying by audioController.isAdPlaying.collectAsState()
+    val playbackError by audioController.playbackError.collectAsState()
     val currentPosition by audioController.currentPosition.collectAsState()
     val duration by audioController.duration.collectAsState()
+
     val selected = currentBook?.id == book.id
-    val position = if (selected) currentPosition.coerceIn(0f, 1f) else 0f
+    val savedPositionMs = remember(book.id, selected, currentPosition) {
+        audioController.savedPositionMsFor(book.id)
+    }
+    val loadedDurationMs = if (selected && duration > 0f) duration.toLong() else 0L
+    val effectiveTotalMs = if (loadedDurationMs > 0L) loadedDurationMs else book.duration.coerceAtLeast(0L)
+    val elapsedMs = if (selected && loadedDurationMs > 0L) {
+        (currentPosition.coerceIn(0f, 1f).toDouble() * loadedDurationMs.toDouble()).toLong()
+    } else {
+        savedPositionMs
+    }
+    val sliderPosition = when {
+        selected && loadedDurationMs > 0L -> currentPosition.coerceIn(0f, 1f)
+        effectiveTotalMs > 0L && savedPositionMs > 0L ->
+            (savedPositionMs.toDouble() / effectiveTotalMs.toDouble()).toFloat().coerceIn(0f, 1f)
+        else -> 0f
+    }
+    val showBuffering = selected && isBuffering
+    val showAdBanner = selected && isAdPlaying && !isPremium
+    val activeError = if (selected) playbackError else null
+    val canSeek = selected && loadedDurationMs > 0L && !showAdBanner
+
     Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         shape = RoundedCornerShape(24.dp),
@@ -566,13 +591,37 @@ private fun AudioPlayerControls(
         shadowElevation = 2.dp
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
+            if (showAdBanner) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = BrandGold.copy(alpha = 0.14f),
+                    border = BorderStroke(1.dp, BrandGold.copy(alpha = 0.4f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                        .testTag("book-ad-banner")
+                ) {
+                    Text(
+                        text = "🎧 Kısa tanıtım oynatılıyor • Kitabınız birazdan başlayacak",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Şu Anki Konum",
+                    text = when {
+                        showAdBanner -> "Tanıtım Oynatılıyor"
+                        showBuffering -> "Yükleniyor..."
+                        else -> "Şu Anki Konum"
+                    },
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontFamily = PlayfairDisplayFamily,
                         fontWeight = FontWeight.Bold
@@ -580,7 +629,11 @@ private fun AudioPlayerControls(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = playbackTimeLabel(if (selected) duration.toLong() else book.duration.toLong()),
+                    text = when {
+                        showAdBanner -> "Sponsorlu"
+                        showBuffering && effectiveTotalMs <= 0L -> "Hazırlanıyor..."
+                        else -> PlaybackTimeFormatter.formatDurationMs(effectiveTotalMs, placeholderWhenZero = true)
+                    },
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold
@@ -589,8 +642,8 @@ private fun AudioPlayerControls(
             Spacer(Modifier.height(6.dp))
             // Slider
             Slider(
-                value = position,
-                enabled = selected && duration > 0f,
+                value = sliderPosition,
+                enabled = canSeek,
                 onValueChange = { audioController.seekTo(it, expectedBookId = book.id) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -603,11 +656,50 @@ private fun AudioPlayerControls(
                 )
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(playbackTimeLabel((position * duration).toLong()), Modifier.testTag("book-elapsed"),
-                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(playbackTimeLabel(if (selected) duration.toLong() else 0L),
-                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    text = PlaybackTimeFormatter.formatDurationMs(elapsedMs),
+                    modifier = Modifier.testTag("book-elapsed"),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = PlaybackTimeFormatter.formatDurationMs(effectiveTotalMs, placeholderWhenZero = true),
+                    modifier = Modifier.testTag("book-duration"),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
+
+            if (!activeError.isNullOrBlank()) {
+                Spacer(Modifier.height(10.dp))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    modifier = Modifier.fillMaxWidth().testTag("book-playback-error")
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = activeError,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.weight(1f).padding(end = 8.dp)
+                        )
+                        TextButton(
+                            onClick = {
+                                audioController.clearPlaybackError()
+                                audioController.playTrack(book, isPremium)
+                            }
+                        ) {
+                            Text("Tekrar Dene", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
             Spacer(Modifier.height(8.dp))
             // Butonlar
             Row(
@@ -619,7 +711,7 @@ private fun AudioPlayerControls(
                     modifier = Modifier
                         .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                         .testTag("book-skip-back"),
-                    enabled = selected && duration > 0f,
+                    enabled = canSeek,
                     onClick = { audioController.skipBy(-15_000, expectedBookId = book.id) }
                 ) {
                     Icon(Icons.Default.FastRewind, contentDescription = "15 saniye geri")
@@ -637,19 +729,27 @@ private fun AudioPlayerControls(
                     shape = CircleShape,
                     modifier = Modifier.size(64.dp).testTag("book-play-pause")
                 ) {
-                    Icon(
-                        imageVector = if (isPlaying && currentBook?.id == book.id) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = "Oynat/Duraklat",
-                        tint = Color.Black,
-                        modifier = Modifier.size(32.dp)
-                    )
+                    if (showBuffering) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(28.dp),
+                            color = Color.Black,
+                            strokeWidth = 3.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (isPlaying && selected) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = "Oynat/Duraklat",
+                            tint = Color.Black,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 IconButton(
                     modifier = Modifier
                         .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                         .testTag("book-skip-forward"),
-                    enabled = selected && duration > 0f,
+                    enabled = canSeek,
                     onClick = { audioController.skipBy(15_000, expectedBookId = book.id) }
                 ) {
                     Icon(Icons.Default.FastForward, contentDescription = "15 saniye ileri")
@@ -657,11 +757,6 @@ private fun AudioPlayerControls(
             }
         }
     }
-}
-
-private fun playbackTimeLabel(milliseconds: Long): String {
-    val seconds = milliseconds.coerceAtLeast(0) / 1000
-    return "${(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}"
 }
 
 @Composable

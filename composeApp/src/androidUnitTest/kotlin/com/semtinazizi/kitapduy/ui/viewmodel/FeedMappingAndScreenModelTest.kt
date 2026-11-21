@@ -265,4 +265,119 @@ class FeedMappingAndScreenModelTest {
             client.close()
         }
     }
+
+    @Test
+    fun mergeRefreshedPageRemovesDeletedPostsInTopWindowAndPreservesOlderPaginatedTail() {
+        val now = 1_700_000_000_000L
+        fun post(id: Long, offsetSec: Long) = FeedItem(
+            id = id.toString(), userId = "u$id", userName = "User $id", userPhotoUrl = "",
+            bookId = "", bookTitle = "", bookCoverUrl = "", content = "Post $id",
+            timestamp = now - offsetSec * 1000L, type = FeedType.QUOTE
+        )
+
+        // Partial page (< pageSize): deleted post 2 is dropped cleanly
+        val existingSmall = listOf(post(3, 10), post(2, 20), post(1, 30))
+        val freshSmall = listOf(post(3, 10), post(1, 30))
+        assertEquals(listOf("3", "1"), FeedScreenModel.mergeRefreshedPage(freshSmall, existingSmall, pageSize = 50).map { it.id })
+
+        // Full page (== pageSize): deleted post 4 in top window is removed, older tail post 1 is kept
+        val existingPaged = listOf(post(5, 10), post(4, 20), post(3, 30), post(2, 40), post(1, 50))
+        val freshFullPage = listOf(post(6, 5), post(5, 10), post(3, 30)) // pageSize = 3, post 4 deleted
+        val merged = FeedScreenModel.mergeRefreshedPage(freshFullPage, existingPaged, pageSize = 3)
+        assertEquals(listOf("6", "5", "3", "2", "1"), merged.map { it.id })
+
+        // Empty fresh page preserves existing list (transient network failure safeguard)
+        assertEquals(existingSmall, FeedScreenModel.mergeRefreshedPage(emptyList(), existingSmall, pageSize = 50))
+    }
+
+    @Test
+    fun silentRefreshDropsDeletedPostsAndResolvesNullUserProfileInsteadOfSilentlyDropping() = runTest {
+        val now = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+        var generalPosts = listOf(
+            FeedItem("10", "u1", "Ayşe", "", "", "", "", "İlk gönderi", timestamp = now - 10_000L, type = FeedType.QUOTE),
+            FeedItem("9", "u2", "Mehmet", "", "", "", "", "Silinecek gönderi", timestamp = now - 20_000L, type = FeedType.QUOTE)
+        )
+        var listeningPosts = listOf(
+            FeedItem("20", "u1", "Ayşe", "", "b1", "Kitap 1", "", "Bu kitabı dinlemeye başladı 🎧", timestamp = now - 5_000L, type = FeedType.LISTEN),
+            FeedItem("19", "u2", "Mehmet", "", "b2", "Kitap 2", "", "Bu kitabı dinlemeye başladı 🎧", timestamp = now - 15_000L, type = FeedType.LISTEN)
+        )
+        val createdPosts = mutableListOf<Triple<String, String, String>>()
+
+        val fakeFeedRepo = object : FeedRepository {
+            override suspend fun getFeedItems(excludeListen: Boolean, limit: Long, offset: Long) = generalPosts
+            override suspend fun getListeningFeedItems(limit: Long, offset: Long) = listeningPosts
+            override suspend fun createPost(
+                userId: String, userName: String, userPhoto: String?, bookId: String, bookName: String,
+                comment: String, isPremium: Boolean, imageUrl: String?, audioUrl: String?, pollOptions: List<String>?
+            ): Boolean {
+                createdPosts.add(Triple(userId, userName, comment))
+                return true
+            }
+            override fun startRealtimeListening(onNewPost: (FeedItem) -> Unit) {}
+            override fun stopRealtimeListening() {}
+        }
+        val fakeStorage = object : StorageRepository {
+            override suspend fun uploadProfilePicture(userId: String, bytes: ByteArray, extension: String) = Result.success("")
+            override suspend fun uploadImage(folder: String, fileNamePrefix: String, bytes: ByteArray, extension: String) = Result.success("")
+        }
+        val client = createSupabaseClient("https://example.invalid", "key") {
+            install(Postgrest)
+            httpEngine = MockEngine { respond("[]", HttpStatusCode.OK) }
+        }
+        var currentUid: String? = "u-resolved"
+        val auth = object : AuthRepository by com.semtinazizi.kitapduy.data.repository.DummyAuthRepository() {
+            override val currentUserUid: String? get() = currentUid
+            override suspend fun getUserProfile(uid: String) = UserProfile(uid = uid, name = "Çözülen Okur")
+        }
+
+        try {
+            val model = FeedScreenModel(fakeFeedRepo, fakeStorage, FeedActionsRepository(client, auth), null, auth)
+            model.loadFeed(true)
+            runCurrent()
+            assertEquals(listOf("10", "9"), model.generalFeedItems.value.map { it.id })
+            assertEquals(listOf("20", "19"), model.listeningRibbonItems.value.map { it.id })
+
+            // Simulate post 9 and listening post 19 deleted on Android
+            generalPosts = listOf(generalPosts.first())
+            listeningPosts = listOf(listeningPosts.first())
+            model.refreshFeedSilently()
+            runCurrent()
+
+            assertEquals(listOf("10"), model.generalFeedItems.value.map { it.id })
+            assertEquals(listOf("20"), model.listeningFeedItems.value.map { it.id })
+            assertEquals(listOf("20"), model.listeningRibbonItems.value.map { it.id })
+
+            // Passing null userProfile while authenticated resolves profile from authRepository
+            model.shareUserPost("Merhaba dünya", userProfile = null)
+            runCurrent()
+            assertEquals(listOf(Triple("u-resolved", "Çözülen Okur", "Merhaba dünya")), createdPosts)
+            assertNull(model.actionError.value)
+
+            // Poll with <2 options sets clear error instead of silent no-op
+            model.sharePoll("Tek seçenek?", listOf("Sadece A", "   "), UserProfile(uid = "u1", name = "Okur"))
+            runCurrent()
+            assertNotNull(model.actionError.value)
+            assertEquals(1, createdPosts.size)
+
+            // Passing null userProfile when logged out sets actionError instead of silently dropping
+            model.actionError.value = null
+            currentUid = null
+            model.shareUserPost("Oturumsuz gönderi", userProfile = null)
+            runCurrent()
+            assertNotNull(model.actionError.value)
+            assertEquals(1, createdPosts.size)
+        } finally {
+            client.close()
+        }
+    }
+
+    @Test
+    fun parseSupabaseTimestampHandlesMultipleIsoOffsetFormats() {
+        val baseUtc = com.semtinazizi.kitapduy.data.repository.parseSupabaseTimestamp("2026-11-21T10:00:00Z")
+        assertTrue(baseUtc > 0L)
+        assertEquals(baseUtc, com.semtinazizi.kitapduy.data.repository.parseSupabaseTimestamp("2026-11-21 10:00:00+00:00"))
+        assertEquals(baseUtc, com.semtinazizi.kitapduy.data.repository.parseSupabaseTimestamp("2026-11-21T10:00:00.000+0000"))
+        assertEquals(baseUtc, com.semtinazizi.kitapduy.data.repository.parseSupabaseTimestamp("2026-11-21T13:00:00+03:00"))
+        assertEquals(baseUtc, com.semtinazizi.kitapduy.data.repository.parseSupabaseTimestamp("2026-11-21T05:00:00-05:00"))
+    }
 }

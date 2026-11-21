@@ -153,7 +153,7 @@ data class MoodDetailScreen(val moodId: String) : Screen {
                                 text = mood.name,
                                 style = MaterialTheme.typography.displayMedium.copy(
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = SleekChampagne,
+                                    color = MaterialTheme.colorScheme.onBackground,
                                     letterSpacing = 1.sp
                                 ),
                                 textAlign = TextAlign.Center
@@ -162,7 +162,7 @@ data class MoodDetailScreen(val moodId: String) : Screen {
                             Text(
                                 text = mood.description,
                                 style = MaterialTheme.typography.bodyLarge.copy(
-                                    color = Color.White.copy(alpha = 0.9f),
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f),
                                     lineHeight = 26.sp,
                                     fontWeight = FontWeight.Medium
                                 ),
@@ -281,7 +281,7 @@ fun SectionHeader(title: String) {
         text = title,
         style = MaterialTheme.typography.titleLarge.copy(
             fontWeight = FontWeight.ExtraBold,
-            color = SleekChampagne,
+            color = MaterialTheme.colorScheme.onBackground,
             letterSpacing = 0.5.sp
         ),
         modifier = Modifier.padding(start = 24.dp, top = 40.dp, bottom = 20.dp)
@@ -366,7 +366,7 @@ fun PremiumPodcastCard(podcast: Podcast, onClick: () -> Unit) {
                 modifier = Modifier
                     .size(160.dp)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(SleekSurface),
+                    .background(MaterialTheme.colorScheme.surface),
                 fallbackText = podcast.name
             )
             Box(
@@ -388,14 +388,14 @@ fun PremiumPodcastCard(podcast: Podcast, onClick: () -> Unit) {
             overflow = TextOverflow.Ellipsis,
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.White
+            color = MaterialTheme.colorScheme.onBackground
         )
         Text(
             text = podcast.author,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodySmall,
-            color = SleekGray
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

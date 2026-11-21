@@ -22,9 +22,16 @@ internal fun resolveFeedUrl(url: String?): String {
 internal fun parseSupabaseTimestamp(raw: String?): Long {
     if (raw.isNullOrBlank()) return 0L
     val clean = raw.trim().replace(" ", "T")
+    val timePart = clean.substringAfter('T', "")
     val normalized = when {
         clean.endsWith("+00") -> clean.dropLast(3) + "Z"
-        !clean.endsWith("Z") && !clean.contains("+") && clean.length >= 19 -> "${clean}Z"
+        Regex("[+-]\\d{4}$").containsMatchIn(timePart) ->
+            clean.dropLast(2) + ":" + clean.takeLast(2)
+        Regex("[+-]\\d{2}$").containsMatchIn(timePart) ->
+            "$clean:00"
+        !clean.endsWith("Z", ignoreCase = true) &&
+            !Regex("[+-]\\d{2}:\\d{2}$").containsMatchIn(timePart) &&
+            clean.length >= 19 -> "${clean}Z"
         else -> clean
     }
     return runCatching { kotlinx.datetime.Instant.parse(normalized).toEpochMilliseconds() }.getOrDefault(0L)

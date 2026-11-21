@@ -23,6 +23,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -46,6 +49,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,6 +61,8 @@ import com.semtinazizi.kitapduy.ui.components.SmartImage
 import com.semtinazizi.kitapduy.ui.theme.PlayfairDisplayFamily
 import com.semtinazizi.kitapduy.ui.theme.SleekChampagne
 import com.semtinazizi.kitapduy.ui.viewmodel.AuthViewModel
+import com.semtinazizi.kitapduy.util.PlaybackTimeFormatter
+import com.semtinazizi.kitapduy.util.RssTextCleaner
 import org.koin.compose.viewmodel.koinViewModel
 
 data class PodcastEpisodesScreen(
@@ -123,11 +129,41 @@ data class PodcastEpisodesScreen(
                 if (isLoading) {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 } else if (error != null) {
-                    Text(
-                        text = error ?: "Bir hata oluştu.",
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center).padding(16.dp)
-                    )
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Headphones,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(44.dp)
+                        )
+                        Text(
+                            text = error ?: "Bölümler yüklenirken bir hata oluştu.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        )
+                        Button(
+                            onClick = { viewModel.loadEpisodes(rssUrl, podcastId, forceRefresh = true) },
+                            colors = ButtonDefaults.buttonColors(containerColor = SleekChampagne),
+                            modifier = Modifier.height(48.dp).testTag("podcast-episodes-retry")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = null,
+                                tint = Color.Black,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Yeniden Dene", color = Color.Black, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
@@ -142,23 +178,48 @@ data class PodcastEpisodesScreen(
                             )
                         }
 
-                        item(key = "episodes-heading") {
-                            Text(
-                                text = "Bölümler",
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontFamily = PlayfairDisplayFamily,
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)
-                            )
+                        if (episodes.isEmpty()) {
+                            item(key = "episodes-empty") {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 32.dp, horizontal = 16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Text(
+                                        text = "Bölümler yüklenemedi veya bu podcast henüz bölüm içermiyor.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Button(
+                                        onClick = { viewModel.loadEpisodes(rssUrl, podcastId, forceRefresh = true) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = SleekChampagne),
+                                        modifier = Modifier.height(48.dp).testTag("podcast-episodes-retry")
+                                    ) {
+                                        Text("Yeniden Dene", color = Color.Black, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        } else {
+                            item(key = "episodes-heading") {
+                                Text(
+                                    text = "Bölümler",
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontFamily = PlayfairDisplayFamily,
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)
+                                )
+                            }
                         }
 
                         items(episodes.size) { index ->
                             val episode = episodes[index]
                             val isThisPlaying = currentEpisode?.id == episode.id
-                            val cleanDesc = episode.description
-                                .replace(Regex("<[^>]*>"), " ")
-                                .replace(Regex("\\s+"), " ")
+                            val cleanDesc = RssTextCleaner.cleanHtmlDescription(episode.description)
+                                .replace('\n', ' ')
                                 .trim()
 
                             Card(
@@ -217,9 +278,17 @@ data class PodcastEpisodesScreen(
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                         }
+                                        val formattedDuration = PlaybackTimeFormatter.formatRssDuration(
+                                            episode.duration,
+                                            emptyPlaceholder = ""
+                                        )
+                                        val formattedDate = PlaybackTimeFormatter.formatPubDateTr(
+                                            episode.pubDate,
+                                            fallback = ""
+                                        )
                                         val meta = listOfNotNull(
-                                            episode.duration.takeIf { it.isNotBlank() },
-                                            episode.pubDate.takeIf { it.isNotBlank() }
+                                            formattedDuration.takeIf { it.isNotBlank() },
+                                            formattedDate.takeIf { it.isNotBlank() }
                                         ).joinToString(" • ")
                                         if (meta.isNotBlank()) {
                                             Spacer(Modifier.height(6.dp))

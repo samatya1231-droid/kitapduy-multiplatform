@@ -283,7 +283,35 @@ class HomeScreen : Screen {
                             }
                         }
                         if (podcasts.isNotEmpty()) item(key = "podcasts") {
-                            SpotifySectionHeader("Podcast dünyası")
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 16.dp, end = 8.dp, top = 24.dp, bottom = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Podcast dünyası",
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontFamily = PlayfairDisplayFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                )
+                                TextButton(
+                                    onClick = { navigator.push(PodcastListScreen()) },
+                                    modifier = Modifier
+                                        .heightIn(min = 44.dp)
+                                        .testTag("home-podcasts-see-all")
+                                ) {
+                                    Text(
+                                        text = "Tümünü Gör",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
                             PodcastRow(podcasts.take(6)) {
                                 navigator.push(PodcastEpisodesScreen(it.id, it.name, it.rssUrl, it.imageUrl))
                             }

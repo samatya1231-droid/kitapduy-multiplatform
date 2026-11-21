@@ -2,6 +2,7 @@ package com.semtinazizi.kitapduy.ui.viewmodel
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import com.semtinazizi.kitapduy.domain.repository.AuthRepository
 import com.semtinazizi.kitapduy.domain.repository.BookRepository
 import com.semtinazizi.kitapduy.domain.repository.FeedRepository
 import com.semtinazizi.kitapduy.data.repository.StorageRepository
@@ -14,11 +15,9 @@ import io.github.vinceglb.filekit.core.PlatformFile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 
@@ -32,13 +31,43 @@ class FeedScreenModel(
     private val feedRepository: FeedRepository,
     private val storageRepository: StorageRepository,
     private val actions: com.semtinazizi.kitapduy.data.repository.FeedActionsRepository,
-    private val bookRepository: BookRepository? = null
+    private val bookRepository: BookRepository? = null,
+    private val authRepository: AuthRepository? = null
 ) : ScreenModel {
 
     companion object {
         private const val LIVE_WINDOW_MS = 24L * 60L * 60L * 1000L
+        internal const val PAGE_SIZE = 50
         private val WHITESPACE_REGEX = Regex("\\s+")
         private val GENERIC_LISTENER_NAMES = setOf("okur", "kullanıcı", "kullanici", "isimsiz", "misafir")
+
+        internal fun mergeRefreshedPage(
+            freshPage: List<FeedItem>,
+            existing: List<FeedItem>,
+            pageSize: Int = PAGE_SIZE
+        ): List<FeedItem> {
+            if (freshPage.isEmpty()) return existing
+            val distinctFresh = freshPage.distinctBy { it.id }
+            if (distinctFresh.size < pageSize) {
+                return distinctFresh
+            }
+            val freshIds = distinctFresh.map { it.id }.toSet()
+            val minFreshTs = distinctFresh.minOf { it.timestamp }
+            val minFreshNumericId = distinctFresh.mapNotNull { it.id.toLongOrNull() }.minOrNull()
+            val olderTail = existing.filter { item ->
+                if (item.id in freshIds) return@filter false
+                val numericId = item.id.toLongOrNull()
+                when {
+                    minFreshTs > 0L && item.timestamp > 0L -> {
+                        item.timestamp < minFreshTs ||
+                            (item.timestamp == minFreshTs && minFreshNumericId != null && numericId != null && numericId < minFreshNumericId)
+                    }
+                    minFreshNumericId != null && numericId != null -> numericId < minFreshNumericId
+                    else -> false
+                }
+            }
+            return distinctFresh + olderTail
+        }
 
         internal fun computeListeningRibbon(
             items: List<FeedItem>,
@@ -115,12 +144,6 @@ class FeedScreenModel(
                 _generalFeedItems.value = updated
             }
         }
-        screenModelScope.launch {
-            while (isActive) {
-                delay(12_000L)
-                refreshFeedSilently()
-            }
-        }
     }
 
     override fun onDispose() {
@@ -132,27 +155,35 @@ class FeedScreenModel(
         if (_isLoading.value || _isLoadingMore.value) return
         try {
             coroutineScope {
-                val generalDeferred = async { feedRepository.getFeedItems(excludeListen = true, limit = 50, offset = 0) }
-                val listeningDeferred = async { feedRepository.getListeningFeedItems(limit = 50, offset = 0) }
-                val unreadDeferred = async { actions.unreadNotificationCount() }
+                val generalDeferred = async { feedRepository.getFeedItems(excludeListen = true, limit = PAGE_SIZE.toLong(), offset = 0) }
+                val listeningDeferred = async { feedRepository.getListeningFeedItems(limit = PAGE_SIZE.toLong(), offset = 0) }
 
                 val freshGeneral = generalDeferred.await().filter { it.type != FeedType.LISTEN }
                 val freshListening = listeningDeferred.await().filter { it.type == FeedType.LISTEN }
-                val unread = unreadDeferred.await()
 
                 if (freshGeneral.isNotEmpty()) {
-                    _generalFeedItems.value = (freshGeneral + _generalFeedItems.value).distinctBy { it.id }
+                    _generalFeedItems.value = mergeRefreshedPage(freshGeneral, _generalFeedItems.value, PAGE_SIZE)
                 }
                 if (freshListening.isNotEmpty()) {
-                    val mergedListening = (freshListening + _listeningFeedItems.value).distinctBy { it.id }
-                    _listeningFeedItems.value = mergedListening
-                    _listeningRibbonItems.value = computeListeningRibbon(mergedListening)
+                    _listeningFeedItems.value = mergeRefreshedPage(freshListening, _listeningFeedItems.value, PAGE_SIZE)
+                    _listeningRibbonItems.value = computeListeningRibbon(freshListening)
                 }
-                _unreadNotificationCount.value = unread
             }
+            refreshUnreadNotificationsSilently()
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Throwable) {
+        }
+    }
+
+    private fun refreshUnreadNotificationsSilently() {
+        screenModelScope.launch {
+            try {
+                _unreadNotificationCount.value = actions.unreadNotificationCount()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+            }
         }
     }
 
@@ -169,18 +200,16 @@ class FeedScreenModel(
         screenModelScope.launch {
             try {
                 coroutineScope {
-                    val generalDeferred = async { feedRepository.getFeedItems(excludeListen = true, limit = 50, offset = 0) }
-                    val listeningDeferred = async { feedRepository.getListeningFeedItems(limit = 50, offset = 0) }
-                    val unreadDeferred = async { actions.unreadNotificationCount() }
+                    val generalDeferred = async { feedRepository.getFeedItems(excludeListen = true, limit = PAGE_SIZE.toLong(), offset = 0) }
+                    val listeningDeferred = async { feedRepository.getListeningFeedItems(limit = PAGE_SIZE.toLong(), offset = 0) }
 
                     val generalRaw = generalDeferred.await()
                     val listeningRaw = listeningDeferred.await()
-                    _unreadNotificationCount.value = unreadDeferred.await()
 
                     generalOffset = generalRaw.size.toLong()
                     listeningOffset = listeningRaw.size.toLong()
-                    _canLoadMoreGeneral.value = generalRaw.size >= 50
-                    _canLoadMoreListening.value = listeningRaw.size >= 50
+                    _canLoadMoreGeneral.value = generalRaw.size >= PAGE_SIZE
+                    _canLoadMoreListening.value = listeningRaw.size >= PAGE_SIZE
                     _canLoadMore.value = _canLoadMoreGeneral.value || _canLoadMoreListening.value
 
                     _generalFeedItems.value = generalRaw.filter { it.type != FeedType.LISTEN }
@@ -188,6 +217,7 @@ class FeedScreenModel(
                     _listeningFeedItems.value = listeningOnly
                     _listeningRibbonItems.value = computeListeningRibbon(listeningOnly)
                 }
+                refreshUnreadNotificationsSilently()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
@@ -204,13 +234,11 @@ class FeedScreenModel(
     fun refreshListeningStreamSilently() {
         screenModelScope.launch {
             try {
-                val latest = feedRepository.getListeningFeedItems(limit = 50, offset = 0)
+                val latest = feedRepository.getListeningFeedItems(limit = PAGE_SIZE.toLong(), offset = 0)
                     .filter { it.type == FeedType.LISTEN }
                 if (latest.isNotEmpty()) {
-                    val latestIds = latest.map { it.id }.toSet()
-                    val merged = latest + _listeningFeedItems.value.filterNot { it.id in latestIds }
-                    _listeningFeedItems.value = merged
-                    _listeningRibbonItems.value = computeListeningRibbon(merged)
+                    _listeningFeedItems.value = mergeRefreshedPage(latest, _listeningFeedItems.value, PAGE_SIZE)
+                    _listeningRibbonItems.value = computeListeningRibbon(latest)
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -299,9 +327,31 @@ class FeedScreenModel(
         }
     }
 
+    private suspend fun resolvePostingUser(provided: UserProfile?): UserProfile? {
+        if (provided != null && provided.uid.isNotBlank()) return provided
+        val uid = authRepository?.currentUserUid?.trim()?.takeIf { it.isNotBlank() }
+        if (uid != null) {
+            val loaded = try {
+                authRepository.getUserProfile(uid)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                null
+            }
+            return loaded ?: UserProfile(uid = uid, name = "KitapDuy Okuru")
+        }
+        actionError.value = "Paylaşım yapmak için lütfen giriş yapın."
+        return null
+    }
+
     fun shareUserPost(text: String, userProfile: UserProfile?) {
-        val user = userProfile ?: return
+        val cleanText = text.trim()
+        if (cleanText.isBlank()) {
+            actionError.value = "Paylaşmak için bir metin yazın."
+            return
+        }
         screenModelScope.launch {
+            val user = resolvePostingUser(userProfile) ?: return@launch
             _isLoading.value = true
             val success = feedRepository.createPost(
                 userId = user.uid,
@@ -309,7 +359,7 @@ class FeedScreenModel(
                 userPhoto = user.photoUrl,
                 bookId = "",
                 bookName = "",
-                comment = text,
+                comment = cleanText,
                 isPremium = user.hasPremium(),
                 imageUrl = null,
                 audioUrl = null,
@@ -325,8 +375,13 @@ class FeedScreenModel(
     }
 
     fun sharePoetryPost(text: String, userProfile: UserProfile?) {
-        val user = userProfile ?: return
+        val cleanText = text.trim()
+        if (cleanText.isBlank()) {
+            actionError.value = "Paylaşmak için bir mısra yazın."
+            return
+        }
         screenModelScope.launch {
+            val user = resolvePostingUser(userProfile) ?: return@launch
             _isLoading.value = true
             val success = feedRepository.createPost(
                 userId = user.uid,
@@ -334,7 +389,7 @@ class FeedScreenModel(
                 userPhoto = user.photoUrl,
                 bookId = "",
                 bookName = "Şiir",
-                comment = text,
+                comment = cleanText,
                 isPremium = user.hasPremium(),
                 imageUrl = null,
                 audioUrl = null,
@@ -350,8 +405,18 @@ class FeedScreenModel(
     }
 
     fun sharePoll(question: String, options: List<String>, userProfile: UserProfile?) {
-        val user = userProfile ?: return
+        val cleanQuestion = question.trim()
+        val cleanOptions = options.map { it.trim() }.filter { it.isNotBlank() }
+        if (cleanQuestion.isBlank()) {
+            actionError.value = "Anket sorusu boş bırakılamaz."
+            return
+        }
+        if (cleanOptions.size < 2) {
+            actionError.value = "Anket için en az 2 seçenek girmelisiniz."
+            return
+        }
         screenModelScope.launch {
+            val user = resolvePostingUser(userProfile) ?: return@launch
             _isLoading.value = true
             val success = feedRepository.createPost(
                 userId = user.uid,
@@ -359,11 +424,11 @@ class FeedScreenModel(
                 userPhoto = user.photoUrl,
                 bookId = "",
                 bookName = "Anket",
-                comment = question,
+                comment = cleanQuestion,
                 isPremium = user.hasPremium(),
                 imageUrl = null,
                 audioUrl = null,
-                pollOptions = options
+                pollOptions = cleanOptions
             )
             if (success) {
                 loadFeed(true)
@@ -375,13 +440,13 @@ class FeedScreenModel(
     }
 
     fun shareImagePost(text: String, file: PlatformFile, userProfile: UserProfile?) {
-        val user = userProfile ?: return
         screenModelScope.launch {
+            val user = resolvePostingUser(userProfile) ?: return@launch
             _isLoading.value = true
             try {
                 val fileBytes = file.readBytes()
                 val extension = file.name.substringAfterLast('.', "")
-                uploadAndCreateImagePost(text, fileBytes, extension, user)
+                uploadAndCreateImagePost(text.trim(), fileBytes, extension, user)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {

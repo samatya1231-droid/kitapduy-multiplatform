@@ -271,6 +271,137 @@ class GlobalAudioControllerTest {
 
         assertEquals(0, calls)
     }
+
+    @Test fun exposesBufferingAdAndErrorStatesAndStopPlaybackClearsAllState() = runTest {
+        val player = FakePlayer()
+        val progress = progress()
+        val controller = GlobalAudioController(player, FakeDownloader(), progress, backgroundScope)
+
+        controller.playTrack(book, isPremium = false)
+        assertTrue(controller.isAdPlaying.value)
+
+        player.index = 1
+        player.buffering = true
+        player.playing = false
+        advanceTimeBy(501)
+        assertFalse(controller.isAdPlaying.value)
+        assertTrue(controller.isBuffering.value)
+        assertFalse(controller.isPlaying.value)
+
+        // Tapping togglePlayPause while buffering pauses playback
+        controller.togglePlayPause()
+        assertFalse(player.buffering)
+        assertFalse(controller.isBuffering.value)
+
+        // Player errors surface and can be cleared or cleared on resume
+        player.simulatedError = "Ses dosyası yüklenemedi"
+        advanceTimeBy(501)
+        assertEquals("Ses dosyası yüklenemedi", controller.playbackError.value)
+        controller.clearPlaybackError()
+        assertNull(controller.playbackError.value)
+
+        // stopPlayback resets active item, progress and error state
+        player.position = 30_000
+        player.playing = true
+        advanceTimeBy(501)
+        controller.stopPlayback()
+        assertNull(controller.currentBook.value)
+        assertNull(controller.currentEpisode.value)
+        assertNull(controller.currentPodcastTitle.value)
+        assertFalse(controller.isPlaying.value)
+        assertFalse(controller.isBuffering.value)
+        assertFalse(controller.isAdPlaying.value)
+        assertEquals(0f, controller.currentPosition.value)
+        assertEquals(0f, controller.duration.value)
+        assertEquals(30_000L, controller.savedPositionMsFor("a"))
+    }
+
+    @Test fun playPodcastEpisodePersistsListeningHistoryMetadataAndAudioUrl() = runTest {
+        val player = FakePlayer()
+        val progress = progress()
+        val controller = GlobalAudioController(player, FakeDownloader(), progress, backgroundScope)
+        val ep = com.semtinazizi.kitapduy.model.PodcastEpisode(
+            id = "podcast_111hz_EP_42",
+            title = "Bölüm 42",
+            audioUrl = "https://cdn.example.com/ep42.mp3?token=1&sig=2",
+            imageUrl = "https://cdn.example.com/cover.jpg"
+        )
+        controller.playPodcastEpisode(ep, podcastTitle = "111 Hz")
+        val meta = progress.getContentMetadata(ep.id)
+        assertNotNull(meta)
+        assertEquals("Bölüm 42", meta.first)
+        assertEquals("111 Hz", meta.second)
+        assertEquals("https://cdn.example.com/cover.jpg", meta.third)
+        assertEquals("https://cdn.example.com/ep42.mp3?token=1&sig=2", progress.getContentAudioUrl(ep.id))
+
+        player.position = 18_000
+        advanceTimeBy(501)
+        assertEquals(18_000L, progress.getProgress(ep.id))
+        assertTrue(progress.getHistoryIds().contains(ep.id))
+    }
+
+    @Test fun progressWritesAreThrottledDuringPlaybackZeroWhilePausedAndImmediateOnPauseOrSeek() = runTest {
+        var progressWriteCount = 0
+        val values = mutableMapOf<String, Any>()
+        val countingSettings = Proxy.newProxyInstance(Settings::class.java.classLoader, arrayOf(Settings::class.java)) { _, method, args ->
+            val key = args?.firstOrNull() as? String
+            when {
+                method.name.startsWith("put") && key != null && args.size >= 2 -> {
+                    if (method.name == "putLong" && key == book.id) progressWriteCount++
+                    values[key] = args[1]
+                    Unit
+                }
+                method.name.startsWith("get") && key != null -> values[key] ?: args.getOrNull(1)
+                method.name == "hasKey" -> values.containsKey(key)
+                method.name == "remove" -> { values.remove(key); Unit }
+                method.name == "clear" -> { values.clear(); Unit }
+                method.name == "getSize" -> values.size
+                method.name == "getKeys" -> values.keys
+                else -> null
+            }
+        } as Settings
+
+        val player = FakePlayer()
+        val progress = KmpBookProgressManager(countingSettings)
+        val controller = GlobalAudioController(player, FakeDownloader(), progress, backgroundScope)
+        controller.playTrack(book, isPremium = true)
+
+        // First poll at t=0 writes initial progress immediately
+        player.position = 1_000
+        runCurrent()
+        assertEquals(1, progressWriteCount)
+
+        // Next 9 ticks (4.5 seconds) while playing must NOT write on every 500ms poll
+        repeat(9) { idx ->
+            player.position = 2_000L + idx * 500L
+            advanceTimeBy(500)
+            runCurrent()
+        }
+        assertEquals(1, progressWriteCount)
+
+        // 10th tick (5 seconds since last save) triggers throttled save
+        player.position = 7_000L
+        advanceTimeBy(500)
+        runCurrent()
+        assertEquals(2, progressWriteCount)
+        assertEquals(7_000L, progress.getProgress("a"))
+
+        // Pausing immediately saves latest position, and subsequent paused ticks perform 0 writes
+        player.position = 8_500L
+        controller.togglePlayPause()
+        assertEquals(3, progressWriteCount)
+        assertEquals(8_500L, progress.getProgress("a"))
+
+        repeat(20) {
+            advanceTimeBy(500)
+        }
+        assertEquals(3, progressWriteCount)
+
+        // Seeking immediately persists new position
+        controller.seekTo(0.5f, expectedBookId = "a")
+        assertEquals(4, progressWriteCount)
+        assertEquals(50_000L, progress.getProgress("a"))
+    }
 }
 
 private class FakeDownloader : FileDownloader {
@@ -292,20 +423,25 @@ private class FakePlayer : AudioPlayer {
     var index = 0
     var position = 0L
     var playing = false
+    var buffering = false
+    var simulatedError: String? = null
     override fun initialize() { initialized = true }
     override fun play(url: String) {}
     override fun playQueue(items: List<AudioMediaItem>, startIndex: Int, startPositionMs: Long) {
-        this.items = items; index = startIndex; playing = true
+        this.items = items; index = startIndex; playing = true; buffering = false; simulatedError = null
         position = if (startPositionMs > 0) startPositionMs else items[index].startPositionMs
     }
     override fun currentMediaId() = items.getOrNull(index)?.id
-    override fun pause() { playing = false }
-    override fun resume() { playing = true }
-    override fun stop() { playing = false }
+    override fun pause() { playing = false; buffering = false }
+    override fun resume() { playing = true; simulatedError = null }
+    override fun stop() { playing = false; buffering = false; simulatedError = null; items = emptyList(); index = 0 }
     override fun seekTo(positionMs: Long) { position = positionMs }
     override fun getCurrentPosition() = position
     override fun getDuration() = 100_000L
     override fun isPlaying() = playing
+    override fun isBuffering() = buffering
+    override fun getPlaybackError() = simulatedError
+    override fun clearPlaybackError() { simulatedError = null }
     override fun setPlaybackSpeed(speed: Float) {}
     override fun playAtmosphere(url: String, volume: Float) {}
     override fun stopAtmosphere() {}

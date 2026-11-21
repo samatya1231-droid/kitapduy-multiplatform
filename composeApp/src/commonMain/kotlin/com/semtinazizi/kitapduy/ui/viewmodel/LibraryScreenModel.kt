@@ -54,6 +54,7 @@ class LibraryScreenModel(
                 bookId = item.bookId,
                 fallbackTitle = item.bookTitle ?: metadata?.first.orEmpty(),
                 fallbackCover = item.bookCoverUrl ?: metadata?.third.orEmpty(),
+                fallbackAudioUrl = progress.getContentAudioUrl(item.bookId),
                 fallbackAuthor = metadata?.second.orEmpty()
             )
             if (resolved != null) {

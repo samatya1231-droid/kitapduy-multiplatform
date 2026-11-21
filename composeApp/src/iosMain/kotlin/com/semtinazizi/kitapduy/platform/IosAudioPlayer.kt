@@ -26,6 +26,15 @@ class IosAudioPlayer : AudioPlayer {
     private var currentTitle: String = ""
     private var currentArtist: String = ""
     private var atmosphereLoopObserver: platform.darwin.NSObjectProtocol? = null
+    private var cachedAssetDurationMs: Long = 0L
+    private var lastPlaybackError: String? = null
+
+    private fun finiteSecondsToMs(seconds: Double): Long {
+        if (!seconds.isFinite() || seconds <= 0.0) return 0L
+        val millis = seconds * 1000.0
+        if (!millis.isFinite() || millis >= Long.MAX_VALUE.toDouble()) return 0L
+        return millis.toLong()
+    }
 
     override fun initialize() {
         if (initialized) return
@@ -82,9 +91,26 @@ class IosAudioPlayer : AudioPlayer {
         avPlayer?.pause()
         endObserver?.let { platform.Foundation.NSNotificationCenter.defaultCenter.removeObserver(it) }
         endObserver = null
+        cachedAssetDurationMs = 0L
+        lastPlaybackError = null
         val item = queue.getOrNull(queueIndex) ?: return
         val safeUrl = UrlSanitizer.sanitizeUrl(item.url)
-        val url = NSURL.URLWithString(safeUrl) ?: NSURL.URLWithString(item.url) ?: return
+        val url = NSURL.URLWithString(safeUrl) ?: NSURL.URLWithString(item.url)
+        if (url == null) {
+            NSLog("KitapDuy playback invalid URL: ${item.url}")
+            if (item.id == "kitapduy_preroll_ad" && queueIndex + 1 < queue.size) {
+                queueIndex++
+                playCurrentItem(queue[queueIndex].startPositionMs)
+            } else if (item.id == "kitapduy_postroll_ad") {
+                shouldPlay = false
+                updateNowPlayingInfo()
+            } else {
+                shouldPlay = false
+                lastPlaybackError = "Ses bağlantısı geçersiz veya oynatılamıyor."
+                updateNowPlayingInfo()
+            }
+            return
+        }
         currentTitle = item.title
         currentArtist = item.artist
         val playerItem = AVPlayerItem(uRL = url)
@@ -103,7 +129,7 @@ class IosAudioPlayer : AudioPlayer {
             }
         }
         // Let AVPlayer begin buffering for playback while it prepares the item.
-        if (startPositionMs <= 0) startPlayback()
+        if (startPositionMs <= 0 && shouldPlay) startPlayback()
         readyJob = scope.launch {
             val player = avPlayer ?: return@launch
             // Start the watchdog before waiting for readiness. A stalled buffer
@@ -117,19 +143,47 @@ class IosAudioPlayer : AudioPlayer {
             } == true
             if (!ready) {
                 startupRetry?.cancel()
-                NSLog("KitapDuy playback item unavailable (code ${playerItem.error?.code ?: "timeout"})")
+                val errorCode = playerItem.error?.code
+                NSLog("KitapDuy playback item unavailable (code ${errorCode ?: "timeout"})")
                 if (item.id == "kitapduy_preroll_ad" && queueIndex + 1 < queue.size) {
                     queueIndex++
                     playCurrentItem(queue[queueIndex].startPositionMs)
+                } else if (item.id == "kitapduy_postroll_ad") {
+                    shouldPlay = false
+                    avPlayer?.pause()
+                    updateNowPlayingInfo()
                 } else {
                     shouldPlay = false
+                    avPlayer?.pause()
+                    lastPlaybackError = if (errorCode != null) {
+                        "Ses dosyası yüklenemedi (Kod: $errorCode). Lütfen bağlantınızı kontrol edip tekrar deneyin."
+                    } else {
+                        "Ses dosyası zaman aşımına uğradı. Lütfen tekrar deneyin."
+                    }
                     updateNowPlayingInfo()
                 }
                 return@launch
             }
+            val itemDurationMs = finiteSecondsToMs(platform.CoreMedia.CMTimeGetSeconds(playerItem.duration))
+            if (itemDurationMs > 0L) {
+                cachedAssetDurationMs = itemDurationMs
+            } else {
+                val asset = playerItem.asset
+                launch {
+                    val assetDurationMs = withContext(Dispatchers.Default) {
+                        finiteSecondsToMs(platform.CoreMedia.CMTimeGetSeconds(asset.duration))
+                    }
+                    if (avPlayer?.currentItem == playerItem && assetDurationMs > 0L) {
+                        cachedAssetDurationMs = assetDurationMs
+                        updateNowPlayingInfo()
+                    }
+                }
+            }
             if (startPositionMs > 0) {
                 seekTo(startPositionMs)
                 if (shouldPlay) startPlayback()
+            } else if (!shouldPlay) {
+                player.pause()
             }
             updateNowPlayingInfo()
             if (startPositionMs > 0 && shouldPlay) retryBufferedStart(player, playerItem)
@@ -167,8 +221,19 @@ class IosAudioPlayer : AudioPlayer {
     }
 
     override fun resume() {
+        val currentItem = avPlayer?.currentItem
+        val queuedItem = queue.getOrNull(queueIndex)
+        if (currentItem == null || currentItem.status == AVPlayerItemStatusFailed) {
+            if (queuedItem != null) {
+                lastPlaybackError = null
+                shouldPlay = true
+                playCurrentItem(queuedItem.startPositionMs)
+            }
+            return
+        }
+        lastPlaybackError = null
         shouldPlay = true
-        if (avPlayer?.currentItem?.status == AVPlayerItemStatusReadyToPlay) startPlayback()
+        if (currentItem.status == AVPlayerItemStatusReadyToPlay) startPlayback()
         updateNowPlayingInfo()
     }
 
@@ -176,6 +241,8 @@ class IosAudioPlayer : AudioPlayer {
         shouldPlay = false
         readyJob?.cancel()
         readyJob = null
+        cachedAssetDurationMs = 0L
+        lastPlaybackError = null
         avPlayer?.pause()
         endObserver?.let { platform.Foundation.NSNotificationCenter.defaultCenter.removeObserver(it) }
         endObserver = null
@@ -186,25 +253,64 @@ class IosAudioPlayer : AudioPlayer {
     }
 
     override fun seekTo(positionMs: Long) {
-        val time = platform.CoreMedia.CMTimeMake(value = positionMs, timescale = 1000)
+        val safePos = positionMs.coerceAtLeast(0L)
+        val time = platform.CoreMedia.CMTimeMake(value = safePos, timescale = 1000)
         avPlayer?.seekToTime(time)
         updateNowPlayingInfo()
     }
 
     override fun getCurrentPosition(): Long {
         val time = avPlayer?.currentTime() ?: return 0L
-        return (platform.CoreMedia.CMTimeGetSeconds(time) * 1000).toLong()
+        val seconds = platform.CoreMedia.CMTimeGetSeconds(time)
+        if (!seconds.isFinite() || seconds < 0.0) return 0L
+        return (seconds * 1000.0).toLong()
     }
 
     override fun getDuration(): Long {
-        val duration = avPlayer?.currentItem?.duration ?: return 0L
-        val seconds = platform.CoreMedia.CMTimeGetSeconds(duration)
-        if (seconds.isNaN()) return 0L
-        return (seconds * 1000).toLong()
+        val item = avPlayer?.currentItem ?: return 0L
+        val itemDurationMs = finiteSecondsToMs(platform.CoreMedia.CMTimeGetSeconds(item.duration))
+        if (itemDurationMs > 0L) return itemDurationMs
+        if (cachedAssetDurationMs > 0L) return cachedAssetDurationMs
+        return 0L
     }
 
     override fun isPlaying(): Boolean {
-        return shouldPlay
+        if (!shouldPlay) return false
+        val player = avPlayer ?: return false
+        val item = player.currentItem ?: return false
+        if (item.status != AVPlayerItemStatusReadyToPlay) return false
+        return player.timeControlStatus == AVPlayerTimeControlStatusPlaying
+    }
+
+    override fun isBuffering(): Boolean {
+        if (!shouldPlay) return false
+        val player = avPlayer ?: return false
+        val item = player.currentItem ?: return false
+        if (item.status == AVPlayerItemStatusFailed) return false
+        if (item.status == AVPlayerItemStatusUnknown) return true
+        return player.timeControlStatus == AVPlayerTimeControlStatusWaitingToPlayAtSpecifiedRate
+    }
+
+    override fun getPlaybackError(): String? {
+        if (lastPlaybackError != null) return lastPlaybackError
+        val item = avPlayer?.currentItem
+        if (item != null && item.status == AVPlayerItemStatusFailed) {
+            val currentId = queue.getOrNull(queueIndex)?.id
+            if (currentId != "kitapduy_preroll_ad" && currentId != "kitapduy_postroll_ad") {
+                val code = item.error?.code
+                lastPlaybackError = if (code != null) {
+                    "Oynatma hatası oluştu (Kod: $code). Lütfen tekrar deneyin."
+                } else {
+                    "Ses akışı kesildi. Lütfen tekrar deneyin."
+                }
+                shouldPlay = false
+            }
+        }
+        return lastPlaybackError
+    }
+
+    override fun clearPlaybackError() {
+        lastPlaybackError = null
     }
 
     override fun setPlaybackSpeed(speed: Float) {

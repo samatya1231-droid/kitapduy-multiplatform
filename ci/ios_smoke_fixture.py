@@ -552,42 +552,53 @@ def serve_fixture():
                 if feed == "111hz":
                     rss = f"""<rss version="2.0"><channel><title>Barış Özcan ile 111 Hz</title>
                     <item><title>Yaratıcılık ve Teknoloji</title><description>Bilim, sanat ve tasarım üzerine sohbetler.</description>
+                    <pubDate>Tue, 18 Mar 2025 09:00:00 GMT</pubDate>
                     <enclosure url="{base}/audio.mp3?episode=1" type="audio/mpeg" length="{len(audio)}"/>
                     <duration>00:24:10</duration></item>
                     <item><title>Geleceğin Okuma Kültürü</title><description>Sesli kitaplar ve dijital hafıza.</description>
+                    <pubDate>Tue, 11 Mar 2025 09:00:00 GMT</pubDate>
                     <enclosure url="{base}/audio.mp3?episode=2" type="audio/mpeg" length="{len(audio)}"/>
                     <duration>00:18:45</duration></item>
                     <item><title>Yapay Zeka ve İnsan Aklı</title><description>Üretken zeka çağında özgün düşünmek.</description>
+                    <pubDate>Tue, 04 Mar 2025 09:00:00 GMT</pubDate>
                     <enclosure url="{base}/audio.mp3?episode=3" type="audio/mpeg" length="{len(audio)}"/>
                     <duration>00:27:30</duration></item>
                     <item><title>Evrendeki Yalnızlığımız</title><description>Fermi paradoksu ve derin uzay gözlemleri.</description>
+                    <pubDate>Tue, 25 Feb 2025 09:00:00 GMT</pubDate>
                     <enclosure url="{base}/audio.mp3?episode=4" type="audio/mpeg" length="{len(audio)}"/>
                     <duration>00:31:15</duration></item>
                     <item><title>Altın Oran ve Tasarım</title><description>Doğanın matematiği ve estetik ilkeler.</description>
+                    <pubDate>Tue, 18 Feb 2025 09:00:00 GMT</pubDate>
                     <enclosure url="{base}/audio.mp3?episode=5" type="audio/mpeg" length="{len(audio)}"/>
                     <duration>00:22:05</duration></item>
                     <item><title>Zinciri Kırma Sanatı</title><description>Günlük üretkenlik ve sürdürülebilir alışkanlıklar.</description>
+                    <pubDate>Tue, 11 Feb 2025 09:00:00 GMT</pubDate>
                     <enclosure url="{base}/audio.mp3?episode=6" type="audio/mpeg" length="{len(audio)}"/>
                     <duration>00:19:50</duration></item>
                     <item><title>Görünmeyen Renkler</title><description>Işık spektrumu, algı ve insan gözünün sınırları.</description>
+                    <pubDate>Tue, 04 Feb 2025 09:00:00 GMT</pubDate>
                     <enclosure url="{base}/audio.mp3?episode=7" type="audio/mpeg" length="{len(audio)}"/>
                     <duration>00:25:40</duration></item>
                     <item><title>Leonardo da Vinci'nin Defterleri</title><description>Merak, gözlem ve disiplinler arası düşünme.</description>
+                    <pubDate>Tue, 28 Jan 2025 09:00:00 GMT</pubDate>
                     <enclosure url="{base}/audio.mp3?episode=8" type="audio/mpeg" length="{len(audio)}"/>
                     <duration>00:29:10</duration></item></channel></rss>"""
                 elif feed == "kuran":
                     rss = f"""<rss version="2.0"><channel><title>Kur'an-ı Kerim Türkçe Meali</title>
                     <item><title>Fatiha ve Bakara Seçkisi</title><description>Anlam odaklı sesli meal dinletisi.</description>
+                    <pubDate>Fri, 14 Mar 2025 08:00:00 GMT</pubDate>
                     <enclosure url="{base}/audio.mp3?episode=1" type="audio/mpeg" length="{len(audio)}"/>
                     <duration>00:15:30</duration></item></channel></rss>"""
                 elif feed == "hayatta":
                     rss = f"""<rss version="2.0"><channel><title>Hayatta Bir Gün</title>
                     <item><title>Şehir ve Hafıza</title><description>Günlük yaşamdan edebiyat ve kültür durakları.</description>
+                    <pubDate>Mon, 10 Mar 2025 12:00:00 GMT</pubDate>
                     <enclosure url="{base}/audio.mp3?episode=1" type="audio/mpeg" length="{len(audio)}"/>
                     <duration>00:21:00</duration></item></channel></rss>"""
                 else:
                     rss = f"""<rss version="2.0"><channel><title>KitapDuy Deneme Podcasti</title>
                     <item><title>Deneme Bölümü</title><description>Simülatör için örnek bölüm.</description>
+                    <pubDate>Wed, 19 Mar 2025 10:00:00 GMT</pubDate>
                     <enclosure url="{base}/audio.mp3?episode=1" type="audio/mpeg" length="{len(audio)}"/>
                     <duration>00:01:30</duration></item></channel></rss>"""
                 self.send_data(200, rss.encode(), "application/rss+xml")

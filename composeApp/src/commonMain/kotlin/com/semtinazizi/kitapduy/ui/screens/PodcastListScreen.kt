@@ -99,7 +99,7 @@ class PodcastListScreen : Screen {
                         Text(
                             text = "Henüz podcast bulunmuyor.",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = SleekGray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
                         )
                     }
@@ -177,14 +177,14 @@ fun PodcastGridItem(podcast: Podcast, onClick: () -> Unit) {
             overflow = TextOverflow.Ellipsis,
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.White
+            color = MaterialTheme.colorScheme.onBackground
         )
         Text(
             text = podcast.author,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodySmall,
-            color = SleekGray
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

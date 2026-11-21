@@ -48,18 +48,36 @@ class SearchScreenModel(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private var isDiscoveryLoading = false
+    private var isSearchLoading = false
     private var searchJob: Job? = null
-    
+
     init {
         loadDiscoveryItems()
     }
-    
+
+    private fun updateCombinedLoading() {
+        _isLoading.value = if (_searchQuery.value.length >= 2) {
+            isSearchLoading
+        } else {
+            isDiscoveryLoading
+        }
+    }
+
     private fun loadDiscoveryItems() {
         screenModelScope.launch {
-            _isLoading.value = true
-            _initialBooks.value = bookRepository.getBooks()
-            _initialPodcasts.value = bookRepository.getPodcasts()
-            _isLoading.value = false
+            isDiscoveryLoading = true
+            updateCombinedLoading()
+            try {
+                _initialBooks.value = bookRepository.getBooks()
+                _initialPodcasts.value = bookRepository.getPodcasts()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+            } finally {
+                isDiscoveryLoading = false
+                updateCombinedLoading()
+            }
         }
     }
 
@@ -76,27 +94,35 @@ class SearchScreenModel(
     private fun searchDebounced(query: String) {
         searchJob?.cancel()
         if (query.length < 2) {
+            isSearchLoading = false
             _bookResults.value = emptyList()
             _podcastResults.value = emptyList()
             _userResults.value = emptyList()
+            updateCombinedLoading()
             return
         }
 
         searchJob = screenModelScope.launch {
             delay(500) // Debounce
-            _isLoading.value = true
-            
-            if (_selectedCategory.value == SearchCategory.BOOKS) {
-                _bookResults.value = bookRepository.searchBooks(query)
-                _podcastResults.value = bookRepository.searchPodcasts(query)
-                _userResults.value = emptyList()
-            } else {
-                _userResults.value = socialRepository.searchUsers(query)
-                _bookResults.value = emptyList()
-                _podcastResults.value = emptyList()
+            isSearchLoading = true
+            updateCombinedLoading()
+            try {
+                if (_selectedCategory.value == SearchCategory.BOOKS) {
+                    _bookResults.value = bookRepository.searchBooks(query)
+                    _podcastResults.value = bookRepository.searchPodcasts(query)
+                    _userResults.value = emptyList()
+                } else {
+                    _userResults.value = socialRepository.searchUsers(query)
+                    _bookResults.value = emptyList()
+                    _podcastResults.value = emptyList()
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+            } finally {
+                isSearchLoading = false
+                updateCombinedLoading()
             }
-            
-            _isLoading.value = false
         }
     }
 }

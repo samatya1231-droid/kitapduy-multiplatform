@@ -35,6 +35,7 @@ fun MiniPlayerSection(
     isPlaying: Boolean,
     isPremium: Boolean = false,
     progress: Float? = null,
+    isBuffering: Boolean = false,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
     onPlayPauseClick: () -> Unit,
@@ -124,17 +125,25 @@ fun MiniPlayerSection(
                         onPlayPauseClick()
                     },
                     modifier = Modifier
-                        .padding(end = if (onCloseClick != null) 6.dp else 12.dp)
+                        .padding(end = if (onCloseClick != null) 4.dp else 12.dp)
                         .size(44.dp)
                         .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f), CircleShape)
                         .testTag("mini-player-play-pause")
                 ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(28.dp)
-                    )
+                    if (isBuffering) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            strokeWidth = 2.5.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = if (isPlaying) "Duraklat" else "Oynat",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
 
                 // Kapat Butonu (Opsiyonel)
@@ -145,8 +154,8 @@ fun MiniPlayerSection(
                             onCloseClick()
                         },
                         modifier = Modifier
-                            .padding(end = 8.dp)
-                            .size(36.dp)
+                            .padding(end = 6.dp)
+                            .size(44.dp)
                             .testTag("mini-player-close")
                     ) {
                         Icon(

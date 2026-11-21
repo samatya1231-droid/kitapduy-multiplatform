@@ -34,6 +34,9 @@ interface AudioPlayer {
     fun getCurrentPosition(): Long
     fun getDuration(): Long
     fun isPlaying(): Boolean
+    fun isBuffering(): Boolean = false
+    fun getPlaybackError(): String? = null
+    fun clearPlaybackError() {}
     fun currentMediaId(): String? = null
     fun setPlaybackSpeed(speed: Float)
     fun playAtmosphere(url: String, volume: Float = 0.5f)

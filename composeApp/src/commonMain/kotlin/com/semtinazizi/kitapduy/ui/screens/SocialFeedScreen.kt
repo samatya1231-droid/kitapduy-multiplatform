@@ -60,8 +60,8 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
         LaunchedEffect(Unit) {
             viewModel.loadFeed(true)
             while (true) {
-                delay(60_000L)
-                viewModel.refreshListeningStreamSilently()
+                delay(12_000L)
+                viewModel.refreshFeedSilently()
             }
         }
 
@@ -282,14 +282,24 @@ class SocialFeedScreen(val openComposer: Boolean = false) : Screen {
                     }
                 },
                 confirmButton = {
+                    val canSubmit = when (selectedPostTab) {
+                        0, 3 -> postText.isNotBlank()
+                        1 -> pollQuestion.isNotBlank() && pollOptions.count { it.isNotBlank() } >= 2
+                        2 -> selectedImageFile != null
+                        else -> false
+                    }
                     Button(
+                        enabled = canSubmit,
                         onClick = {
                             if (selectedPostTab == 0 && postText.isNotBlank()) {
                                 viewModel.shareUserPost(postText, userProfile)
                                 showPostDialog = false
                             } else if (selectedPostTab == 1 && pollQuestion.isNotBlank()) {
-                                viewModel.sharePoll(pollQuestion, pollOptions.filter { it.isNotBlank() }, userProfile)
-                                showPostDialog = false
+                                val nonBlankOptions = pollOptions.filter { it.isNotBlank() }
+                                if (nonBlankOptions.size >= 2) {
+                                    viewModel.sharePoll(pollQuestion, nonBlankOptions, userProfile)
+                                    showPostDialog = false
+                                }
                             } else if (selectedPostTab == 2 && selectedImageFile != null) {
                                 viewModel.shareImagePost(postText, selectedImageFile!!, userProfile)
                                 showPostDialog = false
